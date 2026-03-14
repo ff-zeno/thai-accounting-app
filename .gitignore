@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI session checkpoints (ephemeral, per-developer)
+.claude/sessions/
+# Local Claude settings
+.claude/settings.local.json
+
+# gstack build artifacts
+.claude/skills/gstack/browse/dist/
+.claude/skills/gstack/node_modules/
+.gstack/

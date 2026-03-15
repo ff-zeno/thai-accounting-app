@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thailand Tax Compliance — Complete Workflow Map</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0e12;
+  --surface: #141720;
+  --surface2: #1a1e2a;
+  --border: #252a38;
+  --border-accent: #3a4060;
+  --text: #e2e4ea;
+  --text-dim: #8890a4;
+  --text-muted: #5c6378;
+  --accent-blue: #4b8dff;
+  --accent-green: #22c55e;
+  --accent-yellow: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-purple: #a78bfa;
+  --accent-cyan: #06b6d4;
+  --accent-orange: #f97316;
+  --accent-pink: #ec4899;
+  --digital: #22c55e;
+  --paper: #ef4444;
+  --hybrid: #f59e0b;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 48px;
+  position: relative;
+}
+
+header::after {
+  content: '';
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+}
+
+h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #fff 0%, #8890a4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.digital { background: var(--digital); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+.legend-dot.paper { background: var(--paper); box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+.legend-dot.hybrid { background: var(--hybrid); box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 32px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 4px;
+  overflow-x: auto;
+}
+
+.tab {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.tab:hover { color: var(--text); background: var(--surface2); }
+.tab.active { background: var(--accent-blue); color: #fff; }
+
+/* Sections */
+.section { display: none; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards */
+.card-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.card-grid.two { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+.card-grid.one { grid-template-columns: 1fr; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  transition: border-color 0.2s;
+}
+
+.card:hover { border-color: var(--border-accent); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.card-icon.blue { background: rgba(75,141,255,0.12); color: var(--accent-blue); }
+.card-icon.green { background: rgba(34,197,94,0.12); color: var(--accent-green); }
+.card-icon.yellow { background: rgba(245,158,11,0.12); color: var(--accent-yellow); }
+.card-icon.red { background: rgba(239,68,68,0.12); color: var(--accent-red); }
+.card-icon.purple { background: rgba(167,139,250,0.12); color: var(--accent-purple); }
+.card-icon.cyan { background: rgba(6,182,212,0.12); color: var(--accent-cyan); }
+.card-icon.orange { background: rgba(249,115,22,0.12); color: var(--accent-orange); }
+.card-icon.pink { background: rgba(236,72,153,0.12); color: var(--accent-pink); }
+
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.card-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(75,141,255,0.03); }
+
+/* Tags */
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tag.digital { background: rgba(34,197,94,0.15); color: var(--digital); }
+.tag.paper { background: rgba(239,68,68,0.15); color: var(--paper); }
+.tag.hybrid { background: rgba(245,158,11,0.15); color: var(--hybrid); }
+.tag.blue { background: rgba(75,141,255,0.15); color: var(--accent-blue); }
+
+/* Mono text */
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--accent-cyan);
+}
+
+/* Flow diagrams */
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 16px;
+}
+
+.flow-step {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+
+.flow-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.flow-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-blue);
+  background: var(--bg);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.flow-dot.active { background: var(--accent-blue); }
+.flow-dot.green { border-color: var(--accent-green); }
+.flow-dot.green.active { background: var(--accent-green); }
+
+.flow-connector {
+  width: 2px;
+  flex: 1;
+  background: var(--border);
+  min-height: 20px;
+}
+
+.flow-content {
+  padding-bottom: 20px;
+  flex: 1;
+}
+
+.flow-content h4 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.flow-content p {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+/* Highlight boxes */
+.highlight {
+  background: rgba(75,141,255,0.06);
+  border: 1px solid rgba(75,141,255,0.15);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+  font-size: 0.82rem;
+}
+
+.highlight.green {
+  background: rgba(34,197,94,0.06);
+  border-color: rgba(34,197,94,0.15);
+}
+
+.highlight.yellow {
+  background: rgba(245,158,11,0.06);
+  border-color: rgba(245,158,11,0.15);
+}
+
+.highlight.red {
+  background: rgba(239,68,68,0.06);
+  border-color: rgba(239,68,68,0.15);
+}
+
+.highlight-title {
+  font-weight: 700;
+  font-size: 0.84rem;
+  margin-bottom: 6px;
+}
+
+.highlight ul {
+  margin: 6px 0 0 16px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.highlight li { margin-bottom: 4px; }
+
+/* Section headers */
+.section-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.section-desc {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  margin-bottom: 24px;
+  max-width: 800px;
+}
+
+/* Rate highlight */
+.rate {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--accent-yellow);
+}
+
+/* Automation score */
+.auto-score {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.auto-bar {
+  width: 18px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.auto-bar.filled { background: var(--accent-green); }
+.auto-bar.partial { background: var(--accent-yellow); }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .card-grid.two { grid-template-columns: 1fr; }
+  h1 { font-size: 1.6rem; }
+  .tabs { flex-wrap: nowrap; }
+}
+
+.note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+/* Summary stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>🇹🇭 Thailand Tax Compliance — Complete Workflow Map</h1>
+  <p class="subtitle">Every form, deadline, rate, and filing channel for a Thai company. Built for automation planning.</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot digital"></div> Digital-first (e-Filing / online)</div>
+  <div class="legend-item"><div class="legend-dot hybrid"></div> Hybrid (online + paper backup)</div>
+  <div class="legend-item"><div class="legend-dot paper"></div> Paper / in-person required</div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-value" style="color:var(--accent-blue)">12+</div><div class="stat-label">Monthly filing obligations</div></div>
+  <div class="stat"><div class="stat-value" style="color:var(--accent-yellow)">7</div><div class="stat-label">Different WHT rate categories</div></div>
+  <div class="stat"><div class="stat-value" style="color:var(--accent-green)">85%</div><div class="stat-label">Can be e-Filed from Jan 2025</div></div>
+  <div class="stat"><div class="stat-value" style="color:var(--accent-red)">1</div><div class="stat-label">Still requires physical RD visit</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('overview')">Master Overview</button>
+  <button class="tab" onclick="showTab('wht')">WHT Rates & Forms</button>
+  <button class="tab" onclick="showTab('vat')">VAT Workflow</button>
+  <button class="tab" onclick="showTab('payroll')">Payroll / SSO / PIT</button>
+  <button class="tab" onclick="showTab('international')">International WHT</button>
+  <button class="tab" onclick="showTab('annual')">Annual / CIT</button>
+  <button class="tab" onclick="showTab('automation')">Automation Plan</button>
+</div>
+
+<!-- ===== OVERVIEW TAB ===== -->
+<div class="section active" id="overview">
+  <div class="section-title">Monthly & Annual Filing Calendar</div>
+  <div class="section-desc">Every recurring obligation mapped with form numbers, deadlines, and digital availability. All deadlines below are for e-Filing; paper deadlines are typically 8 days earlier.</div>
+
+  <div class="card-grid one">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">📅</div>
+        <div><div class="card-title">Monthly Obligations (every month)</div><div class="card-subtitle">Due by 7th–15th of the following month</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>Obligation</th>
+            <th>Form</th>
+            <th>Deadline (e-File)</th>
+            <th>Submitted To</th>
+            <th>Channel</th>
+          </tr>
+          <tr>
+            <td><strong>Employee salary WHT</strong></td>
+            <td><span class="mono">PND 1</span></td>
+            <td>15th of following month</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing mandatory from 2025</span></td>
+          </tr>
+          <tr>
+            <td><strong>WHT on payments to individuals</strong></td>
+            <td><span class="mono">PND 3</span></td>
+            <td>15th of following month</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing mandatory from 2025</span></td>
+          </tr>
+          <tr>
+            <td><strong>WHT on payments to Thai companies</strong></td>
+            <td><span class="mono">PND 53</span></td>
+            <td>15th of following month</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing mandatory from 2025</span></td>
+          </tr>
+          <tr>
+            <td><strong>WHT on payments to foreign entities</strong></td>
+            <td><span class="mono">PND 54</span></td>
+            <td>15th of following month</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing mandatory from 2025</span></td>
+          </tr>
+          <tr>
+            <td><strong>VAT return (domestic)</strong></td>
+            <td><span class="mono">PP 30</span></td>
+            <td>23rd of following month</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing available</span></td>
+          </tr>
+          <tr>
+            <td><strong>VAT reverse charge (foreign services)</strong></td>
+            <td><span class="mono">PP 36</span></td>
+            <td>15th of following month</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing available</span></td>
+          </tr>
+          <tr>
+            <td><strong>Social Security contributions</strong></td>
+            <td><span class="mono">SPS 1-10</span></td>
+            <td>15th of following month</td>
+            <td>SSO</td>
+            <td><span class="tag digital">SSO online portal</span></td>
+          </tr>
+          <tr>
+            <td><strong>WHT certificates to vendors</strong></td>
+            <td>50 Tawi form</td>
+            <td>At time of payment</td>
+            <td>Vendor (payee)</td>
+            <td><span class="tag hybrid">Print / e-WHT cert</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">📆</div>
+        <div><div class="card-title">Periodic & Annual Obligations</div><div class="card-subtitle">Half-year, annual, and ad-hoc filings</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Obligation</th><th>Form</th><th>Deadline</th><th>Channel</th></tr>
+          <tr>
+            <td><strong>Half-year CIT estimate</strong></td>
+            <td><span class="mono">PND 51</span></td>
+            <td>Within 2 months after first 6 months (Aug 31 for calendar year + 8 days e-file)</td>
+            <td><span class="tag digital">e-Filing</span></td>
+          </tr>
+          <tr>
+            <td><strong>Annual CIT return</strong></td>
+            <td><span class="mono">PND 50</span></td>
+            <td>Within 150 days of fiscal year end (May 30 + 8 days e-file)</td>
+            <td><span class="tag digital">e-Filing</span></td>
+          </tr>
+          <tr>
+            <td><strong>Annual employee WHT summary</strong></td>
+            <td><span class="mono">PND 1 Gor</span></td>
+            <td>End of February (following year)</td>
+            <td><span class="tag digital">e-Filing mandatory from 2025</span></td>
+          </tr>
+          <tr>
+            <td><strong>Audited financial statements</strong></td>
+            <td>—</td>
+            <td>Filed with DBD within 5 months of FY end</td>
+            <td><span class="tag digital">DBD e-Filing</span></td>
+          </tr>
+          <tr>
+            <td><strong>Personal income tax (employees)</strong></td>
+            <td><span class="mono">PND 90/91</span></td>
+            <td>March 31 (paper) / ~April 8 (e-file)</td>
+            <td><span class="tag digital">efiling.rd.go.th</span></td>
+          </tr>
+          <tr>
+            <td><strong>English WHT certificate (foreign payments)</strong></td>
+            <td>Ror 20/21</td>
+            <td>On request, after PND 54 filed</td>
+            <td><span class="tag paper">Physical RD office visit</span></td>
+          </tr>
+          <tr>
+            <td><strong>Stamp duty (e-instruments)</strong></td>
+            <td><span class="mono">Or. Sor. 9</span></td>
+            <td>Within 15 days of instrument creation</td>
+            <td><span class="tag digital">e-Stamp system</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WHT TAB ===== -->
+<div class="section" id="wht">
+  <div class="section-title">Withholding Tax — Rates, Forms & Workflow</div>
+  <div class="section-desc">WHT is deducted at the time of payment and remitted to the RD next month. Each line item on an invoice can have a different WHT rate depending on the payment type. WHT is calculated on the amount BEFORE VAT.</div>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow">💰</div>
+        <div><div class="card-title">Domestic WHT Rate Table</div><div class="card-subtitle">Payments to Thai individuals (PND 3) or Thai companies (PND 53)</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Payment Type</th><th>Rate (Individual)</th><th>Rate (Company)</th><th>e-WHT Rate*</th></tr>
+          <tr><td>Services (general)</td><td class="rate">3%</td><td class="rate">3%</td><td class="rate">1%</td></tr>
+          <tr><td>Professional fees (legal, accounting, engineering)</td><td class="rate">3%</td><td class="rate">3%</td><td class="rate">1%</td></tr>
+          <tr><td>Rent — immovable property</td><td class="rate">5%</td><td class="rate">5%</td><td class="rate">1%</td></tr>
+          <tr><td>Rent — other assets</td><td class="rate">5%</td><td class="rate">5%</td><td class="rate">1%</td></tr>
+          <tr><td>Advertising</td><td class="rate">2%</td><td class="rate">2%</td><td>2% (no reduction)</td></tr>
+          <tr><td>Transport</td><td class="rate">1%</td><td class="rate">1%</td><td>1% (no reduction)</td></tr>
+          <tr><td>Insurance premiums (non-life)</td><td class="rate">1%</td><td class="rate">1%</td><td>1% (no reduction)</td></tr>
+          <tr><td>Interest</td><td class="rate">15%</td><td class="rate">1%</td><td>—</td></tr>
+          <tr><td>Dividends</td><td class="rate">10%</td><td class="rate">10%</td><td>—</td></tr>
+          <tr><td>Royalties / copyright / IP</td><td class="rate">3%</td><td class="rate">3%</td><td class="rate">1%</td></tr>
+          <tr><td>Prizes / promotions</td><td class="rate">5%</td><td class="rate">3%</td><td class="rate">1%</td></tr>
+        </table>
+      </div>
+      <div class="note">* e-WHT reduced rates valid Jan 2023 – Dec 2025 ONLY via the e-Withholding Tax system, applicable to payments to juristic persons (not individuals). Check if extended beyond 2025.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">⚡</div>
+        <div><div class="card-title">WHT Payment Workflow</div><div class="card-subtitle">What happens every time you pay a supplier</div></div>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>1. Receive Invoice</h4>
+            <p>Invoice from vendor with line items. Each line item must be classified by payment type to determine WHT rate.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>2. Calculate WHT per Line Item</h4>
+            <p>WHT = (Amount before VAT) × WHT rate. Different line items may have different rates. E.g., an invoice with both "rent" (5%) and "services" (3%) line items.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>3. Pay Vendor (minus WHT)</h4>
+            <p>Transfer = Invoice total − total WHT amount. You keep the WHT portion to remit to RD.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>4. Issue WHT Certificate (50 Tawi)</h4>
+            <p>Provide 2 copies to vendor (they use it to claim tax credit). Keep 1 copy. Must include: payer/payee tax ID, amount, rate, payment date, running sequence number.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>5. Accumulate All WHT for the Month</h4>
+            <p>Track all PND 3 items (individuals) separately from PND 53 items (companies). Separate by payment type category.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot green active"></div><div class="flow-connector" style="background:transparent"></div></div>
+          <div class="flow-content">
+            <h4>6. File & Pay by 15th of Next Month</h4>
+            <p><span class="tag digital">e-Filing mandatory from Jan 2025</span> — Submit PND 3 and/or PND 53 via efiling.rd.go.th. Pay via internet banking / PromptPay.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight green" style="margin-top:20px">
+    <div class="highlight-title">🟢 KEY: From Jan 2025, ALL withholding tax returns MUST be e-Filed</div>
+    <p style="font-size:0.82rem; color:var(--text-dim)">DG Notification No. 451 mandates that PND 1, PND 3, PND 53, and PND 54 are all filed electronically via efiling.rd.go.th, e-Withholding Tax system, or SVS. Paper filing now requires a written explanation of why you couldn't file digitally. The +8 day e-Filing extension applies through Jan 2027.</p>
+  </div>
+</div>
+
+<!-- ===== VAT TAB ===== -->
+<div class="section" id="vat">
+  <div class="section-title">VAT — Output, Input & Filing</div>
+  <div class="section-desc">Standard rate 7% (reduced from statutory 10%, extended to at least Sep 2026). Registration mandatory when annual revenue exceeds THB 1.8M.</div>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon cyan">🔄</div>
+        <div><div class="card-title">VAT Calculation Logic</div><div class="card-subtitle">What you charge, what you reclaim, what you owe</div></div>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Output VAT (you charge customers)</h4>
+            <p>7% on your sales of goods/services. Included in the price or added on top — either way, you collect it and owe it to RD. Issue tax invoices to customers.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Input VAT (you pay to Thai vendors)</h4>
+            <p>7% VAT on purchases from VAT-registered Thai suppliers. Keep their tax invoices as evidence. This offsets your Output VAT.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Net VAT = Output VAT − Input VAT</h4>
+            <p>If positive → pay the difference to RD. If negative → carry forward as credit OR request refund (within 3 years).</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot green active"></div><div class="flow-connector" style="background:transparent"></div></div>
+          <div class="flow-content">
+            <h4>File PP 30 by 23rd (e-File) or 15th (paper)</h4>
+            <p><span class="tag digital">e-Filing at efiling.rd.go.th</span> — Must file EVERY month, even nil returns.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">🌐</div>
+        <div><div class="card-title">VAT on Foreign Services (Reverse Charge)</div><div class="card-subtitle">PP 36 — self-assessed VAT when buying from overseas</div></div>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Purchase Service from Foreign Provider</h4>
+            <p>E.g., SaaS subscription, cloud hosting, overseas consulting, design work from an offshore freelancer.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Self-Assess 7% VAT on Amount Paid</h4>
+            <p>You calculate the VAT yourself. There is no input tax invoice from a foreign provider.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot green active"></div><div class="flow-connector" style="background:transparent"></div></div>
+          <div class="flow-content">
+            <h4>File PP 36 by 15th of Next Month</h4>
+            <p><span class="tag digital">e-Filing available</span> — Note: the reverse-charge VAT you pay via PP 36 generally cannot be claimed as input VAT credit (unlike PP 30 input VAT). This is a pure cost.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="highlight yellow" style="margin-top:12px">
+        <div class="highlight-title">⚠️ PP 36 Gotcha</div>
+        <p style="font-size:0.8rem; color:var(--text-dim)">The 7% reverse-charge VAT on imported services is typically NOT reclaimable as input VAT for the payer. It's an additional cost on top of the foreign invoice. Budget for this.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight" style="margin-top:20px">
+    <div class="highlight-title">📋 Required Records for VAT</div>
+    <ul>
+      <li><strong>Sales tax invoices</strong> — issued to your customers with your VAT ID, the 7% amount, and customer details</li>
+      <li><strong>Purchase tax invoices</strong> — received from vendors (must be proper tax invoices, not just receipts, to claim input VAT)</li>
+      <li><strong>Input VAT report</strong> (ภาษีซื้อ) — monthly ledger of all input VAT from purchase invoices</li>
+      <li><strong>Output VAT report</strong> (ภาษีขาย) — monthly ledger of all output VAT from sales invoices</li>
+      <li>Records must be kept for <strong>5 years</strong> from the filing date</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== PAYROLL TAB ===== -->
+<div class="section" id="payroll">
+  <div class="section-title">Payroll — Salary, WHT, SSO & Employee PIT</div>
+  <div class="section-desc">Employer obligations for each pay period and annually.</div>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon pink">👥</div>
+        <div><div class="card-title">Monthly Payroll Workflow</div></div>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Calculate Gross Salary + Benefits</h4>
+            <p>Base salary, OT, allowances, bonuses. Produce payslip (mandatory — paper or electronic).</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Withhold Employee PIT</h4>
+            <p>Estimate annual tax using progressive rates (0–35%), divide by 12. Deduct from gross salary. Rates: 0% up to 150K, 5% 150–300K, 10% 300–500K, 15% 500–750K, 20% 750K–1M, 25% 1–2M, 30% 2–5M, 35% over 5M.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Deduct Employee SSO (5%)</h4>
+            <p>5% of salary, capped at THB 750/month (on max base of THB 15,000). From 2026, cap rises to THB 875/month (base THB 17,500).</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>Pay Net Salary to Employee</h4>
+            <p>Gross − PIT withholding − SSO = net pay.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot green active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>File PND 1 by 15th of Next Month</h4>
+            <p><span class="tag digital">e-Filing mandatory from Jan 2025</span> — Submit PND 1 with details of each employee's salary and tax withheld. Pay via internet banking.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot green active"></div><div class="flow-connector" style="background:transparent"></div></div>
+          <div class="flow-content">
+            <h4>Submit SSO (SPS 1-10) by 15th</h4>
+            <p><span class="tag digital">SSO online portal</span> — Employee 5% + Employer 5% = 10% of salary (capped). Pay at bank / online.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">📊</div>
+        <div><div class="card-title">SSO Contribution Rates (2025)</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Component</th><th>Employee</th><th>Employer</th><th>Government</th></tr>
+          <tr><td>Sickness, maternity, disability, death</td><td class="rate">1.5%</td><td class="rate">1.5%</td><td class="rate">1.5%</td></tr>
+          <tr><td>Child allowance & old age</td><td class="rate">3.0%</td><td class="rate">3.0%</td><td class="rate">1.0%</td></tr>
+          <tr><td>Unemployment</td><td class="rate">0.5%</td><td class="rate">0.5%</td><td class="rate">0.25%</td></tr>
+          <tr><td><strong>Total</strong></td><td><strong class="rate">5.0%</strong></td><td><strong class="rate">5.0%</strong></td><td><strong class="rate">2.75%</strong></td></tr>
+        </table>
+      </div>
+      <div class="note">Wage base: min THB 1,650, max THB 15,000 → max contribution THB 750/month per party. From 2026: max base increases to THB 17,500 → max THB 875.</div>
+
+      <hr class="divider">
+
+      <div class="card-header" style="margin-top:16px">
+        <div class="card-icon red">📋</div>
+        <div><div class="card-title">Annual Payroll Filings</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Filing</th><th>Form</th><th>Deadline</th><th>Channel</th></tr>
+          <tr>
+            <td>Annual WHT summary (employer)</td>
+            <td><span class="mono">PND 1 Gor</span></td>
+            <td>End of Feb</td>
+            <td><span class="tag digital">e-Filing mandatory</span></td>
+          </tr>
+          <tr>
+            <td>Issue 50 Tawi to each employee</td>
+            <td>50 Tawi cert</td>
+            <td>By Feb 15</td>
+            <td><span class="tag hybrid">Print or electronic</span></td>
+          </tr>
+          <tr>
+            <td>Employee Welfare Fund (10+ employees)</td>
+            <td>EWF forms</td>
+            <td>From Oct 2025</td>
+            <td><span class="tag hybrid">TBD — new requirement</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== INTERNATIONAL TAB ===== -->
+<div class="section" id="international">
+  <div class="section-title">International Payments — WHT & English Certificates</div>
+  <div class="section-desc">When your Thai company pays a foreign entity for services, royalties, interest, etc., you must withhold tax and file PND 54. Getting the English certificate requires a physical RD visit.</div>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon red">🌏</div>
+        <div><div class="card-title">Foreign Payment WHT Rates (PND 54)</div><div class="card-subtitle">Payments to non-resident entities without PE in Thailand</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Payment Type</th><th>Default Rate</th><th>DTA May Reduce To</th></tr>
+          <tr><td>Service fees</td><td class="rate">15%</td><td>0% (if no PE under treaty)</td></tr>
+          <tr><td>Royalties / license fees</td><td class="rate">15%</td><td>5–15% (varies by treaty)</td></tr>
+          <tr><td>Interest</td><td class="rate">15%</td><td>10–15% (varies by treaty)</td></tr>
+          <tr><td>Dividends</td><td class="rate">10%</td><td>5–10% (varies by treaty)</td></tr>
+          <tr><td>Capital gains</td><td class="rate">15%</td><td>Varies</td></tr>
+          <tr><td>Rent of property</td><td class="rate">15%</td><td>Varies</td></tr>
+          <tr><td>Technical/management fees</td><td class="rate">15%</td><td>Varies</td></tr>
+        </table>
+      </div>
+      <div class="note">Thailand has 61+ DTAs. To claim reduced rates, the foreign entity must provide a Certificate of Tax Residence from their home country, and you must file a DTR form with the RD BEFORE payment.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow">🔨</div>
+        <div><div class="card-title">The Painful English Certificate Process</div><div class="card-subtitle">Getting physical proof of WHT for foreign vendors (Ror 20/21)</div></div>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>1. Make Payment, Withhold Tax</h4>
+            <p>Deduct WHT at the applicable rate (15% default or DTA rate) from the foreign payment.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot green active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>2. File PND 54 by 15th of Next Month</h4>
+            <p><span class="tag digital">e-Filing mandatory from 2025</span> — Report all foreign payments and WHT amounts for the month.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <h4>3. Visit Local RD Office in Person</h4>
+            <p><span class="tag paper">Physical visit required</span> — Request English-language WHT certificate (Ror 20 or Ror 21). Bring: copy of PND 54 filing receipt, company documents, invoice from foreign entity, proof of payment.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-dot active"></div><div class="flow-connector" style="background:transparent"></div></div>
+          <div class="flow-content">
+            <h4>4. Receive Physical Certificate, Send to Vendor</h4>
+            <p>The RD issues a stamped English certificate. Processing time varies. Send original to foreign vendor so they can claim DTA tax credit in their home country.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="highlight red" style="margin-top:12px">
+        <div class="highlight-title">🔴 This is the ONE process that still requires a physical RD visit</div>
+        <p style="font-size:0.8rem; color:var(--text-dim)">There is no online system for requesting English WHT certificates. You or your accountant must physically go to the RD area office, queue, submit documents, and collect the certificate. This is the biggest remaining paper-based pain point.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ANNUAL TAB ===== -->
+<div class="section" id="annual">
+  <div class="section-title">Annual & Corporate Income Tax</div>
+  <div class="section-desc">CIT at 20% standard (SME reduced rates available). Two filings per year: half-year estimate and annual return.</div>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">🏢</div>
+        <div><div class="card-title">CIT Rate Structure (2025)</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Net Profit</th><th>Standard Rate</th><th>SME Rate*</th></tr>
+          <tr><td>First THB 300,000</td><td class="rate">20%</td><td class="rate">0% (exempt)</td></tr>
+          <tr><td>THB 300,001 – 3,000,000</td><td class="rate">20%</td><td class="rate">15%</td></tr>
+          <tr><td>Over THB 3,000,000</td><td class="rate">20%</td><td class="rate">20%</td></tr>
+        </table>
+      </div>
+      <div class="note">* SME = paid-up capital ≤ THB 5M AND annual revenue ≤ THB 30M</div>
+
+      <hr class="divider">
+
+      <div class="table-wrap">
+        <table>
+          <tr><th>Filing</th><th>Form</th><th>When</th><th>Calculation</th></tr>
+          <tr>
+            <td>Half-year estimate</td>
+            <td><span class="mono">PND 51</span></td>
+            <td>Aug (2 months after first 6 months)</td>
+            <td>Half of estimated annual profit × CIT rate. Pay the tax. Credited against annual CIT.</td>
+          </tr>
+          <tr>
+            <td>Annual return</td>
+            <td><span class="mono">PND 50</span></td>
+            <td>May (150 days after FY end)</td>
+            <td>Actual net profit × CIT rate − PND 51 prepayment − WHT credits (from 50 Tawi received) = balance due/refund.</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="highlight yellow" style="margin-top:12px">
+        <div class="highlight-title">⚠️ PND 51 Underestimate Penalty</div>
+        <p style="font-size:0.8rem; color:var(--text-dim)">If your PND 51 estimate is less than 75% of actual annual profit (without justification), a 20% surcharge applies on the shortfall. Safe harbor: make PND 51 tax payable ≥ 50% of actual annual CIT.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">📁</div>
+        <div><div class="card-title">Annual Filing Checklist</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Item</th><th>Deadline</th><th>Submit To</th><th>Channel</th></tr>
+          <tr>
+            <td>PND 50 (annual CIT)</td>
+            <td>May 30 (+8 days e-file)</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing</span></td>
+          </tr>
+          <tr>
+            <td>Audited financial statements + notes</td>
+            <td>Within 5 months of FY end</td>
+            <td>DBD</td>
+            <td><span class="tag digital">DBD e-Filing</span></td>
+          </tr>
+          <tr>
+            <td>Annual shareholder meeting minutes</td>
+            <td>Within 4 months of FY end</td>
+            <td>Keep on file</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>PND 1 Gor (annual employee WHT)</td>
+            <td>End of February</td>
+            <td>Revenue Dept</td>
+            <td><span class="tag digital">e-Filing mandatory</span></td>
+          </tr>
+          <tr>
+            <td>50 Tawi certs to employees</td>
+            <td>By Feb 15</td>
+            <td>Each employee</td>
+            <td><span class="tag hybrid">Print/email</span></td>
+          </tr>
+          <tr>
+            <td>Workmen's Compensation Fund</td>
+            <td>Annual premium</td>
+            <td>SSO</td>
+            <td><span class="tag hybrid">Bank payment</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== AUTOMATION TAB ===== -->
+<div class="section" id="automation">
+  <div class="section-title">Automation Opportunities & Architecture</div>
+  <div class="section-desc">Where AI vision + API integration can eliminate the tedious parts, and where you're stuck with manual processes.</div>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">🤖</div>
+        <div><div class="card-title">High-Impact Automation Targets</div><div class="card-subtitle">Things you can build yourself, bypassing FlowAccount/PEAK</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Process</th><th>Automation Approach</th><th>Impact</th></tr>
+          <tr>
+            <td><strong>Invoice ingestion</strong></td>
+            <td>AI vision (Claude/GPT-4o) on photos/PDFs → extract: vendor name, tax ID, line items, amounts, VAT, payment type classification for WHT rate</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div></div></td>
+          </tr>
+          <tr>
+            <td><strong>WHT rate assignment</strong></td>
+            <td>Rules engine: classify each line item → service (3%), rent (5%), advertising (2%), transport (1%). AI can suggest, human confirms.</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar"></div></div></td>
+          </tr>
+          <tr>
+            <td><strong>WHT certificate generation</strong></td>
+            <td>Auto-generate 50 Tawi PDFs from extracted data. Running sequence number, correct format, payer/payee details pre-filled.</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div></div></td>
+          </tr>
+          <tr>
+            <td><strong>Monthly WHT aggregation</strong></td>
+            <td>Auto-summarize all WHT by form type (PND 1/3/53/54) and payment category. Generate CSV/XML for RD e-filing upload.</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div></div></td>
+          </tr>
+          <tr>
+            <td><strong>VAT input/output tracking</strong></td>
+            <td>Auto-extract VAT from purchase invoices, maintain running PP 30 register, calculate net VAT monthly.</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar"></div></div></td>
+          </tr>
+          <tr>
+            <td><strong>Payroll PIT calculation</strong></td>
+            <td>Spreadsheet / script: progressive tax calculation per employee, factor in allowances/deductions, generate payslips.</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar"></div></div></td>
+          </tr>
+          <tr>
+            <td><strong>Xero/accounting push</strong></td>
+            <td>Xero API: create bills, contacts, payments with WHT amounts. Map Thai chart of accounts. Auto-reconcile bank.</td>
+            <td><div class="auto-score"><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar filled"></div><div class="auto-bar"></div></div></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon red">🚫</div>
+        <div><div class="card-title">Cannot Automate / Limitations</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Process</th><th>Why</th><th>Workaround</th></tr>
+          <tr>
+            <td><strong>English WHT cert (Ror 20/21)</strong></td>
+            <td>Physical RD office visit — no online system</td>
+            <td>Batch requests quarterly; send accountant with pre-prepared docs</td>
+          </tr>
+          <tr>
+            <td><strong>RD e-Filing submission</strong></td>
+            <td>No public API — browser-based portal with Thai UI</td>
+            <td>RPA (Playwright/Puppeteer) to automate form filling; or CSV upload feature</td>
+          </tr>
+          <tr>
+            <td><strong>SSO portal submission</strong></td>
+            <td>No public API — browser portal</td>
+            <td>RPA for form filling, or manual upload of prepared data</td>
+          </tr>
+          <tr>
+            <td><strong>DTA claim (DTR form)</strong></td>
+            <td>Requires foreign vendor's tax residence cert + specific form</td>
+            <td>Template system for DTR forms; reminder system for vendor docs</td>
+          </tr>
+          <tr>
+            <td><strong>WHT classification edge cases</strong></td>
+            <td>Some payments straddle categories (service vs goods vs rent)</td>
+            <td>AI suggests, human reviews flagged items</td>
+          </tr>
+        </table>
+      </div>
+
+      <hr class="divider">
+
+      <div class="highlight green">
+        <div class="highlight-title">🏗️ Suggested DIY Architecture</div>
+        <ul>
+          <li><strong>Layer 1 — Ingestion:</strong> Mobile camera / PDF upload → AI vision API (Claude) → structured JSON (vendor, tax ID, line items, amounts, VAT, suggested WHT categories)</li>
+          <li><strong>Layer 2 — Rules Engine:</strong> WHT rate lookup by payment type, vendor type (individual/company/foreign), DTA applicability. Human confirmation for ambiguous items.</li>
+          <li><strong>Layer 3 — Document Gen:</strong> Auto-generate 50 Tawi PDFs, payslips, PND summary spreadsheets, PP 30 working papers.</li>
+          <li><strong>Layer 4 — Accounting Sync:</strong> Push to Xero via API (bills, payments, journal entries). Or use a simple local DB/spreadsheet as source of truth.</li>
+          <li><strong>Layer 5 — Filing Prep:</strong> Generate CSV/data files formatted for RD e-Filing upload. Calendar alerts for all deadlines.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-header">
+      <div class="card-icon cyan">📐</div>
+      <div><div class="card-title">Automation Potential by Process</div><div class="card-subtitle">Green = fully automatable, Yellow = partially, Red = manual required</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Process</th><th>Current Pain</th><th>Automation Level</th><th>Key Tech</th></tr>
+        <tr><td>Scan invoice → data entry</td><td>Manual typing per invoice</td><td><span class="tag digital">95% automatable</span></td><td>AI Vision API</td></tr>
+        <tr><td>WHT rate per line item</td><td>Lookup + manual classification</td><td><span class="tag digital">85% automatable</span></td><td>Rules engine + AI</td></tr>
+        <tr><td>50 Tawi certificate gen</td><td>Manual form filling</td><td><span class="tag digital">100% automatable</span></td><td>PDF template engine</td></tr>
+        <tr><td>Monthly WHT filing data prep</td><td>Spreadsheet aggregation</td><td><span class="tag digital">100% automatable</span></td><td>DB query → CSV</td></tr>
+        <tr><td>PP 30 VAT calculation</td><td>Manual ledger balancing</td><td><span class="tag digital">95% automatable</span></td><td>Auto from invoice data</td></tr>
+        <tr><td>PP 36 reverse charge tracking</td><td>Often forgotten</td><td><span class="tag digital">90% automatable</span></td><td>Flag foreign invoices</td></tr>
+        <tr><td>Payroll + PIT calc</td><td>Monthly spreadsheet</td><td><span class="tag digital">100% automatable</span></td><td>Script/spreadsheet</td></tr>
+        <tr><td>SSO contribution calc</td><td>Manual per employee</td><td><span class="tag digital">100% automatable</span></td><td>Simple formula</td></tr>
+        <tr><td>RD e-Filing submission</td><td>Manual portal entry</td><td><span class="tag hybrid">60% — RPA possible</span></td><td>Playwright/Puppeteer</td></tr>
+        <tr><td>SSO portal submission</td><td>Manual portal entry</td><td><span class="tag hybrid">50% — RPA possible</span></td><td>Browser automation</td></tr>
+        <tr><td>English WHT cert request</td><td>Physical RD visit</td><td><span class="tag paper">0% — manual only</span></td><td>Pre-prepare docs, batch visits</td></tr>
+        <tr><td>Xero sync</td><td>Manual double entry</td><td><span class="tag digital">95% automatable</span></td><td>Xero API</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

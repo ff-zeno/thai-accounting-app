@@ -1,0 +1,63 @@
+import { and, eq, isNull } from "drizzle-orm";
+import { db } from "../index";
+import { bankAccounts } from "../schema";
+
+export async function getBankAccountsByOrg(orgId: string) {
+  return db
+    .select()
+    .from(bankAccounts)
+    .where(and(eq(bankAccounts.orgId, orgId), isNull(bankAccounts.deletedAt)));
+}
+
+export async function getBankAccountById(orgId: string, id: string) {
+  const results = await db
+    .select()
+    .from(bankAccounts)
+    .where(
+      and(
+        eq(bankAccounts.id, id),
+        eq(bankAccounts.orgId, orgId),
+        isNull(bankAccounts.deletedAt)
+      )
+    )
+    .limit(1);
+  return results[0] ?? null;
+}
+
+export async function createBankAccount(data: {
+  orgId: string;
+  bankCode: string;
+  accountNumber: string;
+  accountName?: string | null;
+  currency?: string;
+}) {
+  const [account] = await db
+    .insert(bankAccounts)
+    .values({
+      orgId: data.orgId,
+      bankCode: data.bankCode,
+      accountNumber: data.accountNumber,
+      accountName: data.accountName,
+      currency: data.currency ?? "THB",
+    })
+    .returning();
+  return account;
+}
+
+export async function updateBankAccount(
+  orgId: string,
+  id: string,
+  data: {
+    bankCode?: string;
+    accountNumber?: string;
+    accountName?: string | null;
+    currency?: string;
+  }
+) {
+  const [account] = await db
+    .update(bankAccounts)
+    .set(data)
+    .where(and(eq(bankAccounts.id, id), eq(bankAccounts.orgId, orgId)))
+    .returning();
+  return account;
+}

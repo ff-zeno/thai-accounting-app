@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { db } from "../index";
 import { organizations, users } from "../schema";
 
@@ -6,7 +6,7 @@ export async function getAllOrganizations() {
   return db
     .select()
     .from(organizations)
-    .where(eq(organizations.deletedAt, null!));
+    .where(isNull(organizations.deletedAt));
 }
 
 export async function getOrganizationById(id: string) {

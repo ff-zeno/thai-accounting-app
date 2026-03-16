@@ -13,6 +13,7 @@ import {
 } from "@/lib/db/queries/transactions";
 import { parseCSV } from "@/lib/parsers/csv-parser";
 import type { ColumnMapping } from "@/lib/parsers/csv-parser";
+import { detectKBankFormat, parseKBank } from "@/lib/parsers/kbank-parser";
 
 export async function createBankAccountAction(formData: FormData) {
   const orgId = await getActiveOrgId();
@@ -62,15 +63,25 @@ export async function updateBankAccountAction(
   return { success: true };
 }
 
+/** Check if a CSV is KBank format (used by the UI to skip column mapping) */
+export async function detectBankFormatAction(csvText: string) {
+  const format = detectKBankFormat(csvText);
+  return { isKBank: format !== null, format };
+}
+
 export async function uploadStatementAction(
   bankAccountId: string,
   csvText: string,
-  mapping: ColumnMapping
+  mapping: ColumnMapping | null
 ) {
   const orgId = await getActiveOrgId();
   if (!orgId) return { error: "No organization selected" };
 
-  const result = parseCSV(csvText, mapping);
+  // Auto-detect KBank format or use generic parser with mapping
+  const kbankFormat = detectKBankFormat(csvText);
+  const result = kbankFormat
+    ? parseKBank(csvText)
+    : parseCSV(csvText, mapping!);
 
   if (result.transactions.length === 0) {
     return {
@@ -87,7 +98,7 @@ export async function uploadStatementAction(
     periodEnd: result.periodEnd,
     openingBalance: result.openingBalance,
     closingBalance: result.closingBalance,
-    parserUsed: "csv_generic",
+    parserUsed: kbankFormat ? `kbank_${kbankFormat}` : "csv_generic",
     importStatus: "processing",
   });
 

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { uploadStatementAction } from "../actions";
+import { uploadStatementAction, detectBankFormatAction } from "../actions";
 import { detectColumns } from "@/lib/parsers/csv-parser";
 import type { ColumnMapping } from "@/lib/parsers/csv-parser";
 
@@ -39,13 +39,39 @@ export function StatementUpload({ bankAccountId }: StatementUploadProps) {
   const [isPending, startTransition] = useTransition();
   const [mapping, setMapping] = useState<Partial<ColumnMapping>>({});
 
+  function uploadKBank(csvText: string) {
+    setState({ step: "uploading" });
+    startTransition(async () => {
+      const result = await uploadStatementAction(bankAccountId, csvText, null);
+      if (result.error) {
+        setState({ step: "error", message: result.error });
+      } else {
+        setState({
+          step: "done",
+          inserted: result.inserted!,
+          skipped: result.skipped!,
+          parseErrors: result.parseErrors ?? [],
+          balanceWarning: result.balanceWarning ?? null,
+        });
+      }
+    });
+  }
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const csvText = e.target?.result as string;
+
+      // Auto-detect KBank format — skip column mapping
+      const detection = await detectBankFormatAction(csvText);
+      if (detection.isKBank) {
+        uploadKBank(csvText);
+        return;
+      }
+
       const columns = detectColumns(csvText);
       setState({ step: "mapping", csvText, columns, fileName: file.name });
       // Auto-detect common column names
@@ -66,7 +92,7 @@ export function StatementUpload({ bankAccountId }: StatementUploadProps) {
       setMapping(autoMap);
     };
     reader.readAsText(file);
-  }, []);
+  }, [uploadKBank]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

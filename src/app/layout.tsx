@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Thai } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
@@ -36,9 +37,11 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${notoSansThai.variable}`}>
       <body className="antialiased">
-        <NextIntlClientProvider messages={messages}>
-          {children}
-        </NextIntlClientProvider>
+        <ClerkProvider afterSignOutUrl="/sign-in">
+          <NextIntlClientProvider messages={messages}>
+            {children}
+          </NextIntlClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

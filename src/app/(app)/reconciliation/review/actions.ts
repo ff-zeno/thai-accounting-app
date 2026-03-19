@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { getCurrentUserId } from "@/lib/utils/auth";
 import {
   getUnmatchedTransactions,
   getUnmatchedDocuments,
@@ -12,7 +13,7 @@ import { getPaymentsByDocument } from "@/lib/db/queries/payments";
 import { auditMutation } from "@/lib/db/helpers/audit-log";
 
 export async function getUnmatchedItemsAction() {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { transactions: [], documents: [] };
 
   const [txns, docs] = await Promise.all([
@@ -28,8 +29,9 @@ export async function createManualMatchAction(data: {
   documentId: string;
   amounts: Record<string, string>; // transactionId -> matched amount
 }): Promise<{ success: true } | { error: string }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   if (data.transactionIds.length === 0) {
     return { error: "Select at least one transaction" };
@@ -71,6 +73,7 @@ export async function createManualMatchAction(data: {
         matchedAmount,
         matchType: "manual",
       },
+      actorId,
     });
   }
 

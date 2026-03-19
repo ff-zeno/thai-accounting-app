@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   getDashboardMetrics,
   getDocumentSummary,
@@ -13,7 +13,7 @@ export async function getDashboardMetricsAction(
   year: number,
   month: number
 ): Promise<DashboardMetrics | null> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return null;
 
   return getDashboardMetrics(orgId, year, month);
@@ -28,7 +28,7 @@ export async function getDocumentSummaryAction(
     vendorId?: string;
   }
 ): Promise<{ rows: SummaryRow[]; vendorNames: Record<string, string> }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { rows: [], vendorNames: {} };
 
   const rows = await getDocumentSummary(orgId, direction, groupBy, filters);

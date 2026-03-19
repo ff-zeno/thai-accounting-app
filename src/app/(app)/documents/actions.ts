@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   searchDocuments,
   getDocumentForSidebar,
@@ -34,7 +34,7 @@ export async function searchDocumentsAction(
   filters: SearchFilters,
   cursor?: CursorInput
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { data: [], hasMore: false, nextCursor: null };
 
   const queryFilters: DocumentSearchFilters = {
@@ -47,14 +47,14 @@ export async function searchDocumentsAction(
 }
 
 export async function getDocumentDetailsAction(docId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return null;
 
   return getDocumentForSidebar(orgId, docId);
 }
 
 export async function getFilterOptionsAction(direction: "expense" | "income") {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { categories: [], vendors: [] };
 
   return getFilterOptions(orgId, direction);
@@ -76,7 +76,7 @@ export async function updateDocumentSidebarAction(
     vendorName?: string | null;
   }
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   let resolvedVendorId = data.vendorId;
@@ -121,7 +121,7 @@ export async function updateDocumentSidebarAction(
 }
 
 export async function confirmDocumentSidebarAction(docId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   await confirmDocument(orgId, docId);
@@ -136,7 +136,7 @@ export async function confirmDocumentSidebarAction(docId: string) {
 export async function getPendingPipelineCountAction(
   direction: "expense" | "income"
 ): Promise<number> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return 0;
   return getPendingPipelineCount(orgId, direction);
 }

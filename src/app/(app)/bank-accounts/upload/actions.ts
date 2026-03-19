@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   getBankAccountsByOrg,
   findBankAccountByNumber,
@@ -60,7 +60,7 @@ export type ParseFileResult = ParseFileSuccess | ParseFileNeedsMapping | ParseFi
 export async function parseFileAction(
   formData: FormData
 ): Promise<ParseFileResult> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { success: false, error: "No organization selected" };
 
   const file = formData.get("file") as File | null;
@@ -189,7 +189,7 @@ export async function checkOverlapAction(
   bankAccountId: string,
   result: ParseResult
 ): Promise<OverlapInfo> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) {
     return {
       hasOverlap: false,
@@ -254,7 +254,7 @@ interface ConfirmImportInput {
 }
 
 export async function confirmImportAction(input: ConfirmImportInput) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const { bankAccountId, format, result } = input;
@@ -329,7 +329,7 @@ interface CreateAccountAndImportInput {
 export async function createAccountAndImportAction(
   input: CreateAccountAndImportInput
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const account = await createBankAccount({
@@ -351,7 +351,7 @@ export async function createAccountAndImportAction(
 // ---------------------------------------------------------------------------
 
 export async function getAccountsForMatchAction() {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return [];
 
   const accounts = await getBankAccountsByOrg(orgId);

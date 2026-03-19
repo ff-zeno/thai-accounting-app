@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   aggregateMonthlyFiling,
   upsertMonthlyFiling,
@@ -23,7 +23,7 @@ export async function refreshFilingAction(
   month: number,
   formType: FormType
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const totals = await aggregateMonthlyFiling(orgId, year, month, formType);
@@ -48,7 +48,7 @@ export async function refreshFilingAction(
 // ---------------------------------------------------------------------------
 
 export async function markAsFiledAction(filingId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   await markFilingAsFiled(orgId, filingId);
@@ -62,7 +62,7 @@ export async function markAsFiledAction(filingId: string) {
 // ---------------------------------------------------------------------------
 
 export async function voidFilingAction(filingId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   await voidFiling(orgId, filingId);
@@ -76,7 +76,7 @@ export async function voidFilingAction(filingId: string) {
 // ---------------------------------------------------------------------------
 
 export async function loadFilingDataAction(year: number, month: number) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const formTypes: FormType[] = ["pnd3", "pnd53", "pnd54"];
@@ -130,7 +130,7 @@ export async function downloadRdCsvAction(
   month: number,
   formType: string
 ): Promise<{ csv: string; filename: string } | { error: string }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const validFormTypes = ["pnd3", "pnd53", "pnd54"] as const;

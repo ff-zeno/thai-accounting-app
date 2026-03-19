@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   getReconciliationStats,
   getUnmatchedTransactions,
@@ -11,7 +11,7 @@ export async function getReconciliationDashboardData(period?: {
   start: string;
   end: string;
 }) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) {
     return {
       stats: {

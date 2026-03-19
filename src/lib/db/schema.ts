@@ -144,9 +144,8 @@ export const organizations = pgTable("organizations", {
 
 export const users = pgTable("users", {
   id,
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id),
+  clerkId: text("clerk_id").unique(),
+  orgId: uuid("org_id").references(() => organizations.id),
   name: text("name").notNull(),
   email: text("email").notNull(),
   role: text("role"),
@@ -154,6 +153,23 @@ export const users = pgTable("users", {
   updatedAt,
   deletedAt,
 });
+
+export const orgMemberships = pgTable(
+  "org_memberships",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role").default("member"), // member, admin, owner
+    createdAt,
+    deletedAt,
+  },
+  (t) => [unique("org_membership_unique").on(t.orgId, t.userId)]
+);
 
 export const vendors = pgTable(
   "vendors",
@@ -638,6 +654,7 @@ export const orgAiSettings = pgTable(
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
+  memberships: many(orgMemberships),
   vendors: many(vendors),
   bankAccounts: many(bankAccounts),
   documents: many(documents),
@@ -647,12 +664,27 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   auditLog: many(auditLog),
 }));
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [users.orgId],
     references: [organizations.id],
   }),
+  memberships: many(orgMemberships),
 }));
+
+export const orgMembershipsRelations = relations(
+  orgMemberships,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [orgMemberships.orgId],
+      references: [organizations.id],
+    }),
+    user: one(users, {
+      fields: [orgMemberships.userId],
+      references: [users.id],
+    }),
+  })
+);
 
 export const vendorsRelations = relations(vendors, ({ one, many }) => ({
   organization: one(organizations, {

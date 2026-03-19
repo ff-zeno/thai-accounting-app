@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   upsertOrgAiSettings,
   getAiCostSummary,
@@ -14,7 +14,7 @@ import { AVAILABLE_MODELS } from "@/lib/ai/models-catalog";
 const validModelIds = new Set(AVAILABLE_MODELS.map((m) => m.id));
 
 export async function updateAiSettingsAction(formData: FormData) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const extractionModel = formData.get("extractionModel") as string | null;
@@ -64,7 +64,7 @@ export async function updateAiSettingsAction(formData: FormData) {
 }
 
 export async function getAiAnalyticsAction(period: "7d" | "30d" | "90d") {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return null;
 
   const now = new Date();

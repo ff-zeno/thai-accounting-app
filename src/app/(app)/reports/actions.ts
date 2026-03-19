@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { generateFlowAccountExport } from "@/lib/export/flowaccount-export";
 import { generatePeakExport } from "@/lib/export/peak-export";
 import { generateFullDataExport } from "@/lib/export/full-export";
@@ -21,7 +21,7 @@ export async function exportFlowAccountAction(
   dateTo: string,
   direction: Direction
 ): Promise<ExportResult | ExportError> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   if (!dateFrom || !dateTo) return { error: "Date range is required" };
@@ -41,7 +41,7 @@ export async function exportPeakAction(
   dateTo: string,
   direction: Direction
 ): Promise<ExportResult | ExportError> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   if (!dateFrom || !dateTo) return { error: "Date range is required" };
@@ -60,7 +60,7 @@ export async function exportFullDataAction(): Promise<
   | { files: Array<{ filename: string; content: string; format: "json" | "csv" }> }
   | ExportError
 > {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const result = await generateFullDataExport(orgId);

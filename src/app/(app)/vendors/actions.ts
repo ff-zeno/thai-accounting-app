@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { getCurrentUserId } from "@/lib/utils/auth";
 import {
   createVendor,
   updateVendor,
@@ -10,8 +11,9 @@ import {
 import { auditMutation } from "@/lib/db/helpers/audit-log";
 
 export async function createVendorAction(formData: FormData) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   const name = formData.get("name") as string;
   const nameTh = (formData.get("nameTh") as string) || null;
@@ -57,6 +59,7 @@ export async function createVendorAction(formData: FormData) {
       entityId: vendor.id,
       action: "create",
       newValue: { name, nameTh, taxId: cleanTaxId, entityType, country },
+      actorId,
     });
 
     revalidatePath("/vendors");
@@ -79,8 +82,9 @@ export async function updateVendorAction(
   vendorId: string,
   formData: FormData
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   const name = formData.get("name") as string;
   const nameTh = (formData.get("nameTh") as string) || null;
@@ -120,6 +124,7 @@ export async function updateVendorAction(
     entityId: vendorId,
     action: "update",
     newValue: { name, nameTh, taxId, entityType, country },
+    actorId,
   });
 
   revalidatePath("/vendors");
@@ -127,8 +132,9 @@ export async function updateVendorAction(
 }
 
 export async function deleteVendorAction(vendorId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   await softDeleteVendor(orgId, vendorId);
 
@@ -137,6 +143,7 @@ export async function deleteVendorAction(vendorId: string) {
     entityType: "vendor",
     entityId: vendorId,
     action: "delete",
+    actorId,
   });
 
   revalidatePath("/vendors");

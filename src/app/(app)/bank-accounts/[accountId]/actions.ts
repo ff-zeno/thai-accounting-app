@@ -2,7 +2,8 @@
 
 import { and, eq, isNull, inArray, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { getCurrentUserId } from "@/lib/utils/auth";
 import {
   getTransactions,
   countTransactions,
@@ -35,7 +36,7 @@ export async function paginateTransactionsAction(
   filters: TransactionSearchFilters,
   pagination?: CursorPaginationParams
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { data: [], totalCount: 0, hasMore: false, nextCursor: null };
 
   const pageSize = pagination?.pageSize ?? 50;
@@ -65,7 +66,7 @@ export async function paginateTransactionsAction(
 }
 
 export async function deleteStatementAction(statementId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const result = await softDeleteStatement(orgId, statementId);
@@ -77,7 +78,7 @@ export async function deleteStatementAction(statementId: string) {
 }
 
 export async function deleteBankAccountAction(accountId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const result = await softDeleteBankAccount(orgId, accountId);
@@ -91,8 +92,9 @@ export async function deleteBankAccountAction(accountId: string) {
 export async function markAsPettyCashAction(
   transactionIds: string[]
 ): Promise<{ success: true; count: number } | { error: string }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   if (transactionIds.length === 0) {
     return { error: "No transactions selected" };
@@ -117,6 +119,7 @@ export async function markAsPettyCashAction(
       entityId: row.id,
       action: "update",
       newValue: { isPettyCash: true },
+      actorId,
     });
   }
 
@@ -127,8 +130,9 @@ export async function markAsPettyCashAction(
 export async function unmarkPettyCashAction(
   transactionIds: string[]
 ): Promise<{ success: true; count: number } | { error: string }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   if (transactionIds.length === 0) {
     return { error: "No transactions selected" };
@@ -153,6 +157,7 @@ export async function unmarkPettyCashAction(
       entityId: row.id,
       action: "update",
       newValue: { isPettyCash: false },
+      actorId,
     });
   }
 
@@ -164,8 +169,9 @@ export async function bulkMarkPettyCashBelowThresholdAction(
   bankAccountId: string,
   thresholdAmount: string
 ): Promise<{ success: true; count: number } | { error: string }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
+  const actorId = await getCurrentUserId() ?? undefined;
 
   const result = await db
     .update(transactions)
@@ -189,6 +195,7 @@ export async function bulkMarkPettyCashBelowThresholdAction(
       entityId: row.id,
       action: "update",
       newValue: { isPettyCash: true, bulkThreshold: thresholdAmount },
+      actorId,
     });
   }
 

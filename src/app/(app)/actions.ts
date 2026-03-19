@@ -5,9 +5,15 @@ import { setActiveOrgId } from "@/lib/utils/org-context";
 import {
   createOrganization,
   updateOrganization,
+  isUserMemberOfOrg,
+  addOrgMembership,
 } from "@/lib/db/queries/organizations";
+import { getCurrentUser } from "@/lib/utils/auth";
 
 export async function createOrgAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
   const name = formData.get("name") as string;
   const nameTh = (formData.get("nameTh") as string) || null;
   const taxId = formData.get("taxId") as string;
@@ -46,12 +52,22 @@ export async function createOrgAction(formData: FormData) {
     fiscalYearEndDay,
   });
 
+  // Make the creating user an owner of the new org
+  await addOrgMembership(org.id, user.id, "owner");
+
   await setActiveOrgId(org.id);
   revalidatePath("/", "layout");
   return { success: true, orgId: org.id };
 }
 
 export async function updateOrgAction(orgId: string, formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Verify user has access to this org
+  const hasAccess = await isUserMemberOfOrg(user.id, orgId);
+  if (!hasAccess) return { error: "Access denied" };
+
   const name = formData.get("name") as string;
   const nameTh = (formData.get("nameTh") as string) || null;
   const taxId = formData.get("taxId") as string;
@@ -93,6 +109,13 @@ export async function updateOrgAction(orgId: string, formData: FormData) {
 }
 
 export async function switchOrgAction(orgId: string) {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  // Verify user has access to this org before switching
+  const hasAccess = await isUserMemberOfOrg(user.id, orgId);
+  if (!hasAccess) return;
+
   await setActiveOrgId(orgId);
   revalidatePath("/", "layout");
 }

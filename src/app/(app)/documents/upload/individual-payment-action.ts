@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { createDocument } from "@/lib/db/queries/documents";
 import { createLineItems } from "@/lib/db/queries/documents";
 import { updateDocumentFromExtraction } from "@/lib/db/queries/documents";
@@ -34,7 +34,7 @@ export interface IndividualPaymentResult {
 export async function createIndividualPaymentAction(
   formData: FormData
 ): Promise<IndividualPaymentResult> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) {
     return { success: false, error: "No organization selected" };
   }

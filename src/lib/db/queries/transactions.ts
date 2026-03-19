@@ -2,6 +2,7 @@ import { and, eq, isNull, gte, lte, like, or, desc, gt, lt, count, type SQL } fr
 import { db, type DbConnection } from "../index";
 import { transactions, bankStatements, reconciliationMatches } from "../schema";
 import { auditMutation } from "../helpers/audit-log";
+import { generateTransactionRef } from "../../parsers/csv-parser";
 
 const IMPORT_CHUNK_SIZE = 100;
 
@@ -166,7 +167,14 @@ export async function importTransactions(
     referenceNo: t.referenceNo,
     channel: t.channel,
     counterparty: t.counterparty,
-    externalRef: t.externalRef,
+    // Safety net: NULL external_ref bypasses the txn_dedup unique index
+    // (Postgres treats NULLs as distinct). Compute a deterministic hash fallback.
+    externalRef: t.externalRef || generateTransactionRef(
+      t.date,
+      t.description ?? "",
+      t.amount,
+      t.runningBalance,
+    ),
   }));
 
   // Chunk inserts to avoid query size limits on large statements

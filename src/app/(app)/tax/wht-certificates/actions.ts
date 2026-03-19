@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getOrganizationById } from "@/lib/db/queries/organizations";
 import { getVendorById } from "@/lib/db/queries/vendors";
 import {
@@ -19,7 +19,7 @@ import { orgScope } from "@/lib/db/helpers/org-scope";
 export async function generateCertificatePdfAction(
   certId: string
 ): Promise<{ url?: string; error?: string }> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   // Load certificate with items
@@ -94,7 +94,7 @@ export async function listCertificatesAction(filters?: {
   formType?: WhtFormType;
   status?: string;
 }) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return [];
 
   return getCertificatesByOrg(orgId, filters);

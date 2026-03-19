@@ -1,7 +1,14 @@
+import { redirect } from "next/navigation";
+import { currentUser } from "@clerk/nextjs/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { getActiveOrgId } from "@/lib/utils/org-context";
-import { getAllOrganizations, getOrganizationById } from "@/lib/db/queries/organizations";
+import {
+  getOrganizationById,
+  getOrganizationsByUserId,
+  isUserMemberOfOrg,
+} from "@/lib/db/queries/organizations";
+import { getCurrentUser } from "@/lib/utils/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { NoOrgGate } from "@/components/layout/no-org-gate";
 
@@ -10,14 +17,30 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [orgs, activeOrgId] = await Promise.all([
-    getAllOrganizations(),
-    getActiveOrgId(),
-  ]);
+  const clerkUser = await currentUser();
+  if (!clerkUser) {
+    redirect("/sign-in");
+  }
 
-  // Validate that the active org actually exists
-  const activeOrg = activeOrgId ? await getOrganizationById(activeOrgId) : null;
-  const validActiveOrgId = activeOrg ? activeOrgId : null;
+  const dbUser = await getCurrentUser();
+
+  // User exists in Clerk but not yet synced to DB (webhook may be delayed)
+  // Show the app shell with empty org list -- they can create an org
+  const orgs = dbUser ? await getOrganizationsByUserId(dbUser.id) : [];
+
+  const activeOrgId = await getActiveOrgId();
+
+  // Validate that the active org exists AND the user has access to it
+  let validActiveOrgId: string | null = null;
+  if (activeOrgId && dbUser) {
+    const [activeOrg, hasAccess] = await Promise.all([
+      getOrganizationById(activeOrgId),
+      isUserMemberOfOrg(dbUser.id, activeOrgId),
+    ]);
+    if (activeOrg && hasAccess) {
+      validActiveOrgId = activeOrgId;
+    }
+  }
 
   const orgList = orgs.map((o) => ({
     id: o.id,

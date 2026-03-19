@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   createBankAccount,
   updateBankAccount,
 } from "@/lib/db/queries/bank-accounts";
 
 export async function createBankAccountAction(formData: FormData) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const bankCode = formData.get("bankCode") as string;
@@ -45,7 +45,7 @@ export async function updateBankAccountAction(
   accountId: string,
   formData: FormData
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const bankCode = formData.get("bankCode") as string;

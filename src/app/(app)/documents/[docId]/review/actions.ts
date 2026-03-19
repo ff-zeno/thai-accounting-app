@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   confirmDocument,
   getDocumentWithDetails,
@@ -25,7 +25,7 @@ import { inngest } from "@/lib/inngest/client";
 import { revalidatePath } from "next/cache";
 
 export async function confirmDocumentAction(docId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
   // 0. Check period lock before confirming
@@ -125,7 +125,7 @@ export async function confirmDocumentAction(docId: string) {
 }
 
 export async function rejectDocumentAction(docId: string, reason: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
   await rejectDocument(orgId, docId, reason);
@@ -146,7 +146,7 @@ export async function updateDocumentAction(
     currency?: string | null;
   }
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
   await updateDocumentFromExtraction(orgId, docId, data);
@@ -165,7 +165,7 @@ export async function updateLineItemsAction(
     whtType?: string | null;
   }>
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
   await deleteLineItemsByDocument(orgId, docId);
@@ -191,7 +191,7 @@ export async function updateVendorAction(
     displayAlias?: string | null;
   }
 ) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
   await updateVendor(orgId, vendorId, data);
@@ -199,7 +199,7 @@ export async function updateVendorAction(
 }
 
 export async function retryExtractionAction(docId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
   await inngest.send({

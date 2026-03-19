@@ -35,6 +35,21 @@ export interface ParseResult {
   errors: string[];
 }
 
+/**
+ * Generate a deterministic dedup ref from transaction fields.
+ * Used as a fallback when no bank-specific reference number exists.
+ * The hash is a truncated SHA256 of date|description|amount|runningBalance.
+ */
+export function generateTransactionRef(
+  date: string,
+  description: string,
+  amount: string,
+  runningBalance?: string
+): string {
+  const data = `${date}|${description}|${amount}|${runningBalance ?? ""}`;
+  return createHash("sha256").update(data).digest("hex").slice(0, 16);
+}
+
 function generateExternalRef(row: {
   date: string;
   description?: string;
@@ -43,8 +58,7 @@ function generateExternalRef(row: {
   referenceNo?: string;
 }): string {
   if (row.referenceNo) return row.referenceNo;
-  const data = `${row.date}|${row.description ?? ""}|${row.amount}|${row.runningBalance ?? ""}`;
-  return createHash("sha256").update(data).digest("hex").slice(0, 16);
+  return generateTransactionRef(row.date, row.description ?? "", row.amount, row.runningBalance);
 }
 
 function normalizeAmount(value: string): string {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   computeVatForPeriod,
   upsertVatRecord,
@@ -20,7 +20,7 @@ import { generateVatRegister } from "@/lib/tax/vat-register";
 // ---------------------------------------------------------------------------
 
 export async function loadVatDataAction(year: number, month: number) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   if (month < 1 || month > 12) return { error: "Month must be between 1 and 12" };
@@ -73,7 +73,7 @@ export async function loadVatDataAction(year: number, month: number) {
 // ---------------------------------------------------------------------------
 
 export async function markPp30FiledAction(recordId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   await markPp30Filed(orgId, recordId);
@@ -86,7 +86,7 @@ export async function markPp30FiledAction(recordId: string) {
 // ---------------------------------------------------------------------------
 
 export async function markPp36FiledAction(recordId: string) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   await markPp36Filed(orgId, recordId);
@@ -99,7 +99,7 @@ export async function markPp36FiledAction(recordId: string) {
 // ---------------------------------------------------------------------------
 
 export async function loadVatRegisterAction(year: number, month: number) {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
   const register = await generateVatRegister(orgId, year, month);

@@ -2,23 +2,16 @@
 
 ## P1 — Data Integrity
 
-### Handle NULL external_ref in txn_dedup
-The `txn_dedup` partial unique index uses `external_ref` as a dedup key. In Postgres, NULLs are distinct in unique indexes — so transactions with NULL `external_ref` are never treated as duplicates. If a future parser (e.g., generic CSV without reference numbers) produces NULL refs, uploading the same file twice would double-import those transactions.
-
-**Fix:** Add a COALESCE or generated column that produces a deterministic hash (e.g., SHA256 of date|description|amount) when `external_ref` is NULL. Alternatively, make `external_ref` NOT NULL with the hash as default.
-
-**Investigate first:** Which parsers can produce NULL `external_ref`? Currently KBank CSV and PDF parsers always generate refs. The generic CSV parser (`csv-parser.ts:47`) generates a SHA256 hash fallback, so this may already be handled — but verify edge cases.
-
-**Depends on:** Nothing. **Blocked by:** Nothing.
+(No open items.)
 
 ## P2 — Auth & Multi-tenancy
 
-### Scope org access to user membership
-`getAllOrganizations()` in `src/lib/db/queries/organizations.ts` returns every non-deleted org in the system. The org switcher uses this, meaning any user can see and switch to any org. For multi-tenant SaaS, users should only see orgs they belong to.
+(No open items.)
 
-**Fix:** When auth layer is added, replace with `getOrgsByUser(userId)` that joins through user-org membership. The `users` table already has `orgId`, but a proper many-to-many membership table may be needed for users belonging to multiple orgs.
+## Completed (2026-03-19 session)
 
-**Depends on:** Auth phase implementation. **Blocked by:** No auth layer yet.
+- ~~**Handle NULL external_ref in txn_dedup**~~ — Resolved. Investigation confirmed no parser can produce NULL `external_ref` (TypeScript types enforce `externalRef: string`, and all three parsers always generate refs). Added defensive safety net in `importTransactions()` that computes a deterministic SHA256 hash fallback if `externalRef` is ever falsy. Extracted `generateTransactionRef()` as a shared utility in `csv-parser.ts`.
+- ~~**Scope org access to user membership**~~ — Done. Clerk auth added (`@clerk/nextjs`), `orgMemberships` junction table, `getOrganizationsByUserId()`, `getVerifiedOrgId()` on all mutations, `actorId` in audit logs, UserButton in sidebar. Migration: `drizzle/0006_strange_gargoyle.sql`.
 
 ## Completed (2026-03-18 session)
 

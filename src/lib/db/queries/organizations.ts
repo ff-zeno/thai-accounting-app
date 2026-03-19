@@ -1,12 +1,80 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, inArray } from "drizzle-orm";
 import { db } from "../index";
-import { organizations, users } from "../schema";
+import { organizations, users, orgMemberships } from "../schema";
 
 export async function getAllOrganizations() {
   return db
     .select()
     .from(organizations)
     .where(isNull(organizations.deletedAt));
+}
+
+/**
+ * Get only organizations the user is a member of.
+ * Replaces getAllOrganizations() for authenticated users.
+ */
+export async function getOrganizationsByUserId(userId: string) {
+  const membershipRows = await db
+    .select({ orgId: orgMemberships.orgId })
+    .from(orgMemberships)
+    .where(
+      and(
+        eq(orgMemberships.userId, userId),
+        isNull(orgMemberships.deletedAt),
+      )
+    );
+
+  const orgIds = membershipRows.map((r) => r.orgId);
+  if (orgIds.length === 0) return [];
+
+  return db
+    .select()
+    .from(organizations)
+    .where(
+      and(
+        inArray(organizations.id, orgIds),
+        isNull(organizations.deletedAt),
+      )
+    );
+}
+
+/**
+ * Check if a user has membership in a specific org.
+ */
+export async function isUserMemberOfOrg(
+  userId: string,
+  orgId: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: orgMemberships.id })
+    .from(orgMemberships)
+    .where(
+      and(
+        eq(orgMemberships.userId, userId),
+        eq(orgMemberships.orgId, orgId),
+        isNull(orgMemberships.deletedAt),
+      )
+    )
+    .limit(1);
+
+  return !!row;
+}
+
+/**
+ * Add a user as a member of an organization.
+ */
+export async function addOrgMembership(
+  orgId: string,
+  userId: string,
+  role: string = "member"
+) {
+  const [membership] = await db
+    .insert(orgMemberships)
+    .values({ orgId, userId, role })
+    .onConflictDoNothing()
+    .returning();
+
+  return membership ?? null;
 }
 
 export async function getOrganizationById(id: string) {

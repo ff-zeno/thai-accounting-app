@@ -1,6 +1,6 @@
 "use server";
 
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { createDocument } from "@/lib/db/queries/documents";
 import { createDocumentFile } from "@/lib/db/queries/document-files";
 import { createStorage } from "@/lib/storage";
@@ -19,7 +19,7 @@ export interface UploadResult {
 export async function uploadDocument(
   formData: FormData
 ): Promise<UploadResult> {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
   if (!orgId) {
     return { success: false, error: "No organization selected" };
   }

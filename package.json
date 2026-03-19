@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
+    "@clerk/nextjs": "^7.0.5",
     "@neondatabase/serverless": "^1.0.2",
     "@openrouter/ai-sdk-provider": "^2.3.1",
     "@react-pdf/renderer": "^4.3.2",
@@ -42,6 +43,7 @@
     "react-dropzone": "^15.0.0",
     "shadcn": "^4.0.8",
     "sonner": "^2.0.7",
+    "svix": "^1.88.0",
     "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.4.0",
     "zod": "^4.3.6"

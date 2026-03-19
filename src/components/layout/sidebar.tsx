@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import { OrgSwitcher } from "./org-switcher";
 import { SidebarNav } from "./sidebar-nav";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -39,6 +40,10 @@ export function Sidebar({ orgs, activeOrgId }: SidebarProps) {
         <Separator />
         <div className="p-3">
           <LocaleSwitcher />
+        </div>
+        <Separator />
+        <div className="flex items-center gap-3 p-4">
+          <UserButton showName />
         </div>
       </aside>
       <CreateOrgDialog

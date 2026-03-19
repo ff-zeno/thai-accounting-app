@@ -8,6 +8,41 @@
       "when": 1773538938818,
       "tag": "0000_lumpy_dormammu",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773658695431,
+      "tag": "0001_jazzy_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773668961877,
+      "tag": "0002_motionless_kinsey_walden",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773683035301,
+      "tag": "0003_classy_jackpot",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773684746071,
+      "tag": "0004_thankful_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773737447206,
+      "tag": "0005_thankful_vargas",
+      "breakpoints": true
     }
   ]
 }

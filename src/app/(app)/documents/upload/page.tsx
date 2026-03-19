@@ -1,5 +1,20 @@
-import { PageShell } from "@/components/page-shell";
+import { getTranslations } from "next-intl/server";
+import { UploadTabs } from "./upload-tabs";
 
-export default function DocumentUploadPage() {
-  return <PageShell title="Document Upload" phase="Coming in Phase 3" />;
+export default async function DocumentUploadPage() {
+  const t = await getTranslations("documents");
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("uploadTitle")}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("uploadDescription")}
+        </p>
+      </div>
+      <UploadTabs />
+    </div>
+  );
 }

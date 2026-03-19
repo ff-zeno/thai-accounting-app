@@ -164,6 +164,7 @@ export const vendors = pgTable(
       .references(() => organizations.id),
     name: text("name").notNull(),
     nameTh: text("name_th"),
+    displayAlias: text("display_alias"),
     taxId: varchar("tax_id", { length: 13 }),
     registrationNo: text("registration_no"),
     branchNumber: varchar("branch_number", { length: 5 }),
@@ -224,12 +225,7 @@ export const bankStatements = pgTable(
     deletedAt,
   },
   (t) => [
-    unique("statements_org_account_period").on(
-      t.orgId,
-      t.bankAccountId,
-      t.periodStart,
-      t.periodEnd
-    ),
+    index("stmt_org_account").on(t.orgId, t.bankAccountId),
   ]
 );
 
@@ -265,13 +261,8 @@ export const transactions = pgTable(
     index("txn_org_date").on(t.orgId, t.date),
     index("txn_org_recon_status").on(t.orgId, t.reconciliationStatus),
     index("txn_org_amount_date").on(t.orgId, t.amount, t.date),
-    unique("txn_dedup").on(
-      t.orgId,
-      t.bankAccountId,
-      t.externalRef,
-      t.date,
-      t.amount
-    ),
+    // txn_dedup partial unique index is managed via migration (WHERE deleted_at IS NULL).
+    // Drizzle can't represent partial indexes, so it lives in SQL only.
   ]
 );
 
@@ -299,9 +290,11 @@ export const documents = pgTable(
     exchangeRate: numeric("exchange_rate", { precision: 12, scale: 6 }),
     totalAmountThb: numeric("total_amount_thb", { precision: 14, scale: 2 }),
     direction: documentDirectionEnum("direction").notNull(),
+    category: text("category"),
     status: documentStatusEnum("status").notNull().default("draft"),
     vatPeriodYear: integer("vat_period_year"),
     vatPeriodMonth: integer("vat_period_month"),
+    detectedLanguage: varchar("detected_language", { length: 5 }),
     aiConfidence: numeric("ai_confidence", { precision: 3, scale: 2 }),
     needsReview: boolean("needs_review").default(true),
     reviewNotes: text("review_notes"),
@@ -339,27 +332,37 @@ export const documentLineItems = pgTable("document_line_items", {
   deletedAt,
 });
 
-export const documentFiles = pgTable("document_files", {
-  id,
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id),
-  documentId: uuid("document_id")
-    .notNull()
-    .references(() => documents.id),
-  fileUrl: text("file_url").notNull(),
-  fileType: text("file_type"),
-  pageNumber: integer("page_number"),
-  originalFilename: text("original_filename"),
-  pipelineStatus: pipelineStatusEnum("pipeline_status").notNull().default("uploaded"),
-  aiRawResponse: jsonb("ai_raw_response"),
-  aiModelUsed: text("ai_model_used"),
-  aiCostTokens: integer("ai_cost_tokens"),
-  aiCostUsd: numeric("ai_cost_usd", { precision: 8, scale: 6 }),
-  createdAt,
-  updatedAt,
-  deletedAt,
-});
+export const documentFiles = pgTable(
+  "document_files",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    fileUrl: text("file_url").notNull(),
+    fileType: text("file_type"),
+    pageNumber: integer("page_number"),
+    originalFilename: text("original_filename"),
+    pipelineStatus: pipelineStatusEnum("pipeline_status").notNull().default("uploaded"),
+    aiRawResponse: jsonb("ai_raw_response"),
+    aiModelUsed: text("ai_model_used"),
+    aiCostTokens: integer("ai_cost_tokens"),
+    aiCostUsd: numeric("ai_cost_usd", { precision: 8, scale: 6 }),
+    aiPurpose: text("ai_purpose"),
+    aiInputTokens: integer("ai_input_tokens"),
+    aiOutputTokens: integer("ai_output_tokens"),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  },
+  (t) => [
+    index("doc_files_org_created").on(t.orgId, t.createdAt),
+    index("doc_files_document").on(t.documentId),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // Payment & Reconciliation Tables
@@ -414,7 +417,10 @@ export const reconciliationMatches = pgTable(
     updatedAt,
     deletedAt,
   },
-  (t) => [unique("recon_txn_doc").on(t.transactionId, t.documentId)]
+  (t) => [
+    unique("recon_txn_doc").on(t.transactionId, t.documentId),
+    index("recon_matches_document").on(t.documentId),
+  ]
 );
 
 // ---------------------------------------------------------------------------
@@ -600,6 +606,31 @@ export const auditLog = pgTable("audit_log", {
   // NO updatedAt — audit log rows are immutable
   // NO deletedAt — audit log rows must never be deleted
 });
+
+// ---------------------------------------------------------------------------
+// AI Settings
+// ---------------------------------------------------------------------------
+
+export const orgAiSettings = pgTable(
+  "org_ai_settings",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    extractionModel: text("extraction_model"),
+    classificationModel: text("classification_model"),
+    translationModel: text("translation_model"),
+    monthlyBudgetUsd: numeric("monthly_budget_usd", { precision: 8, scale: 2 }),
+    budgetAlertThreshold: numeric("budget_alert_threshold", {
+      precision: 3,
+      scale: 2,
+    }).default("0.80"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [unique("org_ai_settings_org_id").on(t.orgId)]
+);
 
 // ---------------------------------------------------------------------------
 // Relations
@@ -841,5 +872,12 @@ export const auditLogRelations = relations(auditLog, ({ one }) => ({
   actor: one(users, {
     fields: [auditLog.actorId],
     references: [users.id],
+  }),
+}));
+
+export const orgAiSettingsRelations = relations(orgAiSettings, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [orgAiSettings.orgId],
+    references: [organizations.id],
   }),
 }));

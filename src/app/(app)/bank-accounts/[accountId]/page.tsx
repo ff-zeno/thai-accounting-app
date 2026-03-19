@@ -3,11 +3,10 @@ import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getBankAccountById } from "@/lib/db/queries/bank-accounts";
 import {
   getTransactions,
-  getStatementsByAccount,
+  countTransactions,
+  getStatementsWithTxnCount,
 } from "@/lib/db/queries/transactions";
-import { TransactionTable } from "./transaction-table";
-import { StatementUpload } from "./statement-upload";
-import { Badge } from "@/components/ui/badge";
+import { BankAccountDetail } from "./bank-account-detail";
 
 const BANK_NAMES: Record<string, string> = {
   KBANK: "Kasikorn Bank",
@@ -18,6 +17,8 @@ const BANK_NAMES: Record<string, string> = {
   BAY: "Bank of Ayudhya",
   GSB: "Government Savings Bank",
 };
+
+const PAGE_SIZE = 50;
 
 export default async function BankAccountDetailPage({
   params,
@@ -31,40 +32,25 @@ export default async function BankAccountDetailPage({
   const account = await getBankAccountById(orgId, accountId);
   if (!account) notFound();
 
-  const [{ data: txns, hasMore }, statements] = await Promise.all([
-    getTransactions({ orgId, bankAccountId: accountId }),
-    getStatementsByAccount(orgId, accountId),
+  const filters = { orgId, bankAccountId: accountId };
+
+  const [{ data: txns, hasMore, nextCursor }, txnCount, statements] = await Promise.all([
+    getTransactions(filters, { limit: PAGE_SIZE }),
+    countTransactions(filters),
+    getStatementsWithTxnCount(orgId, accountId),
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">
-          {BANK_NAMES[account.bankCode] ?? account.bankCode}
-        </h1>
-        <p className="text-muted-foreground">
-          {account.accountNumber}
-          {account.accountName && ` — ${account.accountName}`}
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary">
-          {statements.length} statement{statements.length !== 1 ? "s" : ""}
-        </Badge>
-        <Badge variant="secondary">
-          {txns.length}
-          {hasMore ? "+" : ""} transactions
-        </Badge>
-      </div>
-
-      <StatementUpload bankAccountId={accountId} />
-
-      <TransactionTable
-        transactions={txns}
-        hasMore={hasMore}
-        bankAccountId={accountId}
-      />
-    </div>
+    <BankAccountDetail
+      bankAccountId={accountId}
+      bankName={BANK_NAMES[account.bankCode] ?? account.bankCode}
+      accountNumber={account.accountNumber}
+      accountName={account.accountName}
+      transactions={txns}
+      totalCount={txnCount}
+      hasMore={hasMore}
+      nextCursor={nextCursor}
+      statements={statements}
+    />
   );
 }

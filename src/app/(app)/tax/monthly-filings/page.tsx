@@ -1,5 +1,17 @@
-import { PageShell } from "@/components/page-shell";
+import { FilingView } from "./filing-view";
 
 export default function MonthlyFilingsPage() {
-  return <PageShell title="Monthly Filings" phase="Coming in Phase 5" />;
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Monthly WHT Filings
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Prepare and track PND 3, PND 53, and PND 54 monthly filings.
+        </p>
+      </div>
+      <FilingView />
+    </div>
+  );
 }

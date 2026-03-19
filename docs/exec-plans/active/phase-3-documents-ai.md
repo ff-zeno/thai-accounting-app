@@ -1,8 +1,8 @@
 # Phase 3: Documents, AI Extraction & Mobile Capture
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-18)
 **Dependencies:** Phase 1a (Inngest client, blob storage abstraction, WHT rate lookup, Drizzle schema), Phase 1b (app shell, shadcn/ui), Phase 2 (vendor CRUD + dedup)
-**Blocked by:** V2 (DBD Open API access), V5 (OpenRouter vision model testing) -- both validated in Phase 0
+**Blocked by:** ~~V2 (DBD Open API — VALIDATED 2026-03-18, no auth required)~~, V5 (OpenRouter vision model testing)
 
 ## Goal
 
@@ -148,6 +148,53 @@ One Inngest function per document. Receives document ID + all file IDs. 7 steps,
 - Cost visible in document detail view
 - Aggregatable for org-level AI spend monitoring
 
+### Individual Payment Flow (ID Scan Document Type)
+
+Common Thai SMB workflow: paying natural persons (freelancers, part-timers, influencers) for one-off services where there's no invoice — just an ID card copy and a bank transfer.
+
+**Tax rules (researched 2026-03-18):**
+- WHT: 3% flat for services (Section 40(8)). Threshold: 1,000 THB cumulative per contract.
+- PND form: PND 3 (monthly, filed by 7th paper / 15th e-filing of following month)
+- 50 Tawi certificate: mandatory for every payment where WHT is withheld
+- Documentation: company prepares ใบสำคัญรับเงิน (payment voucher), individual signs + provides ID card copy
+- Foreign individuals (non-resident): 15% WHT, PND 54 instead of PND 3
+
+**Classification trap:** If individual works like an employee (company directs work, sets schedule), it's Section 40(2) → PND 1 with progressive rates. Influencer reviews, photography, consulting, one-off repair = 40(8) / PND 3 / 3%. Recurring part-time work = borderline 40(2).
+
+**Common service types and rates:**
+
+| Service | Section 40 | WHT Rate |
+|---------|-----------|----------|
+| Influencer, photography, design, copywriting, consulting, repair (labor) | 40(8) | 3% |
+| Legal, medical, engineering, accounting | 40(6) | 3% |
+| Contract work with materials | 40(7) | 3% |
+| Advertising services | 40(8) | 2% |
+| Entertainment / performance | 40(8) | 5% |
+| Private transport | 40(8) | 1% |
+
+**AI pipeline — ID scan recognition:**
+- Detect document type: Thai national ID card (บัตรประชาชน)
+- Extract from ID card: full name (Thai + English), 13-digit citizen ID, date of birth, address
+- Handle: lines across the card (common for copies), signatures overlaid, poor scan quality
+- Also recognize: bank book front page (สำเนาหน้าสมุดบัญชี) — extract account number and account holder name
+
+**Quick-entry flow (new UX):**
+1. Upload ID scan (+ optional bank book scan)
+2. AI extracts: name, citizen ID, bank account
+3. User sets: payment amount, service category (dropdown with Section 40 types), payment date, note/description
+4. System auto-calculates: WHT amount (3% default based on category), net payment
+5. Auto-creates vendor with `entity_type = 'individual'`, citizen ID as `tax_id`
+6. Document stored with `direction = 'expense'`, `type = 'receipt'` (or new type 'payment_voucher')
+7. Generates ใบสำคัญรับเงิน (payment voucher PDF) for the individual to sign
+8. Flows into existing pipeline: WHT classification → Phase 4 confirm → 50 Tawi → PND 3
+
+**Supporting documents (record-keeping for RD audit — 5 year retention):**
+- Copies of all 50 Tawi certificates issued
+- Signed ใบสำคัญรับเงิน
+- ID card copy
+- Bank transfer slip
+- PND 3 filings with attachment sheets
+
 ## Tests
 
 ### Extraction Accuracy Tests (Vitest, fixture-based)
@@ -186,6 +233,22 @@ One Inngest function per document. Receives document ID + all file IDs. 7 steps,
 - Assert primary model meets >90% on clean, >75% on photos
 - Results file generated in `benchmarks/results/`
 
+### ID Scan Extraction Tests (Vitest, fixture-based)
+
+- Parse Thai national ID card image, extract name (Thai + English), citizen ID (13-digit), DOB
+- Handle ID card with lines/signature overlay (common for copies)
+- Handle poor quality scan / camera photo of ID card
+- Detect bank book front page, extract account number and holder name
+- Reject non-ID images classified as ID type
+
+### Individual Payment Flow Tests (integration)
+
+- Upload ID scan, set amount 5000 THB, category "general services": WHT calculated as 150 THB (3%)
+- Auto-create vendor with entity_type='individual', citizen ID as tax_id
+- Vendor dedup: same citizen ID doesn't create duplicate vendor
+- WHT rate lookup: advertising service returns 2%, entertainment returns 5%
+- Payment below 1000 THB threshold: no WHT withheld
+
 ### E2E Tests (Playwright)
 
 - Upload multi-image expense document, see "Processing..." badge
@@ -208,3 +271,5 @@ Phase 3 is complete when:
 8. WHT classification appears as suggestion (needs_review = true), using rate lookup from Phase 1a
 9. Vendor auto-lookup creates/links vendors correctly with DBD data
 10. All extraction, pipeline, and vendor integration tests pass
+11. ID scan document type is recognized, name + citizen ID extracted from Thai national ID card
+12. Individual payment quick-entry flow: upload ID → set amount/category → auto-calculate WHT → auto-create individual vendor

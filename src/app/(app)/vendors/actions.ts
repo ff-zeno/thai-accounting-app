@@ -7,6 +7,7 @@ import {
   updateVendor,
   softDeleteVendor,
 } from "@/lib/db/queries/vendors";
+import { auditMutation } from "@/lib/db/helpers/audit-log";
 
 export async function createVendorAction(formData: FormData) {
   const orgId = await getActiveOrgId();
@@ -28,7 +29,9 @@ export async function createVendorAction(formData: FormData) {
 
   if (!name) return { error: "Name is required" };
 
-  if (taxId && !/^\d{13}$/.test(taxId)) {
+  // Validate tax ID — strip non-digits first
+  const cleanTaxId = taxId ? taxId.replace(/\D/g, "") : null;
+  if (cleanTaxId && !/^\d{13}$/.test(cleanTaxId)) {
     return { error: "Tax ID must be exactly 13 digits" };
   }
 
@@ -37,7 +40,7 @@ export async function createVendorAction(formData: FormData) {
       orgId,
       name,
       nameTh,
-      taxId,
+      taxId: cleanTaxId,
       branchNumber,
       address,
       addressTh,
@@ -46,6 +49,14 @@ export async function createVendorAction(formData: FormData) {
       isVatRegistered,
       entityType: entityType as "individual" | "company" | "foreign",
       country,
+    });
+
+    await auditMutation({
+      orgId,
+      entityType: "vendor",
+      entityId: vendor.id,
+      action: "create",
+      newValue: { name, nameTh, taxId: cleanTaxId, entityType, country },
     });
 
     revalidatePath("/vendors");
@@ -103,6 +114,14 @@ export async function updateVendorAction(
     country,
   });
 
+  await auditMutation({
+    orgId,
+    entityType: "vendor",
+    entityId: vendorId,
+    action: "update",
+    newValue: { name, nameTh, taxId, entityType, country },
+  });
+
   revalidatePath("/vendors");
   return { success: true };
 }
@@ -112,6 +131,14 @@ export async function deleteVendorAction(vendorId: string) {
   if (!orgId) return { error: "No organization selected" };
 
   await softDeleteVendor(orgId, vendorId);
+
+  await auditMutation({
+    orgId,
+    entityType: "vendor",
+    entityId: vendorId,
+    action: "delete",
+  });
+
   revalidatePath("/vendors");
   return { success: true };
 }

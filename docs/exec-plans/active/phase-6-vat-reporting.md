@@ -1,6 +1,6 @@
 # Phase 6: VAT & Reporting
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-18)
 **Dependencies:** Phase 5 (WHT certificates, filing calendar, period locking), Phase 3 (documents with VAT amounts, vendor entity_type/country)
 **Blocked by:** V7 (FlowAccount import format researched from Phase 0 validation), V8 (Peak Accounts import format researched from Phase 0 validation)
 

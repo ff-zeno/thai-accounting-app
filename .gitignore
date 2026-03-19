@@ -45,7 +45,12 @@ next-env.d.ts
 # Local Claude settings
 .claude/settings.local.json
 
+# script output (generated PDFs, etc.)
+scripts/output/
+
 # gstack build artifacts
 .claude/skills/gstack/browse/dist/
 .claude/skills/gstack/node_modules/
 .gstack/
+_samples/
+sample LUMERA statement.pdf

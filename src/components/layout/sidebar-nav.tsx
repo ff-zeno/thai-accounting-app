@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -18,104 +19,118 @@ import {
 } from "lucide-react";
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 interface NavGroup {
-  label: string;
+  labelKey: string;
   items: NavItem[];
 }
 
 const navGroups: NavGroup[] = [
   {
-    label: "Overview",
+    labelKey: "overview",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    label: "Banking",
+    labelKey: "banking",
     items: [
-      { label: "Bank Accounts", href: "/bank-accounts", icon: Landmark },
+      { labelKey: "bankAccounts", href: "/bank-accounts", icon: Landmark },
+      { labelKey: "uploadStatement", href: "/bank-accounts/upload", icon: Upload },
     ],
   },
   {
-    label: "Documents",
+    labelKey: "documents",
     items: [
-      { label: "Expenses", href: "/documents/expenses", icon: FileText },
-      { label: "Income", href: "/documents/income", icon: FileText },
-      { label: "Upload", href: "/documents/upload", icon: Upload },
-      { label: "Capture", href: "/capture", icon: Camera },
+      { labelKey: "expenses", href: "/documents/expenses", icon: FileText },
+      { labelKey: "income", href: "/documents/income", icon: FileText },
+      { labelKey: "upload", href: "/documents/upload", icon: Upload },
     ],
   },
   {
-    label: "Processing",
+    labelKey: "processing",
     items: [
       {
-        label: "Reconciliation",
+        labelKey: "reconciliation",
         href: "/reconciliation",
         icon: GitCompareArrows,
       },
     ],
   },
   {
-    label: "Tax & Filing",
+    labelKey: "taxFiling",
     items: [
       {
-        label: "WHT Certificates",
+        labelKey: "whtCertificates",
         href: "/tax/wht-certificates",
         icon: Receipt,
       },
       {
-        label: "Monthly Filings",
+        labelKey: "monthlyFilings",
         href: "/tax/monthly-filings",
         icon: FileText,
       },
-      { label: "VAT", href: "/tax/vat", icon: Receipt },
-      { label: "Calendar", href: "/tax/calendar", icon: Calendar },
+      { labelKey: "vat", href: "/tax/vat", icon: Receipt },
+      { labelKey: "calendar", href: "/tax/calendar", icon: Calendar },
     ],
   },
   {
-    label: "Management",
+    labelKey: "management",
     items: [
-      { label: "Vendors", href: "/vendors", icon: Users },
-      { label: "Reports", href: "/reports", icon: BarChart3 },
-      { label: "Settings", href: "/settings", icon: Settings },
+      { labelKey: "vendors", href: "/vendors", icon: Users },
+      { labelKey: "reports", href: "/reports", icon: BarChart3 },
+      { labelKey: "settings", href: "/settings", icon: Settings },
     ],
   },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
 
   return (
     <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
       {navGroups.map((group) => (
-        <div key={group.label}>
+        <div key={group.labelKey}>
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {group.label}
+            {t(group.labelKey)}
           </p>
           <ul className="space-y-1">
             {group.items.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== "/dashboard" &&
-                  pathname.startsWith(item.href + "/"));
+              // Exact match always wins. For prefix match, only activate
+              // if no sibling nav item is a more specific prefix match.
+              const isExact = pathname === item.href;
+              const isPrefix =
+                !isExact &&
+                item.href !== "/dashboard" &&
+                pathname.startsWith(item.href + "/");
+              const hasSiblingMatch =
+                isPrefix &&
+                group.items.some(
+                  (sibling) =>
+                    sibling.href !== item.href &&
+                    sibling.href.startsWith(item.href + "/") &&
+                    (pathname === sibling.href ||
+                      pathname.startsWith(sibling.href + "/"))
+                );
+              const isActive = isExact || (isPrefix && !hasSiblingMatch);
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                       isActive
-                        ? "bg-accent text-accent-foreground"
+                        ? "bg-accent text-accent-foreground font-semibold"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
                     <item.icon className="size-4" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 </li>
               );

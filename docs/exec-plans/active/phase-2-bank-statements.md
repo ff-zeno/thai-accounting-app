@@ -1,6 +1,6 @@
 # Phase 2: Bank Statements + Vendor CRUD
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-18)
 **Dependencies:** Phase 1a (database schema, Drizzle ORM, Inngest client), Phase 1b (app shell, sidebar, shadcn/ui)
 **Blocked by:** V1 (KBank CSV/PDF format validation from Phase 0)
 

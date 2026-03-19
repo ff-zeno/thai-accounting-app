@@ -17,15 +17,30 @@ interface KBankStatementMeta {
   period: string | null;
 }
 
-function parseKBankAmount(raw: string | undefined): number {
-  if (!raw) return 0;
+export function parseKBankAmount(raw: string | undefined): string {
+  if (!raw) return "0.00";
   const cleaned = raw.replace(/[",\s]/g, "");
-  if (cleaned === "" || cleaned === "-") return 0;
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : Math.abs(num);
+  if (cleaned === "" || cleaned === "-") return "0.00";
+
+  // Strip leading minus — amounts are always absolute (sign determined by column)
+  const absolute = cleaned.startsWith("-") ? cleaned.slice(1) : cleaned;
+
+  // Extract the leading decimal number (CSV double-quoting can leave trailing garbage)
+  const match = absolute.match(/^(\d+(?:\.\d+)?)/);
+  if (!match) return "0.00";
+  const number = match[1];
+
+  // Ensure exactly 2 decimal places
+  const dotIdx = number.indexOf(".");
+  if (dotIdx === -1) return number + ".00";
+  const decimals = number.length - dotIdx - 1;
+  if (decimals === 2) return number;
+  if (decimals < 2) return number + "0".repeat(2 - decimals);
+  // More than 2 decimals: truncate to 2
+  return number.slice(0, dotIdx + 3);
 }
 
-function parseKBankStatementDate(raw: string): string {
+export function parseKBankStatementDate(raw: string): string {
   // DD-MM-YY → YYYY-MM-DD
   const match = raw.trim().match(/^(\d{2})-(\d{2})-(\d{2})$/);
   if (match) {
@@ -60,7 +75,7 @@ function extractStatementMeta(lines: string[]): KBankStatementMeta {
     if (periodMatch) period = periodMatch[1];
 
     // Account name is typically after account number line
-    if (!accountName && line.includes("CO.,LTD") || line.includes("Co.,Ltd")) {
+    if (!accountName && (line.includes("CO.,LTD") || line.includes("Co.,Ltd"))) {
       accountName = line.replace(/"/g, "").trim();
     }
   }
@@ -68,7 +83,7 @@ function extractStatementMeta(lines: string[]): KBankStatementMeta {
   return { accountNumber, accountName, period };
 }
 
-function generateRef(
+export function generateRef(
   date: string,
   time: string,
   description: string,
@@ -133,21 +148,21 @@ export function parseKBankStatement(csvText: string): ParseResult {
     const channel = row[10]?.trim() ?? "";
     const details = row[12]?.trim() ?? "";
 
-    const isDebit = withdrawal > 0;
+    const isDebit = withdrawal !== "0.00";
     const amount = isDebit ? withdrawal : deposit;
 
-    if (amount === 0) continue;
+    if (amount === "0.00") continue;
 
     const txn: ParsedTransaction = {
       date,
       description: details ? `${description} — ${details}` : description,
-      amount: amount.toFixed(2),
+      amount,
       type: isDebit ? "debit" : "credit",
-      runningBalance: balance > 0 ? balance.toFixed(2) : undefined,
+      runningBalance: balance !== "0.00" ? balance : undefined,
       referenceNo: undefined,
       channel: channel || undefined,
       counterparty: details || undefined,
-      externalRef: generateRef(date, time, description, amount.toFixed(2)),
+      externalRef: generateRef(date, time, description, amount),
     };
 
     transactions.push(txn);
@@ -164,11 +179,11 @@ export function parseKBankStatement(csvText: string): ParseResult {
   for (const row of rows) {
     if (row.some((c) => c.includes("Beginning Balance"))) {
       const bal = parseKBankAmount(row[8]);
-      if (bal > 0) openingBalance = bal.toFixed(2);
+      if (bal !== "0.00") openingBalance = bal;
     }
     if (row.some((c) => c.includes("Ending Balance"))) {
       const bal = parseKBankAmount(row[8]);
-      if (bal > 0) closingBalance = bal.toFixed(2);
+      if (bal !== "0.00") closingBalance = bal;
     }
   }
 
@@ -194,7 +209,7 @@ export function parseKBankStatement(csvText: string): ParseResult {
 //   4: Account/PromptPay or Biller
 //   5: Channel
 
-const THAI_DESCRIPTION_MAP: Record<string, string> = {
+export const THAI_DESCRIPTION_MAP: Record<string, string> = {
   รับโอนเงิน: "Transfer Deposit",
   โอนเงิน: "Transfer Withdrawal",
   ชำระเงิน: "Transfer Withdrawal",
@@ -207,18 +222,18 @@ const THAI_DESCRIPTION_MAP: Record<string, string> = {
   "รับเงินจากการขายด้วย Alipay/WeChat": "Payment Received: Alipay/WeChat",
 };
 
-const THAI_CHANNEL_MAP: Record<string, string> = {
+export const THAI_CHANNEL_MAP: Record<string, string> = {
   "Internet/Mobile ต่างธนาคาร": "Internet/Mobile Across Banks",
   ธุรกรรมต่างประเทศ: "International Transaction",
   "โอนเข้า/หักบัญชีอัตโนมัติ": "Automatic Transfer",
 };
 
-function translateDescription(thai: string): string {
+export function translateDescription(thai: string): string {
   const trimmed = thai.trim();
   return THAI_DESCRIPTION_MAP[trimmed] ?? trimmed;
 }
 
-function translateChannel(thai: string): string {
+export function translateChannel(thai: string): string {
   const trimmed = thai.trim();
   return THAI_CHANNEL_MAP[trimmed] ?? trimmed;
 }
@@ -284,19 +299,19 @@ export function parseKBankIntraday(csvText: string): ParseResult {
     const counterpartyRaw = row[4]?.trim() ?? "";
     const channelRaw = row[5]?.trim() ?? "";
 
-    const isDebit = withdrawal > 0;
+    const isDebit = withdrawal !== "0.00";
     const amount = isDebit ? withdrawal : deposit;
 
-    if (amount === 0) continue;
+    if (amount === "0.00") continue;
 
     const txn: ParsedTransaction = {
       date,
       description,
-      amount: amount.toFixed(2),
+      amount,
       type: isDebit ? "debit" : "credit",
       channel: translateChannel(channelRaw) || undefined,
       counterparty: counterpartyRaw || undefined,
-      externalRef: generateRef(date, time, description, amount.toFixed(2)),
+      externalRef: generateRef(date, time, description, amount),
     };
 
     transactions.push(txn);

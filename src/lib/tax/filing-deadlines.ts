@@ -1,4 +1,4 @@
-interface TaxConfigValues {
+export interface TaxConfigValues {
   whtPaperDeadlineDay: number;
   whtEfilingDeadlineDay: number;
   pp30EfilingDeadlineDay: number;

@@ -34,7 +34,7 @@ export function OrgSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+        className="flex w-full cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
         disabled={isPending}
       >
         <Building2 className="size-4 shrink-0" />
@@ -47,7 +47,7 @@ export function OrgSwitcher({
         {orgs.map((org) => (
           <DropdownMenuItem
             key={org.id}
-            onSelect={() => {
+            onClick={() => {
               if (org.id !== activeOrgId) {
                 startTransition(() => switchOrgAction(org.id));
               }
@@ -69,7 +69,7 @@ export function OrgSwitcher({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onCreateNew} className="gap-2">
+        <DropdownMenuItem onClick={onCreateNew} className="gap-2">
           <Plus className="size-4" />
           Create new organization
         </DropdownMenuItem>

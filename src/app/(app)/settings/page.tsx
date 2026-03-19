@@ -8,8 +8,7 @@ export default async function SettingsPage() {
   if (!orgId) {
     return (
       <div className="py-20 text-center">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-2 text-muted-foreground">
+        <p className="text-muted-foreground">
           Create or select an organization to view settings.
         </p>
       </div>
@@ -21,16 +20,10 @@ export default async function SettingsPage() {
   if (!org) {
     return (
       <div className="py-20 text-center">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-2 text-muted-foreground">Organization not found.</p>
+        <p className="text-muted-foreground">Organization not found.</p>
       </div>
     );
   }
 
-  return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Organization Settings</h1>
-      <OrgSettingsForm org={org} />
-    </div>
-  );
+  return <OrgSettingsForm org={org} />;
 }

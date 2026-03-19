@@ -1,6 +1,6 @@
 # Phase 4: Reconciliation Engine
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-18)
 **Dependencies:** Phase 2 (bank transactions, vendor registry), Phase 3 (confirmed documents, AI pipeline, review UI)
 
 ## Goal

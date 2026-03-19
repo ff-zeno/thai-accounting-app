@@ -1,7 +1,8 @@
 # Thai Accounting Platform — Plan Overview
 
-**Status:** Active — Rev 3 (post round-2 review)
+**Status:** Active — Rev 4 (post CEO review 2026-03-18)
 **Created:** 2026-03-14
+**Last updated:** 2026-03-18
 
 ## Quick Navigation
 
@@ -9,14 +10,15 @@
 |-------|-----|--------|
 | Scope & Architecture | [000-overview.md](000-overview.md) (this file) | Final |
 | Schema Reference | [001-schema.md](001-schema.md) | Final |
-| Validation Sprint | [phase-0-validation.md](phase-0-validation.md) | Not started |
-| Phase 1a: Infrastructure | [phase-1a-infrastructure.md](phase-1a-infrastructure.md) | Not started |
-| Phase 1b: App Shell | [phase-1b-app-shell.md](phase-1b-app-shell.md) | Not started |
-| Phase 2: Bank Statements | [phase-2-bank-statements.md](phase-2-bank-statements.md) | Not started |
-| Phase 3: Documents & AI | [phase-3-documents-ai.md](phase-3-documents-ai.md) | Not started |
-| Phase 4: Reconciliation | [phase-4-reconciliation.md](phase-4-reconciliation.md) | Not started |
-| Phase 5: WHT & Tax | [phase-5-wht-tax.md](phase-5-wht-tax.md) | Not started |
-| Phase 6: VAT & Reporting | [phase-6-vat-reporting.md](phase-6-vat-reporting.md) | Not started |
+| Roadmap & Next Steps | [roadmap.md](roadmap.md) | Active |
+| Validation Sprint | [phase-0-validation.md](phase-0-validation.md) | **Complete** (V2, V4, V5 all pass) |
+| Phase 1a: Infrastructure | [phase-1a-infrastructure.md](phase-1a-infrastructure.md) | **Complete** |
+| Phase 1b: App Shell | [phase-1b-app-shell.md](phase-1b-app-shell.md) | **Complete** |
+| Phase 2: Bank Statements | [phase-2-bank-statements.md](phase-2-bank-statements.md) | **Complete** |
+| Phase 3: Documents & AI | [phase-3-documents-ai.md](phase-3-documents-ai.md) | **Complete** |
+| Phase 4: Reconciliation | [phase-4-reconciliation.md](phase-4-reconciliation.md) | **Complete** |
+| Phase 5: WHT & Tax | [phase-5-wht-tax.md](phase-5-wht-tax.md) | **Complete** |
+| Phase 6: VAT & Reporting | [phase-6-vat-reporting.md](phase-6-vat-reporting.md) | **Complete** |
 
 ## Scope Definition
 
@@ -132,3 +134,4 @@ This is a **tax compliance and filing preparation tool**, not a full double-entr
 |-------|------------|---------|-------------|
 | 1 | [review-engineering](../../reviews/review-engineering-2026-03-14.md) | [review-product](../../reviews/review-product-business-2026-03-14.md) | [consolidated](../../reviews/consolidated-findings-2026-03-14.md) |
 | 2 | [round2-engineering](../../reviews/review-round2-engineering-2026-03-14.md) | [round2-product](../../reviews/review-round2-product-2026-03-14.md) | (this revision) |
+| 3 (CEO) | — | — | HOLD SCOPE review 2026-03-18: 7 CRITICAL gaps found, 7 TODOs added, Phase 0 validation sprint required before Phase 3. See [TODOS.md](../../../TODOS.md) and [roadmap.md](roadmap.md). |

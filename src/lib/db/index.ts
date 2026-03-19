@@ -14,3 +14,6 @@ function createDb() {
 
 export const db = createDb();
 export type Database = ReturnType<typeof createDb>;
+
+/** Type that works for both the main db instance and a transaction handle */
+export type DbConnection = Pick<Database, "select" | "insert" | "update" | "delete">;

@@ -1,6 +1,6 @@
 # Phase 5: WHT & Tax Calculations + Certificates
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-18)
 **Dependencies:** Phase 4 (reconciliation, payments table populated), Phase 3 (documents, vendor registry, AI extraction pipeline)
 **Blocked by:** V6 (RD e-Filing CSV format researched from Phase 0 validation), V4 (React-PDF Thai font rendering validated from Phase 0 validation)
 

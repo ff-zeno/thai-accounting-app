@@ -55,13 +55,21 @@ pnpm db:studio    # Drizzle Studio
 |---------------|-----------|
 | Any code work | `docs/_ai_context/code-quality-guidelines.md` |
 | Plan overview | `docs/exec-plans/active/000-overview.md` |
+| Roadmap | `docs/exec-plans/active/roadmap.md` |
 | Schema reference | `docs/exec-plans/active/001-schema.md` |
-| Current phase | `docs/exec-plans/active/phase-*.md` (see overview for index) |
 | Thai tax rules | `thai-tax-compliance.html` |
 | Database schema | `src/lib/db/schema.ts` |
-| AI extraction | `src/lib/ai/schemas/` |
-| Bank parsers | `src/lib/parsers/` |
-| WHT rates | `src/lib/tax/wht-rates.ts` (reads from DB `wht_rates` table) |
+| DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-records, reconciliation, wht-filings, wht-rates, dashboard) |
+| DB helpers | `src/lib/db/helpers/org-scope.ts` (org isolation), `src/lib/db/helpers/audit-log.ts` (mutation logging) |
+| AI extraction | `src/lib/ai/schemas/` (invoice + ID card), `src/lib/ai/extract-document.ts`, `src/lib/ai/extract-id-card.ts` |
+| Inngest pipeline | `src/lib/inngest/functions/process-document.ts` (7-step extraction), `src/lib/inngest/functions/reconcile-document.ts` |
+| Bank parsers | `src/lib/parsers/` (KBank CSV/PDF, generic CSV, balance validation) |
+| Tax engine | `src/lib/tax/` (filing-deadlines, filing-calendar, rd-csv-export, vat-register, service-categories) |
+| WHT rates | `src/lib/db/queries/wht-rates.ts` (reads from DB `wht_rates` table) |
+| Reconciliation | `src/lib/reconciliation/matcher.ts` (exact/fuzzy/split/ambiguous matching) |
+| Data exports | `src/lib/export/` (FlowAccount, Peak, full data export) |
+| External APIs | `src/lib/api/dbd-client.ts` (Thai DBD company lookup, no auth) |
+| PDF generation | `src/lib/pdf/fifty-tawi.tsx` (50 Tawi WHT certificate) |
 | Debugging | `docs/_ai_context/debugging-methodology.md` |
 | Domain terms | `docs/_ai_context/_glossary.md` |
 

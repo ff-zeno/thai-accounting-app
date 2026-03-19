@@ -1,6 +1,6 @@
 # Phase 1a: Infrastructure
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-15)
 **Duration:** ~1 week
 **Dependencies:** Phase 0 (validation sprint) completed
 **Blocks:** Phase 1b (app shell), all subsequent phases

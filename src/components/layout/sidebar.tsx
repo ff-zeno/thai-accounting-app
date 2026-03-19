@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { OrgSwitcher } from "./org-switcher";
 import { SidebarNav } from "./sidebar-nav";
+import { LocaleSwitcher } from "./locale-switcher";
 import { CreateOrgDialog } from "./create-org-dialog";
 import { Separator } from "@/components/ui/separator";
 
@@ -24,9 +25,9 @@ export function Sidebar({ orgs, activeOrgId }: SidebarProps) {
     <>
       <aside className="flex h-full w-64 flex-col border-r bg-sidebar">
         <div className="p-4">
-          <h1 className="mb-3 text-lg font-semibold tracking-tight">
+          <p className="mb-3 text-lg font-semibold tracking-tight text-primary">
             Thai Accounting
-          </h1>
+          </p>
           <OrgSwitcher
             orgs={orgs}
             activeOrgId={activeOrgId}
@@ -35,6 +36,10 @@ export function Sidebar({ orgs, activeOrgId }: SidebarProps) {
         </div>
         <Separator />
         <SidebarNav />
+        <Separator />
+        <div className="p-3">
+          <LocaleSwitcher />
+        </div>
       </aside>
       <CreateOrgDialog
         open={createDialogOpen}

@@ -1,4 +1,4 @@
-import { eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../index";
 import { organizations, users } from "../schema";
 
@@ -13,7 +13,7 @@ export async function getOrganizationById(id: string) {
   const results = await db
     .select()
     .from(organizations)
-    .where(eq(organizations.id, id))
+    .where(and(eq(organizations.id, id), isNull(organizations.deletedAt)))
     .limit(1);
   return results[0] ?? null;
 }

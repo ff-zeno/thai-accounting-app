@@ -1,6 +1,6 @@
 # Phase 1b: App Shell & Organization Management
 
-**Status:** Not started
+**Status:** Complete (shipped 2026-03-15)
 **Duration:** ~3-4 days
 **Dependencies:** Phase 1a (infrastructure) completed
 **Blocks:** Phase 2 (bank statements), all UI-dependent phases

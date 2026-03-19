@@ -20,6 +20,9 @@ Do not create a plan when:
 Plans live in `docs/exec-plans/active/` while in progress and move to
 `docs/exec-plans/completed/` when finished.
 
+The current roadmap and phase index is at `docs/exec-plans/active/roadmap.md`.
+Phase status is tracked in `docs/exec-plans/active/000-overview.md`.
+
 Template:
 
 ```markdown

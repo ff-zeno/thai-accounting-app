@@ -91,6 +91,26 @@ export async function updateVendor(
   return vendor;
 }
 
+export async function findVendorByTaxId(
+  orgId: string,
+  taxId: string,
+  branchNumber: string = "00000"
+) {
+  const results = await db
+    .select()
+    .from(vendors)
+    .where(
+      and(
+        eq(vendors.orgId, orgId),
+        eq(vendors.taxId, taxId),
+        eq(vendors.branchNumber, branchNumber),
+        isNull(vendors.deletedAt)
+      )
+    )
+    .limit(1);
+  return results[0] ?? null;
+}
+
 export async function softDeleteVendor(orgId: string, id: string) {
   await db
     .update(vendors)

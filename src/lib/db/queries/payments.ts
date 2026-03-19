@@ -1,0 +1,104 @@
+import { and, eq, sql } from "drizzle-orm";
+import { db } from "../index";
+import { payments, documents } from "../schema";
+import { orgScope } from "../helpers/org-scope";
+
+// ---------------------------------------------------------------------------
+// Create payment
+// ---------------------------------------------------------------------------
+
+export async function createPayment(data: {
+  orgId: string;
+  documentId: string;
+  paymentDate: string;
+  grossAmount: string;
+  whtAmountWithheld: string;
+  netAmountPaid: string;
+  paymentMethod?: "bank_transfer" | "promptpay" | "cheque" | "cash";
+}): Promise<{ paymentId: string }> {
+  const [payment] = await db
+    .insert(payments)
+    .values({
+      orgId: data.orgId,
+      documentId: data.documentId,
+      paymentDate: data.paymentDate,
+      grossAmount: data.grossAmount,
+      whtAmountWithheld: data.whtAmountWithheld,
+      netAmountPaid: data.netAmountPaid,
+      paymentMethod: data.paymentMethod ?? "bank_transfer",
+    })
+    .returning({ id: payments.id });
+
+  return { paymentId: payment.id };
+}
+
+// ---------------------------------------------------------------------------
+// Query payments
+// ---------------------------------------------------------------------------
+
+export async function getPaymentsByDocument(orgId: string, documentId: string) {
+  return db
+    .select()
+    .from(payments)
+    .where(
+      and(
+        ...orgScope(payments, orgId),
+        eq(payments.documentId, documentId)
+      )
+    )
+    .orderBy(sql`${payments.createdAt} DESC`);
+}
+
+// ---------------------------------------------------------------------------
+// Payment summary (computed, not stored)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute amount_paid and balance_due for a document from the payments table.
+ * These are always derived at query time, never denormalized.
+ */
+export async function getDocumentPaymentSummary(
+  orgId: string,
+  documentId: string
+): Promise<{
+  totalPaid: string;
+  balanceDue: string;
+  paymentCount: number;
+}> {
+  // Get total of all payments for this document
+  const paymentResult = await db
+    .select({
+      totalPaid: sql<string>`COALESCE(SUM(${payments.netAmountPaid}), 0)::numeric(14,2)::text`,
+      paymentCount: sql<number>`COUNT(*)::int`,
+    })
+    .from(payments)
+    .where(
+      and(
+        ...orgScope(payments, orgId),
+        eq(payments.documentId, documentId)
+      )
+    );
+
+  // Get document total amount
+  const docResult = await db
+    .select({ totalAmount: documents.totalAmount })
+    .from(documents)
+    .where(
+      and(
+        ...orgScope(documents, orgId),
+        eq(documents.id, documentId)
+      )
+    )
+    .limit(1);
+
+  const totalPaid = paymentResult[0]?.totalPaid ?? "0.00";
+  const paymentCount = paymentResult[0]?.paymentCount ?? 0;
+  const totalAmount = docResult[0]?.totalAmount ?? "0.00";
+
+  // Use integer arithmetic to avoid floating-point precision issues
+  const totalAmountCents = Math.round(parseFloat(totalAmount ?? "0") * 100);
+  const totalPaidCents = Math.round(parseFloat(totalPaid) * 100);
+  const balanceDue = ((totalAmountCents - totalPaidCents) / 100).toFixed(2);
+
+  return { totalPaid, balanceDue, paymentCount };
+}

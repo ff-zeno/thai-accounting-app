@@ -108,7 +108,7 @@ export async function confirmDocumentAction(docId: string) {
     }
   }
 
-  // 5. Emit Inngest event for reconciliation engine
+  // 5. Emit Inngest event for reconciliation engine (full context for smart matching)
   await inngest.send({
     name: "document/confirmed",
     data: {
@@ -117,6 +117,12 @@ export async function confirmDocumentAction(docId: string) {
       paymentId,
       netAmountPaid,
       paymentDate,
+      vendorId: doc?.vendorId ?? null,
+      vendorName: doc?.vendor?.name ?? null,
+      vendorNameTh: doc?.vendor?.nameTh ?? null,
+      vendorTaxId: doc?.vendor?.taxId ?? null,
+      documentNumber: doc?.documentNumber ?? null,
+      direction: doc?.direction ?? "expense",
     },
   });
 

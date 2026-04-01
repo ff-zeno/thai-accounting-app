@@ -18,10 +18,23 @@ import {
   vendors,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
+import { auditMutation } from "../helpers/audit-log";
 
 // ---------------------------------------------------------------------------
 // Find candidate transactions for matching
 // ---------------------------------------------------------------------------
+
+export interface MatchCandidateRow {
+  id: string;
+  amount: string;
+  date: string;
+  description: string | null;
+  counterparty: string | null;
+  referenceNo: string | null;
+  channel: string | null;
+  type: "debit" | "credit";
+  bankAccountId: string;
+}
 
 export async function findMatchCandidates(
   orgId: string,
@@ -32,9 +45,7 @@ export async function findMatchCandidates(
     amountTolerance?: number; // e.g., 0.01 for 1%
     dateDays?: number; // e.g., 7 or 14
   }
-): Promise<
-  Array<{ id: string; amount: string; date: string; description: string | null }>
-> {
+): Promise<MatchCandidateRow[]> {
   const tolerance = options?.amountTolerance ?? 0;
   const dateDays = options?.dateDays ?? 7;
 
@@ -71,6 +82,11 @@ export async function findMatchCandidates(
       amount: transactions.amount,
       date: transactions.date,
       description: transactions.description,
+      counterparty: transactions.counterparty,
+      referenceNo: transactions.referenceNo,
+      channel: transactions.channel,
+      type: transactions.type,
+      bankAccountId: transactions.bankAccountId,
     })
     .from(transactions)
     .where(and(...conditions))
@@ -87,11 +103,12 @@ export async function createMatch(data: {
   orgId: string;
   transactionId: string;
   documentId: string;
-  paymentId: string;
+  paymentId?: string | null;
   matchedAmount: string;
-  matchType: "exact" | "fuzzy" | "manual" | "ai_suggested";
+  matchType: "exact" | "fuzzy" | "manual" | "ai_suggested" | "reference" | "multi_signal" | "pattern" | "rule";
   confidence: string;
-  matchedBy: "auto" | "manual";
+  matchedBy: "auto" | "manual" | "rule" | "pattern";
+  matchMetadata?: unknown;
 }): Promise<string> {
   const [match] = await db
     .insert(reconciliationMatches)
@@ -99,14 +116,29 @@ export async function createMatch(data: {
       orgId: data.orgId,
       transactionId: data.transactionId,
       documentId: data.documentId,
-      paymentId: data.paymentId,
+      paymentId: data.paymentId ?? null,
       matchedAmount: data.matchedAmount,
       matchType: data.matchType,
       confidence: data.confidence,
       matchedBy: data.matchedBy,
+      matchMetadata: data.matchMetadata ?? null,
       matchedAt: new Date(),
     })
     .returning({ id: reconciliationMatches.id });
+
+  await auditMutation({
+    orgId: data.orgId,
+    entityType: "reconciliation_match",
+    entityId: match.id,
+    action: "create",
+    newValue: {
+      transactionId: data.transactionId,
+      documentId: data.documentId,
+      matchType: data.matchType,
+      matchedBy: data.matchedBy,
+      confidence: data.confidence,
+    },
+  });
 
   return match.id;
 }

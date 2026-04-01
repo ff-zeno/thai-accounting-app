@@ -1,4 +1,4 @@
-import { and, eq, isNull, gte, lte, like, or, desc, gt, lt, count, type SQL } from "drizzle-orm";
+import { and, eq, isNull, gte, lte, like, or, desc, gt, lt, count, sql, getTableColumns, type SQL } from "drizzle-orm";
 import { db, type DbConnection } from "../index";
 import { transactions, bankStatements, reconciliationMatches } from "../schema";
 import { auditMutation } from "../helpers/audit-log";
@@ -109,8 +109,28 @@ export async function getTransactions(
     }
   }
 
+  const txnColumns = getTableColumns(transactions);
+
   let query = db
-    .select()
+    .select({
+      ...txnColumns,
+      vendorName: sql<string | null>`(
+        SELECT v.name FROM reconciliation_matches rm
+        JOIN documents d ON d.id = rm.document_id AND d.deleted_at IS NULL
+        JOIN vendors v ON v.id = d.vendor_id AND v.deleted_at IS NULL
+        WHERE rm.transaction_id = "transactions"."id" AND rm.org_id = "transactions"."org_id" AND rm.deleted_at IS NULL
+        LIMIT 1
+      )`.as("vendor_name"),
+      linkedDocCount: sql<number>`(
+        SELECT COALESCE(COUNT(DISTINCT rm.document_id), 0)::int FROM reconciliation_matches rm
+        WHERE rm.transaction_id = "transactions"."id" AND rm.org_id = "transactions"."org_id" AND rm.deleted_at IS NULL
+      )`.as("linked_doc_count"),
+      firstLinkedDocId: sql<string | null>`(
+        SELECT rm.document_id::text FROM reconciliation_matches rm
+        WHERE rm.transaction_id = "transactions"."id" AND rm.org_id = "transactions"."org_id" AND rm.deleted_at IS NULL
+        LIMIT 1
+      )`.as("first_linked_doc_id"),
+    })
     .from(transactions)
     .where(and(...conditions))
     .orderBy(desc(transactions.date), desc(transactions.id))

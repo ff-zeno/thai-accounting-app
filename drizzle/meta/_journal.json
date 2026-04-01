@@ -50,6 +50,34 @@
       "when": 1773918392171,
       "tag": "0006_strange_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775036122532,
+      "tag": "0007_cooing_tempest",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775036676050,
+      "tag": "0008_overconfident_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775037739320,
+      "tag": "0009_flowery_wrecking_crew",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775044416210,
+      "tag": "0010_lyrical_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

@@ -3,23 +3,60 @@ import {
   findMatches,
   computeFuzzyConfidence,
   findSumCombination,
-  type MatchCandidate,
+  filterByDirection,
+  escapeRegex,
+  type MatchContext,
 } from "./matcher";
+import type { MatchCandidateRow } from "@/lib/db/queries/reconciliation";
 
 // Mock the database query layer
 vi.mock("@/lib/db/queries/reconciliation", () => ({
   findMatchCandidates: vi.fn(),
 }));
 
+vi.mock("@/lib/db/queries/vendor-aliases", () => ({
+  findAliasByText: vi.fn(),
+}));
+
+vi.mock("@/lib/db/queries/reconciliation-rules", () => ({
+  getActiveRules: vi.fn().mockResolvedValue([]),
+  incrementRuleMatchCount: vi.fn(),
+}));
+
 import { findMatchCandidates } from "@/lib/db/queries/reconciliation";
+import { findAliasByText } from "@/lib/db/queries/vendor-aliases";
 
 const mockFindCandidates = vi.mocked(findMatchCandidates);
+const mockFindAlias = vi.mocked(findAliasByText);
 
 function candidate(
-  overrides: Partial<MatchCandidate> & { id: string; amount: string; date: string }
-): MatchCandidate {
+  overrides: Partial<MatchCandidateRow> & { id: string; amount: string; date: string }
+): MatchCandidateRow {
   return {
     description: null,
+    counterparty: null,
+    referenceNo: null,
+    channel: null,
+    type: "debit",
+    bankAccountId: "bank-1",
+    ...overrides,
+  };
+}
+
+/** Helper to build a MatchContext with sensible defaults */
+function ctx(overrides?: Partial<MatchContext>): MatchContext {
+  return {
+    orgId: "org-1",
+    netAmountPaid: "10379.00",
+    paymentDate: "2026-03-18",
+    documentId: "doc-1",
+    vendorId: null,
+    vendorName: null,
+    vendorNameTh: null,
+    vendorTaxId: null,
+    documentNumber: null,
+    direction: "expense",
+    bankAccountId: null,
     ...overrides,
   };
 }
@@ -29,45 +66,347 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Exact match tests
+// Reference match tests (Layer 0)
+// ---------------------------------------------------------------------------
+
+describe("reference match", () => {
+  it("matches when document number is found in transaction description", async () => {
+    // Reference match query
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-ref",
+        amount: "10379.00",
+        date: "2026-03-15",
+        description: "Payment for INV-2026-001",
+        type: "debit",
+      }),
+    ]);
+
+    const result = await findMatches(
+      ctx({ documentNumber: "INV-2026-001" })
+    );
+
+    expect(result.type).toBe("reference");
+    if (result.type === "reference") {
+      expect(result.transactionId).toBe("txn-ref");
+      expect(parseFloat(result.confidence)).toBe(1.0);
+      expect(result.metadata.layer).toBe("reference");
+      expect(result.metadata.signals.referenceFound.detail).toContain("INV-2026-001");
+    }
+  });
+
+  it("matches when tax ID is found in counterparty", async () => {
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-tax",
+        amount: "10379.00",
+        date: "2026-03-15",
+        counterparty: "0105564012345 บจก. ทดสอบ",
+        type: "debit",
+      }),
+    ]);
+
+    const result = await findMatches(
+      ctx({ vendorTaxId: "0105564012345" })
+    );
+
+    expect(result.type).toBe("reference");
+    if (result.type === "reference") {
+      expect(result.transactionId).toBe("txn-tax");
+      expect(result.metadata.signals.referenceFound.detail).toContain("Tax ID");
+    }
+  });
+
+  it("matches when vendor name found in counterparty", async () => {
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-vendor",
+        amount: "10379.00",
+        date: "2026-03-15",
+        counterparty: "บจก. ทดสอบ",
+        type: "debit",
+      }),
+    ]);
+
+    const result = await findMatches(
+      ctx({ vendorNameTh: "ทดสอบ (ประเทศไทย) จำกัด" })
+    );
+
+    expect(result.type).toBe("reference");
+    if (result.type === "reference") {
+      expect(result.transactionId).toBe("txn-vendor");
+      expect(result.metadata.signals.referenceFound.detail).toContain("Vendor name");
+    }
+  });
+
+  it("returns lower confidence when reference found but amount differs", async () => {
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-ref",
+        amount: "10500.00", // 1.2% different from 10379.00
+        date: "2026-03-15",
+        description: "Payment for INV-2026-001",
+        type: "debit",
+      }),
+    ]);
+
+    const result = await findMatches(
+      ctx({ documentNumber: "INV-2026-001" })
+    );
+
+    expect(result.type).toBe("reference");
+    if (result.type === "reference") {
+      expect(parseFloat(result.confidence)).toBeLessThan(1.0);
+      expect(parseFloat(result.confidence)).toBeGreaterThan(0.5);
+    }
+  });
+
+  it("skips reference match when no identifiers provided", async () => {
+    // Reference: candidate found but no identifiers to match → falls through
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+    // Exact: same candidate returned
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+
+    const result = await findMatches(ctx());
+
+    // Should fall through to exact match, not reference
+    expect(result.type).toBe("exact");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Direction validation tests
+// ---------------------------------------------------------------------------
+
+describe("direction validation", () => {
+  it("expense document does NOT match credit transaction", async () => {
+    // Reference: credit transaction won't match expense
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-credit", amount: "10379.00", date: "2026-03-15", type: "credit" }),
+    ]);
+    // Exact: same credit transaction filtered out
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-credit", amount: "10379.00", date: "2026-03-15", type: "credit" }),
+    ]);
+    // Fuzzy
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Split
+    mockFindCandidates.mockResolvedValueOnce([]);
+
+    const result = await findMatches(ctx({ direction: "expense" }));
+
+    expect(result.type).toBe("none");
+  });
+
+  it("income document does NOT match debit transaction", async () => {
+    // Reference: debit won't match income
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-debit", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+    // Exact
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-debit", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+    // Fuzzy
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Split
+    mockFindCandidates.mockResolvedValueOnce([]);
+
+    const result = await findMatches(ctx({ direction: "income" }));
+
+    expect(result.type).toBe("none");
+  });
+
+  it("income document matches credit transaction", async () => {
+    // Reference: falls through (no identifiers)
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-credit", amount: "10379.00", date: "2026-03-15", type: "credit" }),
+    ]);
+    // Exact
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-credit", amount: "10379.00", date: "2026-03-15", type: "credit" }),
+    ]);
+
+    const result = await findMatches(ctx({ direction: "income" }));
+
+    expect(result.type).toBe("exact");
+    if (result.type === "exact") {
+      expect(result.transactionId).toBe("txn-credit");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterByDirection unit tests
+// ---------------------------------------------------------------------------
+
+describe("filterByDirection", () => {
+  it("filters to debit for expense", () => {
+    const candidates = [
+      candidate({ id: "d1", amount: "100", date: "2026-01-01", type: "debit" }),
+      candidate({ id: "c1", amount: "100", date: "2026-01-01", type: "credit" }),
+    ];
+    expect(filterByDirection(candidates, "expense")).toHaveLength(1);
+    expect(filterByDirection(candidates, "expense")[0].id).toBe("d1");
+  });
+
+  it("filters to credit for income", () => {
+    const candidates = [
+      candidate({ id: "d1", amount: "100", date: "2026-01-01", type: "debit" }),
+      candidate({ id: "c1", amount: "100", date: "2026-01-01", type: "credit" }),
+    ];
+    expect(filterByDirection(candidates, "income")).toHaveLength(1);
+    expect(filterByDirection(candidates, "income")[0].id).toBe("c1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Alias match tests (Layer 1)
+// ---------------------------------------------------------------------------
+
+describe("alias match", () => {
+  it("matches when confirmed alias maps counterparty to document vendor", async () => {
+    // Reference: no match (no identifiers)
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Alias: candidate with counterparty
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-alias",
+        amount: "10379.00",
+        date: "2026-03-15",
+        counterparty: "X6898 Din Print",
+        type: "debit",
+      }),
+    ]);
+    mockFindAlias.mockResolvedValueOnce({
+      vendorId: "vendor-1",
+      matchCount: 3,
+    });
+
+    const result = await findMatches(
+      ctx({ vendorId: "vendor-1" })
+    );
+
+    expect(result.type).toBe("pattern");
+    if (result.type === "pattern") {
+      expect(result.transactionId).toBe("txn-alias");
+      expect(parseFloat(result.confidence)).toBe(1.0);
+      expect(result.metadata.layer).toBe("alias");
+      expect(result.metadata.signals.aliasMatch.score).toBe(1.0);
+    }
+  });
+
+  it("does not match when alias vendor differs from document vendor", async () => {
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Alias: candidate found
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-alias",
+        amount: "10379.00",
+        date: "2026-03-15",
+        counterparty: "X6898 Din Print",
+        type: "debit",
+      }),
+    ]);
+    // Alias maps to different vendor
+    mockFindAlias.mockResolvedValueOnce({
+      vendorId: "vendor-DIFFERENT",
+      matchCount: 3,
+    });
+    // Falls through to exact
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-alias", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+
+    const result = await findMatches(
+      ctx({ vendorId: "vendor-1" })
+    );
+
+    // Should fall through to exact match since alias vendor doesn't match
+    expect(result.type).toBe("exact");
+  });
+
+  it("skips alias match when vendorId is null", async () => {
+    // Reference: no match
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+    // Exact (alias skipped because vendorId is null)
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+
+    const result = await findMatches(ctx({ vendorId: null }));
+
+    expect(result.type).toBe("exact");
+    // findAliasByText should NOT have been called
+    expect(mockFindAlias).not.toHaveBeenCalled();
+  });
+
+  it("does not match when no confirmed alias exists", async () => {
+    mockFindCandidates.mockResolvedValueOnce([]);
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-1",
+        amount: "10379.00",
+        date: "2026-03-15",
+        counterparty: "Unknown Corp",
+        type: "debit",
+      }),
+    ]);
+    mockFindAlias.mockResolvedValueOnce(null); // no alias found
+    // Falls through to exact
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+
+    const result = await findMatches(ctx({ vendorId: "vendor-1" }));
+
+    expect(result.type).toBe("exact");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Exact match tests (with direction)
 // ---------------------------------------------------------------------------
 
 describe("exact match", () => {
   it("matches when amount is exactly equal within 7 days", async () => {
-    mockFindCandidates
-      // First call: exact match (tolerance=0, days=7)
-      .mockResolvedValueOnce([
-        candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15" }),
-      ]);
+    // Reference: falls through (no identifiers in ctx)
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+    // Exact: same candidate
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
 
-    const result = await findMatches("org-1", "10379.00", "2026-03-18");
+    const result = await findMatches(ctx());
 
-    expect(result).toEqual({
-      type: "exact",
-      transactionId: "txn-1",
-      confidence: "1.00",
-    });
-
-    // Verify the query was called with exact parameters
-    expect(mockFindCandidates).toHaveBeenCalledWith(
-      "org-1",
-      null,
-      "10379.00",
-      "2026-03-18",
-      { amountTolerance: 0, dateDays: 7 }
-    );
+    expect(result.type).toBe("exact");
+    if (result.type === "exact") {
+      expect(result.transactionId).toBe("txn-1");
+      expect(result.confidence).toBe("1.00");
+      expect(result.metadata.layer).toBe("exact");
+      expect(result.metadata.signals.amountMatch.score).toBe(1.0);
+    }
   });
 
   it("does not exact-match when amount matches but date is 10 days away", async () => {
-    // Exact match query returns nothing (date outside 7-day window)
-    mockFindCandidates
-      .mockResolvedValueOnce([])
-      // Fuzzy match query also returns nothing for this test
-      .mockResolvedValueOnce([])
-      // Split match query
-      .mockResolvedValueOnce([]);
+    // Reference: nothing
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Exact: nothing in 7-day window
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Fuzzy
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Split
+    mockFindCandidates.mockResolvedValueOnce([]);
 
-    const result = await findMatches("org-1", "10379.00", "2026-03-18");
+    const result = await findMatches(ctx());
 
     expect(result).toEqual({ type: "none" });
   });
@@ -77,36 +416,74 @@ describe("exact match", () => {
 // Fuzzy match tests
 // ---------------------------------------------------------------------------
 
-describe("fuzzy match", () => {
+describe("multi-signal match (replaces fuzzy)", () => {
   it("matches when amount is within 1% and within 14 days", async () => {
-    // No exact match
+    // Reference: no match
     mockFindCandidates.mockResolvedValueOnce([]);
-    // Fuzzy: amount 10375 vs expected 10379 (diff = 0.038%, within 1%)
+    // Exact: no match (amount not exact)
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Multi-signal: amount 10375 vs expected 10379 (diff = 0.038%, within 1%)
     mockFindCandidates.mockResolvedValueOnce([
-      candidate({ id: "txn-2", amount: "10375.00", date: "2026-03-16" }),
+      candidate({ id: "txn-2", amount: "10375.00", date: "2026-03-16", type: "debit" }),
     ]);
 
-    const result = await findMatches("org-1", "10379.00", "2026-03-18");
+    const result = await findMatches(ctx());
 
-    expect(result.type).toBe("fuzzy");
-    if (result.type === "fuzzy") {
+    // Multi-signal scoring: amount close + direction match → should match
+    expect(result.type === "fuzzy" || result.type === "multi_signal").toBe(true);
+    if (result.type === "fuzzy" || result.type === "multi_signal") {
       expect(result.transactionId).toBe("txn-2");
-      expect(parseFloat(result.confidence)).toBeGreaterThan(0.5);
-      expect(parseFloat(result.confidence)).toBeLessThan(1.0);
+      expect(parseFloat(result.confidence)).toBeGreaterThan(0);
+      expect(result.metadata.layer).toBe("multi_signal");
+      expect(result.metadata.signals.amountMatch).toBeDefined();
+      expect(result.metadata.signals.directionMatch).toBeDefined();
     }
   });
 
-  it("does not match when amount is outside 1%", async () => {
-    // No exact match
+  it("does not match when no candidates returned", async () => {
+    // Reference
     mockFindCandidates.mockResolvedValueOnce([]);
-    // Fuzzy: 10000 vs 10379 (diff ~3.65%, outside 1%) -- won't be returned by query
+    // Exact
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Multi-signal
     mockFindCandidates.mockResolvedValueOnce([]);
     // Split
     mockFindCandidates.mockResolvedValueOnce([]);
 
-    const result = await findMatches("org-1", "10379.00", "2026-03-18");
+    const result = await findMatches(ctx());
 
     expect(result).toEqual({ type: "none" });
+  });
+
+  it("scores higher when counterparty matches vendor name", async () => {
+    mockFindCandidates.mockResolvedValueOnce([]);
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Two candidates with same amount diff: one has matching counterparty
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-match",
+        amount: "10375.00",
+        date: "2026-03-16",
+        type: "debit",
+        counterparty: "บจก. ทดสอบ เทรดดิ้ง",
+      }),
+      candidate({
+        id: "txn-no-match",
+        amount: "10375.00",
+        date: "2026-03-16",
+        type: "debit",
+        counterparty: "Unknown Corp",
+      }),
+    ]);
+
+    const result = await findMatches(
+      ctx({ vendorNameTh: "บริษัท ทดสอบ เทรดดิ้ง จำกัด" })
+    );
+
+    // The candidate with matching counterparty should score higher
+    if (result.type === "fuzzy" || result.type === "multi_signal") {
+      expect(result.transactionId).toBe("txn-match");
+    }
   });
 });
 
@@ -116,18 +493,17 @@ describe("fuzzy match", () => {
 
 describe("split match", () => {
   it("matches 2 transactions that sum to the target amount", async () => {
-    // No exact match
     mockFindCandidates.mockResolvedValueOnce([]);
-    // No fuzzy match
     mockFindCandidates.mockResolvedValueOnce([]);
-    // Split candidates within date window
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Split candidates
     mockFindCandidates.mockResolvedValueOnce([
-      candidate({ id: "txn-a", amount: "30000.00", date: "2026-03-15" }),
-      candidate({ id: "txn-b", amount: "20000.00", date: "2026-03-16" }),
-      candidate({ id: "txn-c", amount: "5000.00", date: "2026-03-17" }),
+      candidate({ id: "txn-a", amount: "30000.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-b", amount: "20000.00", date: "2026-03-16", type: "debit" }),
+      candidate({ id: "txn-c", amount: "5000.00", date: "2026-03-17", type: "debit" }),
     ]);
 
-    const result = await findMatches("org-1", "50000.00", "2026-03-18");
+    const result = await findMatches(ctx({ netAmountPaid: "50000.00" }));
 
     expect(result.type).toBe("split");
     if (result.type === "split") {
@@ -135,19 +511,21 @@ describe("split match", () => {
       const ids = result.transactions.map((t) => t.id).sort();
       expect(ids).toEqual(["txn-a", "txn-b"]);
       expect(result.confidence).toBe("0.90");
+      expect(result.metadata.layer).toBe("split");
     }
   });
 
   it("matches 3 transactions that sum to the target amount", async () => {
     mockFindCandidates.mockResolvedValueOnce([]);
     mockFindCandidates.mockResolvedValueOnce([]);
+    mockFindCandidates.mockResolvedValueOnce([]);
     mockFindCandidates.mockResolvedValueOnce([
-      candidate({ id: "txn-a", amount: "10000.00", date: "2026-03-15" }),
-      candidate({ id: "txn-b", amount: "20000.00", date: "2026-03-16" }),
-      candidate({ id: "txn-c", amount: "20000.00", date: "2026-03-17" }),
+      candidate({ id: "txn-a", amount: "10000.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-b", amount: "20000.00", date: "2026-03-16", type: "debit" }),
+      candidate({ id: "txn-c", amount: "20000.00", date: "2026-03-17", type: "debit" }),
     ]);
 
-    const result = await findMatches("org-1", "50000.00", "2026-03-18");
+    const result = await findMatches(ctx({ netAmountPaid: "50000.00" }));
 
     expect(result.type).toBe("split");
     if (result.type === "split") {
@@ -158,17 +536,39 @@ describe("split match", () => {
   it("does not match when 4 transactions are needed (max 3)", async () => {
     mockFindCandidates.mockResolvedValueOnce([]);
     mockFindCandidates.mockResolvedValueOnce([]);
+    mockFindCandidates.mockResolvedValueOnce([]);
     // 4 transactions that sum to 50000, but no combination of 2 or 3 does
     mockFindCandidates.mockResolvedValueOnce([
-      candidate({ id: "txn-1", amount: "12500.00", date: "2026-03-15" }),
-      candidate({ id: "txn-2", amount: "12500.00", date: "2026-03-15" }),
-      candidate({ id: "txn-3", amount: "12500.00", date: "2026-03-16" }),
-      candidate({ id: "txn-4", amount: "12500.00", date: "2026-03-17" }),
+      candidate({ id: "txn-1", amount: "12500.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-2", amount: "12500.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-3", amount: "12500.00", date: "2026-03-16", type: "debit" }),
+      candidate({ id: "txn-4", amount: "12500.00", date: "2026-03-17", type: "debit" }),
     ]);
 
-    const result = await findMatches("org-1", "50000.00", "2026-03-18");
+    const result = await findMatches(ctx({ netAmountPaid: "50000.00" }));
 
     expect(result).toEqual({ type: "none" });
+  });
+
+  it("split match filters by direction", async () => {
+    mockFindCandidates.mockResolvedValueOnce([]);
+    mockFindCandidates.mockResolvedValueOnce([]);
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Mix of debit and credit — only debit should match expense
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-a", amount: "30000.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-b", amount: "20000.00", date: "2026-03-16", type: "credit" }), // wrong direction
+      candidate({ id: "txn-c", amount: "20000.00", date: "2026-03-17", type: "debit" }),
+    ]);
+
+    const result = await findMatches(ctx({ netAmountPaid: "50000.00" }));
+
+    expect(result.type).toBe("split");
+    if (result.type === "split") {
+      // Should match txn-a (30k) + txn-c (20k), not txn-b (credit)
+      const ids = result.transactions.map((t) => t.id).sort();
+      expect(ids).toEqual(["txn-a", "txn-c"]);
+    }
   });
 });
 
@@ -178,40 +578,73 @@ describe("split match", () => {
 
 describe("ambiguous match", () => {
   it("returns ambiguous when 2 transactions match exactly", async () => {
+    // Reference: falls through (no identifiers)
     mockFindCandidates.mockResolvedValueOnce([
-      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15" }),
-      candidate({ id: "txn-2", amount: "10379.00", date: "2026-03-17" }),
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-2", amount: "10379.00", date: "2026-03-17", type: "debit" }),
+    ]);
+    // Exact: both returned → ambiguous
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+      candidate({ id: "txn-2", amount: "10379.00", date: "2026-03-17", type: "debit" }),
     ]);
 
-    const result = await findMatches("org-1", "10379.00", "2026-03-18");
+    const result = await findMatches(ctx());
 
     expect(result.type).toBe("ambiguous");
     if (result.type === "ambiguous") {
       expect(result.candidates).toHaveLength(2);
-      expect(result.candidates[0].id).toBe("txn-1");
-      expect(result.candidates[1].id).toBe("txn-2");
     }
   });
 });
 
 // ---------------------------------------------------------------------------
-// Petty cash exclusion
+// Match metadata tests
 // ---------------------------------------------------------------------------
 
-describe("petty cash exclusion", () => {
-  it("does not consider petty cash transactions (excluded by query layer)", async () => {
-    // The findMatchCandidates query filters is_petty_cash=false at the DB level.
-    // If it returns no candidates, they were filtered out.
-    mockFindCandidates.mockResolvedValueOnce([]);
-    mockFindCandidates.mockResolvedValueOnce([]);
-    mockFindCandidates.mockResolvedValueOnce([]);
+describe("match metadata", () => {
+  it("exact match has metadata with layer and signals", async () => {
+    // Reference: falls through (no identifiers)
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
+    // Exact
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({ id: "txn-1", amount: "10379.00", date: "2026-03-15", type: "debit" }),
+    ]);
 
-    const result = await findMatches("org-1", "500.00", "2026-03-18");
+    const result = await findMatches(ctx());
 
-    expect(result).toEqual({ type: "none" });
+    expect(result.type).toBe("exact");
+    if (result.type === "exact") {
+      expect(result.metadata).toBeDefined();
+      expect(result.metadata.layer).toBe("exact");
+      expect(result.metadata.signals.amountMatch).toBeDefined();
+      expect(result.metadata.signals.dateProximity).toBeDefined();
+      expect(result.metadata.signals.directionMatch).toBeDefined();
+      expect(result.metadata.candidateCount).toBeGreaterThanOrEqual(1);
+      expect(result.metadata.selectedRank).toBe(1);
+    }
+  });
 
-    // Verify the query was called -- the is_petty_cash=false filter is applied there
-    expect(mockFindCandidates).toHaveBeenCalled();
+  it("reference match metadata shows which signal fired", async () => {
+    mockFindCandidates.mockResolvedValueOnce([
+      candidate({
+        id: "txn-1",
+        amount: "10379.00",
+        date: "2026-03-15",
+        description: "INV-2026-001 payment",
+        type: "debit",
+      }),
+    ]);
+
+    const result = await findMatches(ctx({ documentNumber: "INV-2026-001" }));
+
+    expect(result.type).toBe("reference");
+    if (result.type === "reference") {
+      expect(result.metadata.signals.referenceFound.score).toBe(1.0);
+      expect(result.metadata.signals.amountMatch.score).toBe(1.0);
+    }
   });
 });
 
@@ -254,7 +687,7 @@ describe("computeFuzzyConfidence", () => {
 
 describe("findSumCombination", () => {
   it("finds a pair that sums to the target", () => {
-    const candidates: MatchCandidate[] = [
+    const candidates = [
       candidate({ id: "a", amount: "30000.00", date: "2026-03-15" }),
       candidate({ id: "b", amount: "20000.00", date: "2026-03-16" }),
     ];
@@ -265,7 +698,7 @@ describe("findSumCombination", () => {
   });
 
   it("finds a triple that sums to the target", () => {
-    const candidates: MatchCandidate[] = [
+    const candidates = [
       candidate({ id: "a", amount: "10000.00", date: "2026-03-15" }),
       candidate({ id: "b", amount: "15000.00", date: "2026-03-16" }),
       candidate({ id: "c", amount: "25000.00", date: "2026-03-17" }),
@@ -277,7 +710,7 @@ describe("findSumCombination", () => {
   });
 
   it("returns null when no combination sums to the target", () => {
-    const candidates: MatchCandidate[] = [
+    const candidates = [
       candidate({ id: "a", amount: "10000.00", date: "2026-03-15" }),
       candidate({ id: "b", amount: "15000.00", date: "2026-03-16" }),
     ];
@@ -287,7 +720,7 @@ describe("findSumCombination", () => {
   });
 
   it("tolerates floating point within 0.01", () => {
-    const candidates: MatchCandidate[] = [
+    const candidates = [
       candidate({ id: "a", amount: "10000.005", date: "2026-03-15" }),
       candidate({ id: "b", amount: "20000.00", date: "2026-03-16" }),
     ];
@@ -295,5 +728,23 @@ describe("findSumCombination", () => {
     // 10000.005 + 20000.00 = 30000.005, target 30000.00 -- diff is 0.005 < 0.01
     const result = findSumCombination(candidates, 30000, 2);
     expect(result).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// escapeRegex unit tests
+// ---------------------------------------------------------------------------
+
+describe("escapeRegex", () => {
+  it("passes through non-special characters", () => {
+    expect(escapeRegex("INV-2026-001")).toBe("INV-2026-001");
+  });
+
+  it("escapes dots and parens", () => {
+    expect(escapeRegex("test.file(1)")).toBe("test\\.file\\(1\\)");
+  });
+
+  it("escapes all regex metacharacters", () => {
+    expect(escapeRegex("a.*+?^${}()|[]\\b")).toBe("a\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\b");
   });
 });

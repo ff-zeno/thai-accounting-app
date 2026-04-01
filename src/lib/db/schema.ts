@@ -71,9 +71,18 @@ export const matchTypeEnum = pgEnum("match_type", [
   "fuzzy",
   "manual",
   "ai_suggested",
+  "reference",
+  "multi_signal",
+  "pattern",
+  "rule",
 ]);
 
-export const matchedByEnum = pgEnum("matched_by", ["auto", "manual"]);
+export const matchedByEnum = pgEnum("matched_by", [
+  "auto",
+  "manual",
+  "rule",
+  "pattern",
+]);
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "bank_transfer",
@@ -277,8 +286,10 @@ export const transactions = pgTable(
     index("txn_org_date").on(t.orgId, t.date),
     index("txn_org_recon_status").on(t.orgId, t.reconciliationStatus),
     index("txn_org_amount_date").on(t.orgId, t.amount, t.date),
+    index("txn_org_counterparty").on(t.orgId, t.counterparty),
+    index("txn_org_reference").on(t.orgId, t.referenceNo),
     // txn_dedup partial unique index is managed via migration (WHERE deleted_at IS NULL).
-    // Drizzle can't represent partial indexes, so it lives in SQL only.
+    // Partial index WHERE clauses for counterparty/reference live in migration SQL only.
   ]
 );
 
@@ -428,13 +439,14 @@ export const reconciliationMatches = pgTable(
     matchType: matchTypeEnum("match_type").notNull(),
     confidence: numeric("confidence", { precision: 3, scale: 2 }),
     matchedBy: matchedByEnum("matched_by").notNull(),
+    matchMetadata: jsonb("match_metadata"),
     matchedAt: timestamp("matched_at", { withTimezone: true }),
     createdAt,
     updatedAt,
     deletedAt,
   },
   (t) => [
-    unique("recon_txn_doc").on(t.transactionId, t.documentId),
+    // recon_txn_doc partial unique index managed via migration (WHERE deleted_at IS NULL)
     index("recon_matches_document").on(t.documentId),
   ]
 );
@@ -642,10 +654,127 @@ export const orgAiSettings = pgTable(
       precision: 3,
       scale: 2,
     }).default("0.80"),
+    reconciliationBudgetUsd: numeric("reconciliation_budget_usd", { precision: 8, scale: 2 }),
+    reconciliationModel: text("reconciliation_model"),
     createdAt,
     updatedAt,
   },
   (t) => [unique("org_ai_settings_org_id").on(t.orgId)]
+);
+
+// ---------------------------------------------------------------------------
+// AI Match Suggestions
+// ---------------------------------------------------------------------------
+
+export const aiMatchSuggestions = pgTable(
+  "ai_match_suggestions",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transactions.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    paymentId: uuid("payment_id").references(() => payments.id),
+    suggestedAmount: numeric("suggested_amount", { precision: 14, scale: 2 }),
+    confidence: numeric("confidence", { precision: 3, scale: 2 }).notNull(),
+    explanation: text("explanation"),
+    aiModelUsed: text("ai_model_used"),
+    aiCostUsd: numeric("ai_cost_usd", { precision: 8, scale: 6 }),
+    status: text("status").notNull().default("pending"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    rejectionReason: text("rejection_reason"),
+    batchId: text("batch_id"),
+    createdAt,
+    deletedAt,
+  },
+  (t) => [
+    unique("ai_suggestion_txn_doc").on(t.transactionId, t.documentId),
+    index("ai_suggestions_org_status").on(t.orgId, t.status),
+  ]
+);
+
+// ---------------------------------------------------------------------------
+// Reconciliation Learning Tables
+// ---------------------------------------------------------------------------
+
+export const vendorBankAliases = pgTable(
+  "vendor_bank_aliases",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    aliasText: text("alias_text").notNull(),
+    aliasType: text("alias_type").notNull().default("counterparty"),
+    matchCount: integer("match_count").notNull().default(1),
+    isConfirmed: boolean("is_confirmed").notNull().default(false),
+    source: text("source").notNull().default("auto_learn"),
+    lastMatchedAt: timestamp("last_matched_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  },
+  (t) => [
+    unique("vendor_alias_org_text").on(t.orgId, t.aliasText, t.aliasType),
+    index("vendor_alias_lookup").on(t.orgId, t.aliasText),
+  ]
+);
+
+export const reconciliationRules = pgTable(
+  "reconciliation_rules",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    name: text("name").notNull(),
+    description: text("description"),
+    priority: integer("priority").notNull().default(100),
+    isActive: boolean("is_active").notNull().default(true),
+    isAutoSuggested: boolean("is_auto_suggested").notNull().default(false),
+    conditions: jsonb("conditions").notNull(),
+    actions: jsonb("actions").notNull(),
+    matchCount: integer("match_count").notNull().default(0),
+    lastMatchedAt: timestamp("last_matched_at", { withTimezone: true }),
+    templateId: text("template_id"),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  },
+  (t) => [
+    index("recon_rules_org_active").on(t.orgId, t.priority),
+  ]
+);
+
+export const recurringPaymentPatterns = pgTable(
+  "recurring_payment_patterns",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    expectedAmount: numeric("expected_amount", { precision: 14, scale: 2 }),
+    amountTolerance: numeric("amount_tolerance", { precision: 5, scale: 4 }).default("0.0500"),
+    expectedDayOfMonth: integer("expected_day_of_month"),
+    dayTolerance: integer("day_tolerance").default(5),
+    counterpartyPattern: text("counterparty_pattern"),
+    occurrenceCount: integer("occurrence_count").notNull().default(0),
+    lastOccurredAt: timestamp("last_occurred_at", { withTimezone: true }),
+    isConfirmed: boolean("is_confirmed").notNull().default(false),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -913,3 +1042,67 @@ export const orgAiSettingsRelations = relations(orgAiSettings, ({ one }) => ({
     references: [organizations.id],
   }),
 }));
+
+export const vendorBankAliasesRelations = relations(
+  vendorBankAliases,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [vendorBankAliases.orgId],
+      references: [organizations.id],
+    }),
+    vendor: one(vendors, {
+      fields: [vendorBankAliases.vendorId],
+      references: [vendors.id],
+    }),
+  })
+);
+
+export const reconciliationRulesRelations = relations(
+  reconciliationRules,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [reconciliationRules.orgId],
+      references: [organizations.id],
+    }),
+  })
+);
+
+export const recurringPaymentPatternsRelations = relations(
+  recurringPaymentPatterns,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [recurringPaymentPatterns.orgId],
+      references: [organizations.id],
+    }),
+    vendor: one(vendors, {
+      fields: [recurringPaymentPatterns.vendorId],
+      references: [vendors.id],
+    }),
+  })
+);
+
+export const aiMatchSuggestionsRelations = relations(
+  aiMatchSuggestions,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [aiMatchSuggestions.orgId],
+      references: [organizations.id],
+    }),
+    transaction: one(transactions, {
+      fields: [aiMatchSuggestions.transactionId],
+      references: [transactions.id],
+    }),
+    document: one(documents, {
+      fields: [aiMatchSuggestions.documentId],
+      references: [documents.id],
+    }),
+    payment: one(payments, {
+      fields: [aiMatchSuggestions.paymentId],
+      references: [payments.id],
+    }),
+    reviewer: one(users, {
+      fields: [aiMatchSuggestions.reviewedBy],
+      references: [users.id],
+    }),
+  })
+);

@@ -13,29 +13,65 @@ export const reconcileDocument = inngest.createFunction(
   },
   { event: "document/confirmed" },
   async ({ event, step }) => {
-    const { documentId, paymentId, orgId, netAmountPaid, paymentDate } =
-      event.data;
+    const {
+      documentId,
+      paymentId,
+      orgId,
+      netAmountPaid,
+      paymentDate,
+      vendorId,
+      vendorName,
+      vendorNameTh,
+      vendorTaxId,
+      documentNumber,
+      direction,
+      bankAccountId,
+    } = event.data;
 
-    // Step 1: Find match candidates
+    // Step 1: Find match candidates using full context
     const matchResult: MatchResult = await step.run(
       "find-matches",
       async () => {
-        return findMatches(orgId, netAmountPaid, paymentDate);
+        return findMatches({
+          orgId,
+          netAmountPaid,
+          paymentDate,
+          documentId,
+          vendorId: vendorId ?? null,
+          vendorName: vendorName ?? null,
+          vendorNameTh: vendorNameTh ?? null,
+          vendorTaxId: vendorTaxId ?? null,
+          documentNumber: documentNumber ?? null,
+          direction: direction ?? "expense",
+          bankAccountId: bankAccountId ?? null,
+        });
       }
     );
 
     // Step 2: Process match result
-    if (matchResult.type === "exact" || matchResult.type === "fuzzy") {
+    if (
+      matchResult.type === "exact" ||
+      matchResult.type === "fuzzy" ||
+      matchResult.type === "reference" ||
+      matchResult.type === "pattern" ||
+      matchResult.type === "multi_signal" ||
+      matchResult.type === "rule"
+    ) {
       await step.run("apply-single-match", async () => {
+        const matchedBy = matchResult.type === "pattern" ? "pattern" as const
+          : matchResult.type === "rule" ? "rule" as const
+          : "auto" as const;
+
         await createMatch({
           orgId,
           transactionId: matchResult.transactionId,
           documentId,
           paymentId,
           matchedAmount: netAmountPaid,
-          matchType: matchResult.type as "exact" | "fuzzy",
+          matchType: matchResult.type as "exact" | "fuzzy" | "reference" | "pattern" | "multi_signal" | "rule",
           confidence: matchResult.confidence,
-          matchedBy: "auto",
+          matchedBy,
+          matchMetadata: matchResult.metadata,
         });
 
         await updateTransactionReconStatus(
@@ -64,6 +100,7 @@ export const reconcileDocument = inngest.createFunction(
             matchType: "exact",
             confidence: matchResult.confidence,
             matchedBy: "auto",
+            matchMetadata: matchResult.metadata,
           });
 
           await updateTransactionReconStatus(orgId, txn.id, "matched");

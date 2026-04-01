@@ -1,0 +1,2 @@
+ALTER TABLE "reconciliation_matches" DROP CONSTRAINT "recon_txn_doc";--> statement-breakpoint
+CREATE UNIQUE INDEX "recon_txn_doc" ON "reconciliation_matches" ("transaction_id", "document_id") WHERE deleted_at IS NULL;

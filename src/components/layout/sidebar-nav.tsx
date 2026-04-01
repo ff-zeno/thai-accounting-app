@@ -93,10 +93,13 @@ export function SidebarNav() {
   const t = useTranslations("nav");
 
   return (
-    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-      {navGroups.map((group) => (
-        <div key={group.labelKey}>
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <nav className="flex-1 overflow-y-auto px-3 py-4">
+      {navGroups.map((group, groupIndex) => (
+        <div
+          key={group.labelKey}
+          className={cn(groupIndex > 0 && "mt-5")}
+        >
+          <p className="mb-1 px-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
             {t(group.labelKey)}
           </p>
           <ul className="space-y-1">

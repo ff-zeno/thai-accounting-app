@@ -5,7 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadForm } from "./upload-form";
 import { IndividualPaymentForm } from "./individual-payment-form";
 
-export function UploadTabs() {
+export function UploadTabs({
+  defaultDirection = "expense",
+}: {
+  defaultDirection?: "expense" | "income";
+}) {
   return (
     <Tabs defaultValue="document">
       <TabsList className="mb-4 w-full">
@@ -19,7 +23,7 @@ export function UploadTabs() {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="document">
-        <UploadForm />
+        <UploadForm defaultDirection={defaultDirection} />
       </TabsContent>
       <TabsContent value="individual">
         <IndividualPaymentForm />

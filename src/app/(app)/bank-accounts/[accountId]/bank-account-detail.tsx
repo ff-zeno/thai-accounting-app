@@ -1,11 +1,16 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Pencil, Check, X } from "lucide-react";
 import { TransactionTable } from "./transaction-table";
 import { StatementUpload } from "./statement-upload";
 import { StatementTable } from "./statement-table";
 import { DeleteAccountButton } from "./delete-account-button";
+import { renameAccountAction } from "./actions";
 import type { Transaction, Statement } from "./types";
 
 interface BankAccountDetailProps {
@@ -18,6 +23,91 @@ interface BankAccountDetailProps {
   hasMore: boolean;
   nextCursor: { date: string; id: string } | null;
   statements: Statement[];
+}
+
+function InlineRename({
+  bankAccountId,
+  accountName,
+}: {
+  bankAccountId: string;
+  accountName: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(accountName ?? "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    const result = await renameAccountAction(bankAccountId, name);
+    setSaving(false);
+    if ("success" in result) {
+      setEditing(false);
+    }
+  }
+
+  function handleCancel() {
+    setName(accountName ?? "");
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1">
+        <span>—</span>
+        <Input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") handleCancel();
+          }}
+          className="h-7 w-56 text-sm"
+          placeholder="Account name"
+          disabled={saving}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+        >
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          onClick={handleCancel}
+          disabled={saving}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      {accountName && <span>— {accountName}</span>}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        onClick={() => setEditing(true)}
+        title="Rename account"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    </span>
+  );
 }
 
 export function BankAccountDetail({
@@ -38,10 +128,10 @@ export function BankAccountDetail({
         <div className="flex items-center gap-6">
           <div>
             <h1 className="text-2xl font-semibold">{bankName}</h1>
-            <p className="text-muted-foreground">
-              {accountNumber}
-              {accountName && ` — ${accountName}`}
-            </p>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span>{accountNumber}</span>
+              <InlineRename bankAccountId={bankAccountId} accountName={accountName} />
+            </div>
           </div>
           <TabsList>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>

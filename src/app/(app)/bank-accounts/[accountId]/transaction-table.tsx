@@ -8,11 +8,13 @@ import {
 } from "@tanstack/react-table";
 import { useState, useCallback, useTransition } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
   Coins,
   Download,
+  FileText,
   Filter,
   Landmark,
   Loader2,
@@ -22,6 +24,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -45,10 +48,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   paginateTransactionsAction,
   markAsPettyCashAction,
   unmarkPettyCashAction,
-  bulkMarkPettyCashBelowThresholdAction,
   type TransactionSearchFilters,
 } from "./actions";
 import type { Transaction } from "./types";
@@ -96,8 +106,9 @@ export function TransactionTable({
   const [filterDraft, setFilterDraft] = useState<TransactionSearchFilters>({});
   const [activeFilters, setActiveFilters] = useState<TransactionSearchFilters>({});
 
-  // Bulk petty cash threshold
-  const [bulkThreshold, setBulkThreshold] = useState("2000");
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [isBulkPending, setIsBulkPending] = useState(false);
 
   const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
@@ -134,6 +145,7 @@ export function TransactionTable({
 
   function resetToFirstPage(overrides?: Partial<{ search: string; filters: TransactionSearchFilters }>) {
     setCursorHistory([null]);
+    setSelectedIds(new Set());
     fetchWithCursor(null, overrides);
   }
 
@@ -164,12 +176,14 @@ export function TransactionTable({
     const newHistory = cursorHistory.slice(0, -1);
     const prevCursor = newHistory[newHistory.length - 1];
     setCursorHistory(newHistory);
+    setSelectedIds(new Set());
     fetchWithCursor(prevCursor);
   }
 
   function handleNext() {
     if (!hasMore || !nextCursor) return;
     setCursorHistory((prev) => [...prev, nextCursor]);
+    setSelectedIds(new Set());
     fetchWithCursor(nextCursor);
   }
 
@@ -196,13 +210,39 @@ export function TransactionTable({
     );
   }
 
+  // Selection helpers
+  function toggleSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function handleRowClick(e: React.MouseEvent, id: string) {
+    // Don't toggle if clicking on interactive elements (checkbox, button, link, dropdown)
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, [data-slot=checkbox]")) return;
+    toggleSelection(id);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === transactions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(transactions.map((t) => t.id)));
+    }
+  }
+
   async function handleBulkMarkPettyCash() {
     setIsBulkPending(true);
-    const result = await bulkMarkPettyCashBelowThresholdAction(
-      bankAccountId,
-      bulkThreshold
-    );
+    const result = await markAsPettyCashAction(Array.from(selectedIds));
     setIsBulkPending(false);
+    setConfirmDialogOpen(false);
 
     if ("error" in result) {
       toast.error(result.error);
@@ -210,11 +250,39 @@ export function TransactionTable({
     }
 
     toast.success(`Marked ${result.count} transaction(s) as petty cash`);
-    resetToFirstPage();
+    setSelectedIds(new Set());
+
+    // Update local state
+    setTransactions((prev) =>
+      prev.map((t) =>
+        selectedIds.has(t.id) ? { ...t, isPettyCash: true } : t
+      )
+    );
   }
+
+  const allSelected = transactions.length > 0 && selectedIds.size === transactions.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < transactions.length;
 
   // Column definitions
   const columns: ColumnDef<Transaction>[] = [
+    {
+      id: "select",
+      header: () => (
+        <Checkbox
+          checked={allSelected}
+          indeterminate={someSelected}
+          onCheckedChange={toggleSelectAll}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedIds.has(row.original.id)}
+          onCheckedChange={() => toggleSelection(row.original.id)}
+          aria-label={`Select transaction ${row.original.description ?? row.original.id}`}
+        />
+      ),
+    },
     {
       accessorKey: "date",
       header: "Date",
@@ -225,11 +293,26 @@ export function TransactionTable({
     {
       accessorKey: "description",
       header: "Description",
-      cell: ({ row }) => (
-        <span className="line-clamp-1 max-w-[300px] text-sm">
-          {row.getValue("description") ?? "--"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const desc = (row.getValue("description") as string | null) ?? "--";
+        return (
+          <span className="block truncate text-sm" title={desc}>
+            {desc}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "vendorName",
+      header: "Vendor",
+      cell: ({ row }) => {
+        const vendor = row.getValue("vendorName") as string | null;
+        return (
+          <span className="whitespace-nowrap text-sm text-muted-foreground">
+            {vendor ?? "\u2014"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "type",
@@ -310,6 +393,31 @@ export function TransactionTable({
       },
     },
     {
+      id: "linkedDocs",
+      header: "Documents",
+      cell: ({ row }) => {
+        const count = row.original.linkedDocCount;
+        const firstId = row.original.firstLinkedDocId;
+
+        if (!count || count === 0) {
+          return <span className="text-sm text-muted-foreground">{"\u2014"}</span>;
+        }
+
+        const label = count === 1 ? "1 Document" : `${count} Documents`;
+        const href = firstId ? `/documents/${firstId}/review` : "#";
+
+        return (
+          <Link
+            href={href}
+            className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-primary hover:underline"
+          >
+            <FileText className="size-3.5" />
+            {label}
+          </Link>
+        );
+      },
+    },
+    {
       id: "actions",
       header: "",
       cell: ({ row }) => {
@@ -323,6 +431,7 @@ export function TransactionTable({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
+                className="whitespace-nowrap"
                 onClick={() =>
                   handleTogglePettyCash(row.original.id, isPetty)
                 }
@@ -345,13 +454,14 @@ export function TransactionTable({
 
   function exportCSV() {
     const rows = table.getRowModel().rows;
-    const headers = ["Date", "Description", "Type", "Amount", "Balance", "Status", "Petty Cash"];
+    const headers = ["Date", "Description", "Vendor", "Type", "Amount", "Balance", "Status", "Petty Cash"];
     const csvRows = [headers.join(",")];
     for (const row of rows) {
       csvRows.push(
         [
           row.original.date,
           `"${(row.original.description ?? "").replace(/"/g, '""')}"`,
+          `"${(row.original.vendorName ?? "").replace(/"/g, '""')}"`,
           row.original.type,
           row.original.amount,
           row.original.runningBalance ?? "",
@@ -401,55 +511,71 @@ export function TransactionTable({
         </Button>
         <div className="flex-1" />
 
-        {/* Bulk Petty Cash */}
-        <div className="flex items-center gap-1.5">
-          <Input
-            type="number"
-            value={bulkThreshold}
-            onChange={(e) => setBulkThreshold(e.target.value)}
-            className="w-24"
-            placeholder="2000"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBulkMarkPettyCash}
-            disabled={isBulkPending}
-          >
-            {isBulkPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Coins className="size-4" />
-            )}
-            Bulk Petty Cash
-          </Button>
-        </div>
-
         <Button variant="outline" onClick={exportCSV}>
           <Download className="size-4" />
           CSV
         </Button>
       </div>
 
+      {/* Floating action bar for selection */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
+          <span className="text-sm font-medium">
+            {selectedIds.size} selected
+          </span>
+          <Button
+            size="sm"
+            onClick={() => setConfirmDialogOpen(true)}
+          >
+            <Coins className="size-4" />
+            Mark as Petty Cash
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="size-4" />
+            Clear
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-hidden rounded-md border">
-        <table className="w-full">
+        <table className="w-full table-fixed">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b bg-muted/50">
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  // Assign widths based on column id
+                  let widthClass = "";
+                  switch (header.column.id) {
+                    case "select": widthClass = "w-10"; break;
+                    case "date": widthClass = "w-28"; break;
+                    case "description": widthClass = ""; break; // fills remaining
+                    case "vendorName": widthClass = "w-40"; break;
+                    case "type": widthClass = "w-20"; break;
+                    case "amount": widthClass = "w-32"; break;
+                    case "runningBalance": widthClass = "w-32"; break;
+                    case "reconciliationStatus": widthClass = "w-28"; break;
+                    case "linkedDocs": widthClass = "w-32"; break;
+                    case "actions": widthClass = "w-12"; break;
+                  }
+                  return (
+                    <th
+                      key={header.id}
+                      className={`px-3 py-2 text-left text-xs font-medium text-muted-foreground ${widthClass}`}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -470,9 +596,18 @@ export function TransactionTable({
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-b last:border-0 transition-colors hover:bg-muted/50">
+                <tr
+                  key={row.id}
+                  className={`border-b last:border-0 transition-colors hover:bg-muted/50 ${
+                    selectedIds.has(row.original.id) ? "bg-primary/5" : ""
+                  }${selectedIds.size > 0 ? " cursor-pointer" : ""}`}
+                  onClick={selectedIds.size > 0 ? (e) => handleRowClick(e, row.original.id) : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2">
+                    <td
+                      key={cell.id}
+                      className={`px-3 py-2${cell.column.id === "description" ? " max-w-0" : ""}`}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -628,6 +763,39 @@ export function TransactionTable({
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Bulk petty cash confirmation dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Petty Cash</DialogTitle>
+            <DialogDescription>
+              This will mark {selectedIds.size} transaction{selectedIds.size !== 1 ? "s" : ""} as petty cash.
+              Petty cash transactions are excluded from reconciliation matching.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialogOpen(false)}
+              disabled={isBulkPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkMarkPettyCash}
+              disabled={isBulkPending}
+            >
+              {isBulkPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Coins className="size-4" />
+              )}
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

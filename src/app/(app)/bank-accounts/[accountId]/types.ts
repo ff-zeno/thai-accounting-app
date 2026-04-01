@@ -9,6 +9,9 @@ export interface Transaction {
   counterparty: string | null;
   reconciliationStatus: string | null;
   isPettyCash: boolean | null;
+  vendorName: string | null;
+  linkedDocCount: number;
+  firstLinkedDocId: string | null;
 }
 
 export interface Statement {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { UserButton } from "@clerk/nextjs";
+import { Puzzle } from "lucide-react";
 import { OrgSwitcher } from "./org-switcher";
 import { SidebarNav } from "./sidebar-nav";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -26,9 +27,12 @@ export function Sidebar({ orgs, activeOrgId }: SidebarProps) {
     <>
       <aside className="flex h-full w-64 flex-col border-r bg-sidebar">
         <div className="p-4">
-          <p className="mb-3 text-lg font-semibold tracking-tight text-primary">
-            Thai Accounting
-          </p>
+          <div className="mb-3 flex items-center gap-2.5">
+            <Puzzle className="size-5 text-primary" />
+            <span className="text-lg font-semibold tracking-tight text-primary">
+              Long Dtua
+            </span>
+          </div>
           <OrgSwitcher
             orgs={orgs}
             activeOrgId={activeOrgId}

@@ -8,7 +8,7 @@ export class VercelBlobStorage implements BlobStorage {
     contentType: string
   ): Promise<{ url: string }> {
     const blob = await put(path, data, {
-      access: "public",
+      access: "private",
       contentType,
     });
     return { url: blob.url };

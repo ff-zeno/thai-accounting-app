@@ -31,6 +31,8 @@ const PDF_THAI_TYPE_MAP: Record<string, { english: string; type: "debit" | "cred
   "รับชำระเงิน": { english: "Payment Received", type: "credit" },
   "หักค่าธรรมเนียม": { english: "Fee Deduction", type: "debit" },
   "ดอกเบี้ยรับ": { english: "Interest Income", type: "credit" },
+  "รับดอกเบี้ยเงินฝาก": { english: "Deposit Interest Received", type: "credit" },
+  "ภาษีหัก ณ ที่จ่าย": { english: "Withholding Tax Deduction", type: "debit" },
 };
 
 // All known Thai type keywords for regex matching (longest first to avoid partial matches)
@@ -260,18 +262,43 @@ function parseTransactionGroup(lines: string[]): RawTxn | null {
 
   // Extract Thai type + amount from end of text
   const typeMatch = fullText.match(THAI_TYPE_PATTERN);
-  if (!typeMatch) return null;
 
-  const thaiType = typeMatch[1];
-  const amount = typeMatch[2].replace(/,/g, "");
-  const typeInfo = PDF_THAI_TYPE_MAP[thaiType];
-  const txnType = typeInfo?.type ?? "debit";
+  let thaiType: string;
+  let amount: string;
+  let txnType: "debit" | "credit";
+
+  if (typeMatch) {
+    thaiType = typeMatch[1];
+    amount = typeMatch[2].replace(/,/g, "");
+    const typeInfo = PDF_THAI_TYPE_MAP[thaiType];
+    txnType = typeInfo?.type ?? "debit";
+  } else {
+    // Fallback: extract trailing amount and any Thai text before it as the type.
+    // Never drop a transaction just because the type keyword is unknown.
+    const fallbackMatch = fullText.match(/(\S+)\s+([\d,]+\.\d{2})\s*$/);
+    if (!fallbackMatch) return null;
+
+    thaiType = fallbackMatch[1];
+    amount = fallbackMatch[2].replace(/,/g, "");
+    // Guess direction from balance change: if balance went up, it's credit
+    const prevBalance = parseFloat(balance);
+    const amountNum = parseFloat(amount);
+    // balance is the NEW balance after this transaction, so we can't infer direction
+    // from balance alone without the previous balance. Default to debit (conservative).
+    txnType = "debit";
+  }
 
   // Extract details: everything between balance and the type+amount
   // Remove balance from start and type+amount from end
+  const typeAmountPattern = typeMatch
+    ? THAI_TYPE_PATTERN
+    : new RegExp(
+        thaiType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+          "\\s+[\\d,]+\\.\\d{2}\\s*$"
+      );
   const details = fullText
     .replace(/^[\d,]+\.\d{2}\s*/, "") // remove leading balance
-    .replace(THAI_TYPE_PATTERN, "")     // remove trailing type+amount
+    .replace(typeAmountPattern, "")    // remove trailing type+amount
     .replace(/\t/g, " ")               // normalize tabs
     .replace(/\n/g, " ")               // normalize newlines
     .trim();

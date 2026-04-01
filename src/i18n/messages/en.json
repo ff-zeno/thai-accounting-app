@@ -23,7 +23,8 @@
     "next": "Next",
     "done": "Done",
     "translate": "Translate",
-    "all": "All"
+    "all": "All",
+    "clear": "Clear"
   },
   "nav": {
     "overview": "Overview",
@@ -63,8 +64,8 @@
     "dragDrop": "Drag and drop files here, or click to browse",
     "supportedFormats": "Supported: JPG, PNG, PDF (max 10MB per file)",
     "direction": "Document Direction",
-    "expense": "Expense (we received)",
-    "income": "Income (we issued)",
+    "expense": "Expense (we paid)",
+    "income": "Income (we received)",
     "processing": "Processing...",
     "extracting": "Extracting data...",
     "review": "Review",
@@ -119,7 +120,11 @@
     "matchAmount": "Match Amount",
     "matchType": "Match Type",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "deleteDocuments": "Delete Documents",
+    "deleteDocumentsConfirm": "This will delete {count, plural, one {# document} other {# documents}} and all associated files, line items, and reconciliation matches. This action cannot be undone.",
+    "groupAsOne": "These files are pages of a single document",
+    "uploadedDocuments": "Uploaded {count, plural, one {# document} other {# documents}}"
   },
   "review": {
     "title": "Document Review",

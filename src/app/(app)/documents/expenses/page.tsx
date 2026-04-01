@@ -26,7 +26,7 @@ export default async function ExpensesPage() {
             {tNav("expenses")}
           </h1>
         </div>
-        <Button render={<Link href="/documents/upload" />}>
+        <Button render={<Link href="/documents/upload?direction=expense" />}>
           <Upload className="mr-2 size-4" />
           {t("uploadTitle")}
         </Button>

@@ -1,8 +1,14 @@
 import { getTranslations } from "next-intl/server";
 import { UploadTabs } from "./upload-tabs";
 
-export default async function DocumentUploadPage() {
+export default async function DocumentUploadPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ direction?: string }>;
+}) {
   const t = await getTranslations("documents");
+  const { direction } = await searchParams;
+  const defaultDirection = direction === "income" ? "income" : "expense";
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -14,7 +20,7 @@ export default async function DocumentUploadPage() {
           {t("uploadDescription")}
         </p>
       </div>
-      <UploadTabs />
+      <UploadTabs defaultDirection={defaultDirection} />
     </div>
   );
 }

@@ -238,6 +238,80 @@ export async function deleteLineItemsByDocument(
     );
 }
 
+export async function bulkSoftDeleteDocuments(
+  orgId: string,
+  documentIds: string[],
+  actorId?: string
+): Promise<{ count: number }> {
+  if (documentIds.length === 0) return { count: 0 };
+
+  const now = new Date();
+
+  // Soft-delete the documents themselves
+  const deleted = await db
+    .update(documents)
+    .set({ deletedAt: now })
+    .where(
+      and(
+        eq(documents.orgId, orgId),
+        inArray(documents.id, documentIds),
+        isNull(documents.deletedAt)
+      )
+    )
+    .returning({ id: documents.id });
+
+  if (deleted.length === 0) return { count: 0 };
+
+  const deletedIds = deleted.map((d) => d.id);
+
+  // Soft-delete related records in parallel
+  await Promise.all([
+    db
+      .update(documentFiles)
+      .set({ deletedAt: now })
+      .where(
+        and(
+          eq(documentFiles.orgId, orgId),
+          inArray(documentFiles.documentId, deletedIds),
+          isNull(documentFiles.deletedAt)
+        )
+      ),
+    db
+      .update(documentLineItems)
+      .set({ deletedAt: now })
+      .where(
+        and(
+          eq(documentLineItems.orgId, orgId),
+          inArray(documentLineItems.documentId, deletedIds),
+          isNull(documentLineItems.deletedAt)
+        )
+      ),
+    db
+      .update(reconciliationMatches)
+      .set({ deletedAt: now })
+      .where(
+        and(
+          eq(reconciliationMatches.orgId, orgId),
+          inArray(reconciliationMatches.documentId, deletedIds),
+          isNull(reconciliationMatches.deletedAt)
+        )
+      ),
+  ]);
+
+  // Audit each deletion
+  for (const row of deleted) {
+    await auditMutation({
+      orgId,
+      entityType: "document",
+      entityId: row.id,
+      action: "delete",
+      actorId,
+    });
+  }
+
+  return { count: deleted.length };
+}
+
 export async function getDocumentCountsByStatus(
   orgId: string,
   direction: "expense" | "income"

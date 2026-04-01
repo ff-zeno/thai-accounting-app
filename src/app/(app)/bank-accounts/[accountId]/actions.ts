@@ -10,7 +10,7 @@ import {
   softDeleteStatement,
   type TransactionFilters,
 } from "@/lib/db/queries/transactions";
-import { softDeleteBankAccount } from "@/lib/db/queries/bank-accounts";
+import { softDeleteBankAccount, updateBankAccount } from "@/lib/db/queries/bank-accounts";
 import { db } from "@/lib/db";
 import { transactions } from "@/lib/db/schema";
 import { auditMutation } from "@/lib/db/helpers/audit-log";
@@ -201,4 +201,22 @@ export async function bulkMarkPettyCashBelowThresholdAction(
 
   revalidatePath("/bank-accounts");
   return { success: true, count: result.length };
+}
+
+export async function renameAccountAction(
+  accountId: string,
+  newName: string
+): Promise<{ success: true } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+
+  const trimmed = newName.trim();
+  if (!trimmed) return { error: "Name cannot be empty" };
+  if (trimmed.length > 100) return { error: "Name must be under 100 characters" };
+
+  await updateBankAccount(orgId, accountId, { accountName: trimmed });
+
+  revalidatePath(`/bank-accounts/${accountId}`);
+  revalidatePath("/bank-accounts");
+  return { success: true };
 }

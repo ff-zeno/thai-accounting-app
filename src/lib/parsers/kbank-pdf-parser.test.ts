@@ -298,6 +298,103 @@ describe("parseKBankPdfText — balance validation", () => {
   });
 });
 
+describe("parseKBankPdfText — deposit interest and WHT types", () => {
+  const PAGE_INTEREST = `ที่ DD.048 : N26030212060273863618O/2569
+ชื่อบัญชี บจก. ทดสอบ (ประเทศไทย)
+1/1(0787)
+สาขาเซ็นทรัลเอ็มบาสซี
+210-8-48789-8
+26030212060273863618
+01/12/2025 - 31/12/2025
+เลขที่บัญชีเงินฝาก
+สาขาเจ้าของบัญชี
+เลขที่อ้างอิง
+รอบระหว่างวันที่
+10.62
+23,875.19
+รวมถอนเงิน 1 รายการ
+รวมฝากเงิน 1 รายการ
+ยอดยกไป
+0.00
+หน้าที่ (PAGE/OF) 1/1
+วันที่ เวลา/
+วันที่มีผล ถอนเงิน / ฝากเงิน ช่องทาง\tรายการ ยอดคงเหลือ
+(บาท) รายละเอียด
+01-12-25 23,875.19\tยอดยกมา
+19-12-25 23:59 โอนเข้า/หักบัญชีอัตโนมัติ\t24,937.25 รหัสอ้างอิง PCB09400\tรับดอกเบี้ยเงินฝาก 1,062.06
+19-12-25 23:59 โอนเข้า/หักบัญชีอัตโนมัติ\t24,926.63 รหัสอ้างอิง PCB09400\tภาษีหัก ณ ที่จ่าย 10.62
+KBPDF (FM702-CA_SA-V.1) (03-25)
+ออกโดย K BIZ`;
+
+  it("parses deposit interest received", () => {
+    const { result } = parseKBankPdfText([PAGE_INTEREST]);
+    const interest = result.transactions.find((t) =>
+      t.description?.includes("Deposit Interest")
+    );
+    expect(interest).toBeDefined();
+    expect(interest!.amount).toBe("1062.06");
+    expect(interest!.type).toBe("credit");
+  });
+
+  it("parses withholding tax deduction", () => {
+    const { result } = parseKBankPdfText([PAGE_INTEREST]);
+    const wht = result.transactions.find((t) =>
+      t.description?.includes("Withholding Tax")
+    );
+    expect(wht).toBeDefined();
+    expect(wht!.amount).toBe("10.62");
+    expect(wht!.type).toBe("debit");
+  });
+
+  it("counts all transactions with no errors", () => {
+    const { result } = parseKBankPdfText([PAGE_INTEREST]);
+    expect(result.transactions).toHaveLength(2);
+    expect(result.errors).toHaveLength(0);
+  });
+});
+
+describe("parseKBankPdfText — unknown type fallback", () => {
+  const PAGE_UNKNOWN = `ที่ DD.048 : N26030212060273863618O/2569
+ชื่อบัญชี บจก. ทดสอบ (ประเทศไทย)
+1/1(0787)
+สาขาเซ็นทรัลเอ็มบาสซี
+210-8-48789-8
+26030212060273863618
+01/03/2026 - 31/03/2026
+เลขที่บัญชีเงินฝาก
+สาขาเจ้าของบัญชี
+เลขที่อ้างอิง
+รอบระหว่างวันที่
+500.00
+0.00
+รวมถอนเงิน 1 รายการ
+รวมฝากเงิน 0 รายการ
+ยอดยกไป
+0.00
+หน้าที่ (PAGE/OF) 1/1
+วันที่ เวลา/
+วันที่มีผล ถอนเงิน / ฝากเงิน ช่องทาง\tรายการ ยอดคงเหลือ
+(บาท) รายละเอียด
+01-03-26 10,000.00\tยอดยกมา
+15-03-26 11:00 K BIZ\t9,500.00 some details\tหักค่าบริการใหม่ 500.00
+KBPDF (FM702-CA_SA-V.1) (03-25)
+ออกโดย K BIZ`;
+
+  it("parses unknown Thai type via fallback instead of dropping", () => {
+    const { result } = parseKBankPdfText([PAGE_UNKNOWN]);
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0].amount).toBe("500.00");
+    // Unknown types default to debit
+    expect(result.transactions[0].type).toBe("debit");
+  });
+
+  it("uses original Thai text in description for unknown types", () => {
+    const { result, thaiDescriptions } = parseKBankPdfText([PAGE_UNKNOWN]);
+    const ref = result.transactions[0].externalRef;
+    expect(thaiDescriptions[ref].type).toBe("หักค่าบริการใหม่");
+  });
+});
+
 describe("parseKBankPdfText — Thai descriptions map", () => {
   it("stores Thai descriptions keyed by externalRef", () => {
     const { result, thaiDescriptions } = parseKBankPdfText([PAGE_1]);

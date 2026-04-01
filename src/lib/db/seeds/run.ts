@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { Pool } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../schema";
 import { seedWhtRates } from "./wht-rates";
 import { seedTaxConfig } from "./tax-config";
@@ -12,8 +12,8 @@ async function main() {
     throw new Error("DATABASE_URL environment variable is not set");
   }
 
-  const sql = neon(databaseUrl);
-  const db = drizzle({ client: sql, schema });
+  const pool = new Pool({ connectionString: databaseUrl });
+  const db = drizzle({ client: pool, schema });
 
   await seedTaxConfig(db);
   await seedWhtRates(db);

@@ -25,7 +25,7 @@ export function MobileSidebar({ orgs, activeOrgId }: MobileSidebarProps) {
         <Menu className="size-5" />
         <span className="sr-only">Toggle menu</span>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 p-0" showCloseButton={false}>
+      <SheetContent side="left" className="data-[side=left]:w-64 gap-0 bg-sidebar p-0" showCloseButton={false}>
         <Sidebar orgs={orgs} activeOrgId={activeOrgId} />
       </SheetContent>
     </Sheet>

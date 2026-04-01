@@ -13,6 +13,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 export interface UploadResult {
   success: boolean;
   documentId?: string;
+  documentCount?: number;
   error?: string;
 }
 
@@ -28,6 +29,8 @@ export async function uploadDocument(
   if (!direction || !["expense", "income"].includes(direction)) {
     return { success: false, error: "Invalid document direction" };
   }
+
+  const groupAsOne = formData.get("groupAsOne") === "true";
 
   const files = formData.getAll("files") as File[];
   if (files.length === 0) {
@@ -50,21 +53,54 @@ export async function uploadDocument(
     }
   }
 
-  // Create document record
-  const doc = await createDocument({
-    orgId,
-    direction,
-  });
-
-  // Upload files and create file records
   const storage = createStorage();
-  const fileRecords = [];
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  if (groupAsOne) {
+    // Original behavior: 1 document, N files as pages
+    const doc = await createDocument({ orgId, direction });
+    const fileRecords = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `documents/${orgId}/${doc.id}/${i + 1}.${ext}`;
+
+      const { url } = await storage.upload(path, buffer, file.type);
+
+      const fileRecord = await createDocumentFile({
+        orgId,
+        documentId: doc.id,
+        fileUrl: url,
+        fileType: file.type,
+        pageNumber: i + 1,
+        originalFilename: file.name,
+      });
+
+      fileRecords.push(fileRecord);
+    }
+
+    await inngest.send({
+      name: "document/uploaded",
+      data: {
+        documentId: doc.id,
+        orgId,
+        fileIds: fileRecords.map((f) => f.id),
+      },
+    });
+
+    revalidatePath(`/documents/${direction === "expense" ? "expenses" : "income"}`);
+    return { success: true, documentId: doc.id, documentCount: 1 };
+  }
+
+  // Default: 1 document per file
+  const events = [];
+
+  for (const file of files) {
+    const doc = await createDocument({ orgId, direction });
     const buffer = Buffer.from(await file.arrayBuffer());
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `documents/${orgId}/${doc.id}/${i + 1}.${ext}`;
+    const path = `documents/${orgId}/${doc.id}/1.${ext}`;
 
     const { url } = await storage.upload(path, buffer, file.type);
 
@@ -73,24 +109,22 @@ export async function uploadDocument(
       documentId: doc.id,
       fileUrl: url,
       fileType: file.type,
-      pageNumber: i + 1,
+      pageNumber: 1,
       originalFilename: file.name,
     });
 
-    fileRecords.push(fileRecord);
+    events.push({
+      name: "document/uploaded" as const,
+      data: {
+        documentId: doc.id,
+        orgId,
+        fileIds: [fileRecord.id],
+      },
+    });
   }
 
-  // Send Inngest event to start processing pipeline
-  await inngest.send({
-    name: "document/uploaded",
-    data: {
-      documentId: doc.id,
-      orgId,
-      fileIds: fileRecords.map((f) => f.id),
-    },
-  });
+  await inngest.send(events);
 
   revalidatePath(`/documents/${direction === "expense" ? "expenses" : "income"}`);
-
-  return { success: true, documentId: doc.id };
+  return { success: true, documentCount: files.length };
 }

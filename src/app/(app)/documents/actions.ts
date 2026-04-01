@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { getCurrentUserId } from "@/lib/utils/auth";
 import {
   searchDocuments,
   getDocumentForSidebar,
@@ -9,6 +10,7 @@ import {
   updateDocumentFromExtraction,
   confirmDocument,
   getPendingPipelineCount,
+  bulkSoftDeleteDocuments,
   type DocumentSearchFilters,
 } from "@/lib/db/queries/documents";
 import { createVendor, getVendorsByOrg } from "@/lib/db/queries/vendors";
@@ -127,6 +129,23 @@ export async function confirmDocumentSidebarAction(docId: string) {
   await confirmDocument(orgId, docId);
   revalidatePath("/documents");
   return { success: true };
+}
+
+export async function bulkDeleteDocumentsAction(
+  documentIds: string[]
+): Promise<{ success: true; count: number } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+  const actorId = (await getCurrentUserId()) ?? undefined;
+
+  if (documentIds.length === 0) {
+    return { error: "No documents selected" };
+  }
+
+  const result = await bulkSoftDeleteDocuments(orgId, documentIds, actorId);
+
+  revalidatePath("/documents");
+  return { success: true, count: result.count };
 }
 
 /**

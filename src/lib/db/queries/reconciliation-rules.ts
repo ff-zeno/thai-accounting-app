@@ -1,4 +1,4 @@
-import { and, eq, asc, sql } from "drizzle-orm";
+import { and, eq, asc, isNull, sql } from "drizzle-orm";
 import { db } from "../index";
 import { reconciliationRules } from "../schema";
 import { orgScope } from "../helpers/org-scope";
@@ -143,4 +143,68 @@ export async function deleteRule(orgId: string, ruleId: string) {
         eq(reconciliationRules.orgId, orgId)
       )
     );
+}
+
+// ---------------------------------------------------------------------------
+// Find similar rule (dedup check for auto-suggested rules).
+// Checks both active AND inactive rules — only skips deleted.
+// ---------------------------------------------------------------------------
+
+export async function findSimilarRule(
+  orgId: string,
+  conditions: RuleCondition[],
+): Promise<{ id: string; name: string; isActive: boolean } | null> {
+  // Get all non-deleted rules for the org and compare conditions in-memory.
+  // JSONB equality in Postgres is order-sensitive, so we normalize + compare.
+  const allRules = await db
+    .select({
+      id: reconciliationRules.id,
+      name: reconciliationRules.name,
+      isActive: reconciliationRules.isActive,
+      conditions: reconciliationRules.conditions,
+    })
+    .from(reconciliationRules)
+    .where(
+      and(
+        eq(reconciliationRules.orgId, orgId),
+        isNull(reconciliationRules.deletedAt),
+      ),
+    );
+
+  const normalize = (c: RuleCondition[]) =>
+    JSON.stringify(
+      [...c].sort((a, b) =>
+        a.field.localeCompare(b.field)
+        || a.operator.localeCompare(b.operator)
+        || JSON.stringify(a.value).localeCompare(JSON.stringify(b.value)),
+      ),
+    );
+
+  const target = normalize(conditions);
+
+  for (const rule of allRules) {
+    const existing = normalize(rule.conditions as RuleCondition[]);
+    if (existing === target) {
+      return { id: rule.id, name: rule.name, isActive: rule.isActive };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Get all rules for an org (including inactive, for management UI)
+// ---------------------------------------------------------------------------
+
+export async function getAllRules(orgId: string) {
+  return db
+    .select()
+    .from(reconciliationRules)
+    .where(
+      and(
+        eq(reconciliationRules.orgId, orgId),
+        isNull(reconciliationRules.deletedAt),
+      ),
+    )
+    .orderBy(asc(reconciliationRules.priority));
 }

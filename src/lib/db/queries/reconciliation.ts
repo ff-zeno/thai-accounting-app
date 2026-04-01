@@ -10,7 +10,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { db } from "../index";
+import { db, type DbConnection } from "../index";
 import {
   transactions,
   reconciliationMatches,
@@ -99,18 +99,22 @@ export async function findMatchCandidates(
 // Create reconciliation match
 // ---------------------------------------------------------------------------
 
-export async function createMatch(data: {
-  orgId: string;
-  transactionId: string;
-  documentId: string;
-  paymentId?: string | null;
-  matchedAmount: string;
-  matchType: "exact" | "fuzzy" | "manual" | "ai_suggested" | "reference" | "multi_signal" | "pattern" | "rule";
-  confidence: string;
-  matchedBy: "auto" | "manual" | "rule" | "pattern";
-  matchMetadata?: unknown;
-}): Promise<string> {
-  const [match] = await db
+export async function createMatch(
+  data: {
+    orgId: string;
+    transactionId: string;
+    documentId: string;
+    paymentId?: string | null;
+    matchedAmount: string;
+    matchType: "exact" | "fuzzy" | "manual" | "ai_suggested" | "reference" | "multi_signal" | "pattern" | "rule";
+    confidence: string;
+    matchedBy: "auto" | "manual" | "rule" | "pattern";
+    matchMetadata?: unknown;
+  },
+  tx?: DbConnection,
+): Promise<string> {
+  const conn = tx ?? db;
+  const [match] = await conn
     .insert(reconciliationMatches)
     .values({
       orgId: data.orgId,
@@ -150,9 +154,11 @@ export async function createMatch(data: {
 export async function updateTransactionReconStatus(
   orgId: string,
   transactionId: string,
-  status: "unmatched" | "matched" | "partially_matched"
+  status: "unmatched" | "matched" | "partially_matched",
+  tx?: DbConnection,
 ): Promise<void> {
-  await db
+  const conn = tx ?? db;
+  await conn
     .update(transactions)
     .set({ reconciliationStatus: status })
     .where(
@@ -303,4 +309,161 @@ export async function getReconciliationStats(
     matchRate: Math.round(matchRate * 10000) / 10000,
     unmatchedAmount,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Get a single match by ID (org-scoped, includes soft-deleted check)
+// ---------------------------------------------------------------------------
+
+export async function getMatchById(
+  orgId: string,
+  matchId: string,
+  tx?: DbConnection,
+) {
+  const conn = tx ?? db;
+  const [row] = await conn
+    .select()
+    .from(reconciliationMatches)
+    .where(
+      and(
+        eq(reconciliationMatches.id, matchId),
+        eq(reconciliationMatches.orgId, orgId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Soft-delete a match + audit log
+// ---------------------------------------------------------------------------
+
+export async function softDeleteMatch(
+  orgId: string,
+  matchId: string,
+  tx?: DbConnection,
+  actorId?: string,
+) {
+  const conn = tx ?? db;
+  const [deleted] = await conn
+    .update(reconciliationMatches)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(
+        eq(reconciliationMatches.id, matchId),
+        eq(reconciliationMatches.orgId, orgId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    )
+    .returning();
+
+  if (deleted) {
+    await auditMutation({
+      orgId,
+      entityType: "reconciliation_match",
+      entityId: matchId,
+      action: "delete",
+      oldValue: {
+        transactionId: deleted.transactionId,
+        documentId: deleted.documentId,
+        matchType: deleted.matchType,
+        matchedBy: deleted.matchedBy,
+      },
+      actorId,
+    });
+  }
+
+  return deleted ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Recompute transaction reconciliation status from remaining active matches.
+// Critical for split-match rollback: don't blindly set "unmatched".
+// ---------------------------------------------------------------------------
+
+export async function recomputeTransactionStatus(
+  orgId: string,
+  transactionId: string,
+  tx?: DbConnection,
+): Promise<"matched" | "partially_matched" | "unmatched"> {
+  const conn = tx ?? db;
+
+  // Count active (non-deleted) matches for this transaction
+  const [result] = await conn
+    .select({
+      matchCount: count(),
+      totalMatchedAmount: sum(reconciliationMatches.matchedAmount),
+    })
+    .from(reconciliationMatches)
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, orgId),
+        eq(reconciliationMatches.transactionId, transactionId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    );
+
+  // Get the transaction amount for comparison
+  const [txn] = await conn
+    .select({ amount: transactions.amount })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.id, transactionId),
+        eq(transactions.orgId, orgId),
+      ),
+    )
+    .limit(1);
+
+  const activeMatches = result?.matchCount ?? 0;
+  let newStatus: "matched" | "partially_matched" | "unmatched";
+
+  if (activeMatches === 0) {
+    newStatus = "unmatched";
+  } else {
+    // Check if total matched amount covers the transaction
+    const matchedTotal = parseFloat(result?.totalMatchedAmount ?? "0");
+    const txnAmount = parseFloat(txn?.amount ?? "0");
+    // Full coverage if within 0.01 tolerance
+    newStatus = Math.abs(matchedTotal - txnAmount) < 0.01
+      ? "matched"
+      : "partially_matched";
+  }
+
+  await conn
+    .update(transactions)
+    .set({ reconciliationStatus: newStatus })
+    .where(
+      and(
+        eq(transactions.id, transactionId),
+        eq(transactions.orgId, orgId),
+        isNull(transactions.deletedAt),
+      ),
+    );
+
+  return newStatus;
+}
+
+// ---------------------------------------------------------------------------
+// Update match confirmation (human approved an auto/AI match)
+// ---------------------------------------------------------------------------
+
+export async function updateMatchConfirmation(
+  orgId: string,
+  matchId: string,
+  matchedBy: "manual",
+  tx?: DbConnection,
+) {
+  const conn = tx ?? db;
+  await conn
+    .update(reconciliationMatches)
+    .set({ matchedBy })
+    .where(
+      and(
+        eq(reconciliationMatches.id, matchId),
+        eq(reconciliationMatches.orgId, orgId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    );
 }

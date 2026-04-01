@@ -16,6 +16,7 @@ import {
   BarChart3,
   Settings,
   Camera,
+  Lightbulb,
 } from "lucide-react";
 
 interface NavItem {
@@ -58,6 +59,11 @@ const navGroups: NavGroup[] = [
         labelKey: "reconciliation",
         href: "/reconciliation",
         icon: GitCompareArrows,
+      },
+      {
+        labelKey: "insights",
+        href: "/reconciliation/insights",
+        icon: Lightbulb,
       },
     ],
   },

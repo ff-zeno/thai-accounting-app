@@ -1,5 +1,5 @@
-import { and, eq, isNull, desc, count, sql } from "drizzle-orm";
-import { db } from "../index";
+import { and, eq, isNull, desc, count } from "drizzle-orm";
+import { db, type DbConnection } from "../index";
 import { aiMatchSuggestions } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 
@@ -64,9 +64,11 @@ export async function getPendingSuggestions(orgId: string, limit = 50) {
 export async function approveSuggestion(
   orgId: string,
   suggestionId: string,
-  reviewedBy: string
+  reviewedBy: string,
+  tx?: DbConnection,
 ) {
-  await db
+  const conn = tx ?? db;
+  await conn
     .update(aiMatchSuggestions)
     .set({
       status: "approved",
@@ -90,9 +92,11 @@ export async function rejectSuggestion(
   orgId: string,
   suggestionId: string,
   reviewedBy: string,
-  rejectionReason?: string
+  rejectionReason?: string,
+  tx?: DbConnection,
 ) {
-  await db
+  const conn = tx ?? db;
+  await conn
     .update(aiMatchSuggestions)
     .set({
       status: "rejected",
@@ -107,6 +111,33 @@ export async function rejectSuggestion(
         isNull(aiMatchSuggestions.deletedAt)
       )
     );
+}
+
+// ---------------------------------------------------------------------------
+// Find suggestion by transaction + document (for linking to match)
+// ---------------------------------------------------------------------------
+
+export async function findSuggestionByPair(
+  orgId: string,
+  transactionId: string,
+  documentId: string,
+  tx?: DbConnection,
+) {
+  const conn = tx ?? db;
+  const [row] = await conn
+    .select()
+    .from(aiMatchSuggestions)
+    .where(
+      and(
+        eq(aiMatchSuggestions.orgId, orgId),
+        eq(aiMatchSuggestions.transactionId, transactionId),
+        eq(aiMatchSuggestions.documentId, documentId),
+        eq(aiMatchSuggestions.status, "pending"),
+        isNull(aiMatchSuggestions.deletedAt),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 // ---------------------------------------------------------------------------

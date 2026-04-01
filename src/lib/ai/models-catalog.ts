@@ -1,7 +1,7 @@
 // Client-safe model catalog — no DB imports
 // Import this from client components instead of models.ts
 
-export type ModelPurpose = "extraction" | "classification" | "translation";
+export type ModelPurpose = "extraction" | "classification" | "translation" | "reconciliation";
 
 export interface ModelInfo {
   id: string;
@@ -27,7 +27,7 @@ export const AVAILABLE_MODELS: ModelInfo[] = [
     provider: "Google",
     inputCostPer1M: 0.1,
     outputCostPer1M: 0.4,
-    purposes: ["extraction", "classification", "translation"],
+    purposes: ["extraction", "classification", "translation", "reconciliation"],
   },
   {
     id: "openai/gpt-4o",
@@ -35,7 +35,7 @@ export const AVAILABLE_MODELS: ModelInfo[] = [
     provider: "OpenAI",
     inputCostPer1M: 2.5,
     outputCostPer1M: 10.0,
-    purposes: ["extraction", "classification", "translation"],
+    purposes: ["extraction", "classification", "translation", "reconciliation"],
   },
   {
     id: "openai/gpt-4o-mini",
@@ -43,7 +43,7 @@ export const AVAILABLE_MODELS: ModelInfo[] = [
     provider: "OpenAI",
     inputCostPer1M: 0.15,
     outputCostPer1M: 0.6,
-    purposes: ["classification", "translation"],
+    purposes: ["classification", "translation", "reconciliation"],
   },
   {
     id: "google/gemini-2.5-flash-preview",
@@ -67,6 +67,7 @@ export const DEFAULT_MODEL_IDS: Record<ModelPurpose, string> = {
   extraction: "anthropic/claude-sonnet-4",
   classification: "google/gemini-2.0-flash-001",
   translation: "google/gemini-2.0-flash-001",
+  reconciliation: "google/gemini-2.0-flash-001",
 };
 
 export function getModelsForPurpose(purpose: ModelPurpose): ModelInfo[] {

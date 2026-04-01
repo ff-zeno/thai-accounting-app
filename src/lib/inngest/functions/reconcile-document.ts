@@ -137,7 +137,12 @@ export const reconcileDocument = inngest.createFunction(
       };
     }
 
-    // No match found -- document remains unmatched
-    return { status: "unmatched" };
+    // No match found -- queue for AI batch processing
+    await step.sendEvent("queue-for-ai", {
+      name: "reconciliation/ai-batch-requested",
+      data: { orgId, trigger: "no-match-fallback" },
+    });
+
+    return { status: "unmatched", aiQueued: true };
   }
 );

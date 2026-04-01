@@ -15,6 +15,7 @@ import {
   getOverlappingStatements,
 } from "@/lib/db/queries/transactions";
 import { db } from "@/lib/db";
+import { inngest } from "@/lib/inngest/client";
 import { knockoutMatch } from "@/lib/parsers/transaction-matcher";
 import { validateStatementBalance } from "@/lib/parsers/balance-validation";
 import { parseKBankPdf } from "@/lib/parsers/kbank-pdf-parser";
@@ -286,10 +287,10 @@ export async function confirmImportAction(input: ConfirmImportInput) {
 
     if (txnsToImport.length === 0) {
       await updateStatementStatus(orgId, statement.id, "completed", tx);
-      return { statementId: statement.id, inserted: 0, skipped: result.transactions.length };
+      return { statementId: statement.id, inserted: 0, skipped: result.transactions.length, insertedIds: [] as string[] };
     }
 
-    const { inserted, skipped } = await importTransactions(
+    const { inserted, skipped, insertedIds } = await importTransactions(
       orgId, bankAccountId, statement.id, txnsToImport, tx
     );
 
@@ -300,11 +301,28 @@ export async function confirmImportAction(input: ConfirmImportInput) {
       ? result.transactions.length - txnsToImport.length
       : 0) + skipped;
 
-    return { statementId: statement.id, inserted, skipped: totalSkipped };
+    return { statementId: statement.id, inserted, skipped: totalSkipped, insertedIds };
   });
 
   revalidatePath("/bank-accounts");
   revalidatePath(`/bank-accounts/${bankAccountId}`);
+
+  // Emit event for transaction-first matching (non-blocking)
+  if (importResult.inserted > 0 && importResult.insertedIds?.length) {
+    try {
+      await inngest.send({
+        name: "transactions/imported",
+        data: {
+          orgId,
+          bankAccountId,
+          transactionIds: importResult.insertedIds,
+          statementId: importResult.statementId,
+        },
+      });
+    } catch (err) {
+      console.error("[upload] Failed to emit transactions/imported event:", err);
+    }
+  }
 
   return {
     success: true,

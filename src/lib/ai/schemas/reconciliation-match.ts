@@ -1,14 +1,18 @@
 import { z } from "zod/v4";
 
 /**
- * Schema for AI-generated reconciliation match suggestions.
- * Used with structured output when AI processes batches of
- * unmatched transactions + candidate documents.
+ * Index-based schema for AI reconciliation match suggestions.
+ * Uses T{n}/D{n} indices instead of UUIDs so the LLM prompt stays compact
+ * and the model never needs to reproduce long UUID strings.
  */
 
 export const aiMatchRecommendationSchema = z.object({
-  transactionId: z.string().describe("ID of the bank transaction being matched"),
-  documentId: z.string().describe("ID of the recommended document to match"),
+  transactionIndex: z.int().min(1).describe(
+    "Index of the bank transaction (the number N from T{N} in the prompt)"
+  ),
+  documentIndex: z.int().min(1).describe(
+    "Index of the matched document (the number N from D{N} in the prompt)"
+  ),
   confidence: z.number().min(0).max(1).describe("Confidence score 0.0-1.0"),
   explanation: z.string().describe(
     "Brief explanation of why this match is recommended. " +
@@ -27,7 +31,9 @@ export const aiReconciliationBatchResultSchema = z.object({
   ),
   unmatchable: z.array(
     z.object({
-      transactionId: z.string(),
+      transactionIndex: z.int().min(1).describe(
+        "Index of the unmatched transaction (the number N from T{N})"
+      ),
       reason: z.string().describe("Why no suitable document was found"),
     })
   ).describe("Transactions that could not be matched to any candidate document"),

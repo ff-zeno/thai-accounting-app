@@ -6,6 +6,9 @@ import {
   getUnmatchedTransactions,
   getUnmatchedDocuments,
 } from "@/lib/db/queries/reconciliation";
+import { getLastBatchTimestamp } from "@/lib/db/queries/ai-suggestions";
+import { isWithinReconciliationBudget } from "@/lib/ai/reconciliation-cost-tracker";
+import { inngest } from "@/lib/inngest/client";
 
 export async function getReconciliationDashboardData(period?: {
   start: string;
@@ -37,4 +40,42 @@ export async function getReconciliationDashboardData(period?: {
     unmatchedTransactions: unmatchedTxns,
     unmatchedDocuments: unmatchedDocs,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Manual AI batch trigger
+// ---------------------------------------------------------------------------
+
+export async function triggerAiBatchAction(): Promise<
+  { success: true } | { error: string }
+> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+
+  // Budget pre-check
+  const withinBudget = await isWithinReconciliationBudget(orgId);
+  if (!withinBudget) {
+    return { error: "AI reconciliation budget exhausted for this month" };
+  }
+
+  // Rate limit: max 1 manual trigger per 10 minutes
+  const lastBatch = await getLastBatchTimestamp(orgId);
+  if (lastBatch) {
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+    if (lastBatch > tenMinAgo) {
+      return { error: "Please wait 10 minutes between manual AI triggers" };
+    }
+  }
+
+  try {
+    await inngest.send({
+      name: "reconciliation/ai-batch-requested",
+      data: { orgId, trigger: "manual" },
+    });
+  } catch (err) {
+    console.error("[trigger-ai-batch] Failed to send Inngest event:", err);
+    return { error: "Failed to trigger AI batch" };
+  }
+
+  return { success: true };
 }

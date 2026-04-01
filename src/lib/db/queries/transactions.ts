@@ -199,6 +199,7 @@ export async function importTransactions(
 
   // Chunk inserts to avoid query size limits on large statements
   let inserted = 0;
+  const insertedIds: string[] = [];
   for (let i = 0; i < values.length; i += IMPORT_CHUNK_SIZE) {
     const chunk = values.slice(i, i + IMPORT_CHUNK_SIZE);
     const result = await conn
@@ -207,9 +208,10 @@ export async function importTransactions(
       .onConflictDoNothing()
       .returning({ id: transactions.id });
     inserted += result.length;
+    for (const r of result) insertedIds.push(r.id);
   }
 
-  return { inserted, skipped: txns.length - inserted };
+  return { inserted, skipped: txns.length - inserted, insertedIds };
 }
 
 export async function createStatement(data: {

@@ -1,4 +1,4 @@
-import { and, eq, isNull, desc, count, gte } from "drizzle-orm";
+import { and, eq, isNull, desc, count, gte, max, sql } from "drizzle-orm";
 import { db, type DbConnection } from "../index";
 import { aiMatchSuggestions, transactions, documents, vendors } from "../schema";
 import { orgScope } from "../helpers/org-scope";
@@ -234,4 +234,36 @@ export async function bulkApproveHighConfidence(
     .returning({ id: aiMatchSuggestions.id });
 
   return result.length;
+}
+
+// ---------------------------------------------------------------------------
+// Get last batch timestamp (for rate limiting)
+// ---------------------------------------------------------------------------
+
+export async function getLastBatchTimestamp(orgId: string): Promise<Date | null> {
+  const [row] = await db
+    .select({
+      lastCreated: max(aiMatchSuggestions.createdAt),
+    })
+    .from(aiMatchSuggestions)
+    .where(and(...orgScope(aiMatchSuggestions, orgId)));
+
+  return row?.lastCreated ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Get reconciliation AI cost aggregated by month
+// ---------------------------------------------------------------------------
+
+export async function getReconciliationAiCostByMonth(orgId: string) {
+  return db
+    .select({
+      month: sql<string>`to_char(${aiMatchSuggestions.createdAt}, 'YYYY-MM')`,
+      totalCost: sql<string>`coalesce(sum(${aiMatchSuggestions.aiCostUsd}), 0)`,
+      suggestionCount: count(),
+    })
+    .from(aiMatchSuggestions)
+    .where(and(...orgScope(aiMatchSuggestions, orgId)))
+    .groupBy(sql`to_char(${aiMatchSuggestions.createdAt}, 'YYYY-MM')`)
+    .orderBy(sql`to_char(${aiMatchSuggestions.createdAt}, 'YYYY-MM') desc`);
 }

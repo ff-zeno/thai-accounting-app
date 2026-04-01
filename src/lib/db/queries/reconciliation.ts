@@ -16,6 +16,8 @@ import {
   reconciliationMatches,
   documents,
   vendors,
+  payments,
+  aiMatchSuggestions,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
@@ -505,5 +507,107 @@ export async function getRecentMatches(orgId: string, limit = 10) {
       ),
     )
     .orderBy(desc(reconciliationMatches.matchedAt))
+    .limit(limit);
+}
+
+// ---------------------------------------------------------------------------
+// Get unmatched transactions for AI matching
+// Same as getUnmatchedTransactions but excludes transactions with pending
+// AI suggestions created less than 24 hours ago (to avoid re-processing).
+// ---------------------------------------------------------------------------
+
+export async function getUnmatchedTransactionsForAi(
+  orgId: string,
+  limit = 50
+) {
+  // Sub-query: transaction IDs with recent pending AI suggestions
+  const recentPendingSuggestions = db
+    .selectDistinct({ transactionId: aiMatchSuggestions.transactionId })
+    .from(aiMatchSuggestions)
+    .where(
+      and(
+        eq(aiMatchSuggestions.orgId, orgId),
+        eq(aiMatchSuggestions.status, "pending"),
+        isNull(aiMatchSuggestions.deletedAt),
+        gte(aiMatchSuggestions.createdAt, sql`now() - interval '24 hours'`)
+      )
+    );
+
+  return db
+    .select({
+      id: transactions.id,
+      date: transactions.date,
+      amount: transactions.amount,
+      type: transactions.type,
+      description: transactions.description,
+      counterparty: transactions.counterparty,
+      referenceNo: transactions.referenceNo,
+      bankAccountId: transactions.bankAccountId,
+    })
+    .from(transactions)
+    .where(
+      and(
+        ...orgScope(transactions, orgId),
+        eq(transactions.reconciliationStatus, "unmatched"),
+        eq(transactions.isPettyCash, false),
+        sql`${transactions.id} NOT IN (${recentPendingSuggestions})`
+      )
+    )
+    .orderBy(desc(transactions.date))
+    .limit(limit);
+}
+
+// ---------------------------------------------------------------------------
+// Get unmatched documents for AI matching
+// Confirmed documents without reconciliation matches, joined with payments
+// for net/WHT/gross amounts.
+// ---------------------------------------------------------------------------
+
+export async function getUnmatchedDocumentsForAi(
+  orgId: string,
+  limit = 50
+) {
+  // Sub-query: document IDs that already have active reconciliation matches
+  const matchedDocIds = db
+    .selectDistinct({ documentId: reconciliationMatches.documentId })
+    .from(reconciliationMatches)
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, orgId),
+        isNull(reconciliationMatches.deletedAt)
+      )
+    );
+
+  return db
+    .select({
+      id: documents.id,
+      documentNumber: documents.documentNumber,
+      issueDate: documents.issueDate,
+      totalAmount: documents.totalAmount,
+      currency: documents.currency,
+      direction: documents.direction,
+      vendorName: vendors.name,
+      netAmountPaid: payments.netAmountPaid,
+      whtAmountWithheld: payments.whtAmountWithheld,
+      vatAmount: documents.vatAmount,
+    })
+    .from(documents)
+    .leftJoin(vendors, eq(documents.vendorId, vendors.id))
+    .leftJoin(
+      payments,
+      and(
+        eq(payments.documentId, documents.id),
+        eq(payments.orgId, orgId),
+        isNull(payments.deletedAt)
+      )
+    )
+    .where(
+      and(
+        ...orgScope(documents, orgId),
+        eq(documents.status, "confirmed"),
+        sql`${documents.id} NOT IN (${matchedDocIds})`
+      )
+    )
+    .orderBy(desc(documents.issueDate))
     .limit(limit);
 }

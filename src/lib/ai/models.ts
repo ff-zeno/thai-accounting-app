@@ -14,10 +14,11 @@ export {
 import { DEFAULT_MODEL_IDS } from "./models-catalog";
 import type { ModelPurpose } from "./models-catalog";
 
-const PURPOSE_TO_SETTING_KEY: Record<ModelPurpose, "extractionModel" | "classificationModel" | "translationModel"> = {
+const PURPOSE_TO_SETTING_KEY: Record<ModelPurpose, "extractionModel" | "classificationModel" | "translationModel" | "reconciliationModel"> = {
   extraction: "extractionModel",
   classification: "classificationModel",
   translation: "translationModel",
+  reconciliation: "reconciliationModel",
 };
 
 export async function getModelId(

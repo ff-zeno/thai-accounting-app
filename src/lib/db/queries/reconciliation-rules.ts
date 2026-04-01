@@ -208,3 +208,82 @@ export async function getAllRules(orgId: string) {
     )
     .orderBy(asc(reconciliationRules.priority));
 }
+
+// ---------------------------------------------------------------------------
+// Get rules by template ID (for dedup on template re-apply)
+// ---------------------------------------------------------------------------
+
+export async function getRulesByTemplateId(
+  orgId: string,
+  templateId: string,
+) {
+  return db
+    .select({ name: reconciliationRules.name })
+    .from(reconciliationRules)
+    .where(
+      and(
+        eq(reconciliationRules.orgId, orgId),
+        eq(reconciliationRules.templateId, templateId),
+        isNull(reconciliationRules.deletedAt),
+      ),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Update rule fields
+// ---------------------------------------------------------------------------
+
+export async function updateRule(
+  orgId: string,
+  ruleId: string,
+  data: {
+    name?: string;
+    description?: string;
+    priority?: number;
+    conditions?: RuleCondition[];
+    actions?: RuleAction[];
+  },
+) {
+  await db
+    .update(reconciliationRules)
+    .set(data)
+    .where(
+      and(
+        eq(reconciliationRules.id, ruleId),
+        eq(reconciliationRules.orgId, orgId),
+        isNull(reconciliationRules.deletedAt),
+      ),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Swap priorities between two rules (for reorder)
+// ---------------------------------------------------------------------------
+
+export async function swapRulePriorities(
+  orgId: string,
+  ruleIdA: string,
+  priorityA: number,
+  ruleIdB: string,
+  priorityB: number,
+) {
+  // Swap: A gets B's priority, B gets A's priority
+  await db
+    .update(reconciliationRules)
+    .set({ priority: priorityB })
+    .where(
+      and(
+        eq(reconciliationRules.id, ruleIdA),
+        eq(reconciliationRules.orgId, orgId),
+      ),
+    );
+  await db
+    .update(reconciliationRules)
+    .set({ priority: priorityA })
+    .where(
+      and(
+        eq(reconciliationRules.id, ruleIdB),
+        eq(reconciliationRules.orgId, orgId),
+      ),
+    );
+}

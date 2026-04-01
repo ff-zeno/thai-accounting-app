@@ -1,6 +1,6 @@
-import { and, eq, isNull, desc, count } from "drizzle-orm";
+import { and, eq, isNull, desc, count, gte } from "drizzle-orm";
 import { db, type DbConnection } from "../index";
-import { aiMatchSuggestions } from "../schema";
+import { aiMatchSuggestions, transactions, documents, vendors } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 
 // ---------------------------------------------------------------------------
@@ -163,4 +163,75 @@ export async function getSuggestionCounts(orgId: string) {
     counts.total += n;
   }
   return counts;
+}
+
+// ---------------------------------------------------------------------------
+// Get pending suggestions with full detail (for AI review page)
+// ---------------------------------------------------------------------------
+
+export async function getPendingSuggestionsWithDetails(
+  orgId: string,
+  limit = 50,
+) {
+  return db
+    .select({
+      id: aiMatchSuggestions.id,
+      transactionId: aiMatchSuggestions.transactionId,
+      documentId: aiMatchSuggestions.documentId,
+      suggestedAmount: aiMatchSuggestions.suggestedAmount,
+      confidence: aiMatchSuggestions.confidence,
+      explanation: aiMatchSuggestions.explanation,
+      aiModelUsed: aiMatchSuggestions.aiModelUsed,
+      createdAt: aiMatchSuggestions.createdAt,
+      // Transaction detail
+      txnDate: transactions.date,
+      txnAmount: transactions.amount,
+      txnCounterparty: transactions.counterparty,
+      txnDescription: transactions.description,
+      // Document detail
+      docNumber: documents.documentNumber,
+      docAmount: documents.totalAmount,
+      vendorName: vendors.name,
+    })
+    .from(aiMatchSuggestions)
+    .innerJoin(transactions, eq(aiMatchSuggestions.transactionId, transactions.id))
+    .innerJoin(documents, eq(aiMatchSuggestions.documentId, documents.id))
+    .leftJoin(vendors, eq(documents.vendorId, vendors.id))
+    .where(
+      and(
+        ...orgScope(aiMatchSuggestions, orgId),
+        eq(aiMatchSuggestions.status, "pending"),
+      ),
+    )
+    .orderBy(desc(aiMatchSuggestions.confidence))
+    .limit(limit);
+}
+
+// ---------------------------------------------------------------------------
+// Bulk approve high-confidence suggestions
+// ---------------------------------------------------------------------------
+
+export async function bulkApproveHighConfidence(
+  orgId: string,
+  minConfidence: string,
+  reviewedBy: string,
+) {
+  const result = await db
+    .update(aiMatchSuggestions)
+    .set({
+      status: "approved",
+      reviewedAt: new Date(),
+      reviewedBy,
+    })
+    .where(
+      and(
+        eq(aiMatchSuggestions.orgId, orgId),
+        eq(aiMatchSuggestions.status, "pending"),
+        isNull(aiMatchSuggestions.deletedAt),
+        gte(aiMatchSuggestions.confidence, minConfidence),
+      ),
+    )
+    .returning({ id: aiMatchSuggestions.id });
+
+  return result.length;
 }

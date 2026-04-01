@@ -21,6 +21,7 @@ import {
   approveSuggestion,
   rejectSuggestion,
   findSuggestionByPair,
+  bulkApproveHighConfidence,
 } from "@/lib/db/queries/ai-suggestions";
 import { getPaymentsByDocument } from "@/lib/db/queries/payments";
 import { upsertAlias } from "@/lib/db/queries/vendor-aliases";
@@ -319,5 +320,68 @@ export async function approveMatchAction(
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/review");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Bulk approve high-confidence suggestions
+// ---------------------------------------------------------------------------
+
+export async function bulkApproveHighConfidenceAction(
+  minConfidence: string = "0.90",
+): Promise<{ success: true; approvedCount: number } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+  const actorId = (await getCurrentUserId()) ?? "system";
+
+  const approvedCount = await bulkApproveHighConfidence(orgId, minConfidence, actorId);
+
+  revalidatePath("/reconciliation");
+  revalidatePath("/reconciliation/ai-review");
+  return { success: true, approvedCount };
+}
+
+// ---------------------------------------------------------------------------
+// Reject AI suggestion (standalone, for AI review page)
+// ---------------------------------------------------------------------------
+
+export async function rejectSuggestionAction(
+  suggestionId: string,
+  reason?: string,
+): Promise<{ success: true } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+
+  const uuidCheck = z.string().uuid().safeParse(suggestionId);
+  if (!uuidCheck.success) return { error: "Invalid suggestion ID" };
+
+  if (reason && reason.length > 500) return { error: "Reason too long (max 500)" };
+
+  const actorId = (await getCurrentUserId()) ?? "system";
+  await rejectSuggestion(orgId, suggestionId, actorId, reason);
+
+  revalidatePath("/reconciliation");
+  revalidatePath("/reconciliation/ai-review");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Approve single AI suggestion (standalone, for AI review page)
+// ---------------------------------------------------------------------------
+
+export async function approveSuggestionAction(
+  suggestionId: string,
+): Promise<{ success: true } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+
+  const uuidCheck = z.string().uuid().safeParse(suggestionId);
+  if (!uuidCheck.success) return { error: "Invalid suggestion ID" };
+
+  const actorId = (await getCurrentUserId()) ?? "system";
+  await approveSuggestion(orgId, suggestionId, actorId);
+
+  revalidatePath("/reconciliation");
+  revalidatePath("/reconciliation/ai-review");
   return { success: true };
 }

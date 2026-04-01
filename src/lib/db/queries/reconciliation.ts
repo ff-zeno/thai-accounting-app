@@ -467,3 +467,43 @@ export async function updateMatchConfirmation(
       ),
     );
 }
+
+// ---------------------------------------------------------------------------
+// Get recent matches (for dashboard display)
+// ---------------------------------------------------------------------------
+
+export async function getRecentMatches(orgId: string, limit = 10) {
+  return db
+    .select({
+      id: reconciliationMatches.id,
+      transactionId: reconciliationMatches.transactionId,
+      documentId: reconciliationMatches.documentId,
+      matchedAmount: reconciliationMatches.matchedAmount,
+      matchType: reconciliationMatches.matchType,
+      confidence: reconciliationMatches.confidence,
+      matchedBy: reconciliationMatches.matchedBy,
+      matchMetadata: reconciliationMatches.matchMetadata,
+      matchedAt: reconciliationMatches.matchedAt,
+      // Transaction info
+      txnDate: transactions.date,
+      txnAmount: transactions.amount,
+      txnCounterparty: transactions.counterparty,
+      txnDescription: transactions.description,
+      // Document info
+      docNumber: documents.documentNumber,
+      docAmount: documents.totalAmount,
+      vendorName: vendors.name,
+    })
+    .from(reconciliationMatches)
+    .innerJoin(transactions, eq(reconciliationMatches.transactionId, transactions.id))
+    .innerJoin(documents, eq(reconciliationMatches.documentId, documents.id))
+    .leftJoin(vendors, eq(documents.vendorId, vendors.id))
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, orgId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    )
+    .orderBy(desc(reconciliationMatches.matchedAt))
+    .limit(limit);
+}

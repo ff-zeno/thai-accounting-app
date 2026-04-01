@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowRight, FileText, Landmark, Loader2, TrendingUp } from "lucide-react";
+import { ArrowRight, Brain, FileText, GitCompareArrows, Landmark, Loader2, TrendingUp } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -18,6 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ConfidenceBadge } from "@/components/reconciliation/confidence-badge";
+import { getSimplifiedExplanation, getLayerLabel } from "@/lib/reconciliation/match-display";
+import type { MatchMetadata } from "@/lib/reconciliation/matcher";
 import { getReconciliationDashboardData } from "./actions";
 
 // ---------------------------------------------------------------------------
@@ -52,10 +56,33 @@ interface UnmatchedDocument {
   vendorName: string | null;
 }
 
+interface RecentMatch {
+  id: string;
+  matchType: string;
+  confidence: string | null;
+  matchMetadata: unknown;
+  matchedAt: Date | null;
+  txnDate: string;
+  txnAmount: string;
+  txnCounterparty: string | null;
+  docNumber: string | null;
+  docAmount: string | null;
+  vendorName: string | null;
+}
+
+interface SuggestionCounts {
+  pending: number;
+  approved: number;
+  rejected: number;
+  total: number;
+}
+
 interface Props {
   initialStats: Stats;
   initialUnmatchedTransactions: UnmatchedTransaction[];
   initialUnmatchedDocuments: UnmatchedDocument[];
+  recentMatches: RecentMatch[];
+  suggestionCounts: SuggestionCounts;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +153,8 @@ export function ReconciliationDashboard({
   initialStats,
   initialUnmatchedTransactions,
   initialUnmatchedDocuments,
+  recentMatches,
+  suggestionCounts,
 }: Props) {
   const [stats, setStats] = useState(initialStats);
   const [unmatchedTxns, setUnmatchedTxns] = useState(initialUnmatchedTransactions);
@@ -233,6 +262,29 @@ export function ReconciliationDashboard({
           </CardContent>
         </Card>
       </div>
+
+      {/* AI Suggestions Banner */}
+      {suggestionCounts.pending > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <Brain className="size-5 text-amber-600" />
+              <p className="text-sm font-medium text-amber-800">
+                AI has {suggestionCounts.pending} suggested match{suggestionCounts.pending !== 1 ? "es" : ""} ready for review
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-300 text-amber-800 hover:bg-amber-100"
+              render={<Link href="/reconciliation/ai-review" />}
+            >
+              Review
+              <ArrowRight className="ml-1 size-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Unmatched Lists */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -366,6 +418,70 @@ export function ReconciliationDashboard({
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Matches */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle className="flex items-center gap-2">
+            <GitCompareArrows className="size-4 text-muted-foreground" />
+            Recent Matches
+          </CardTitle>
+          <CardDescription>
+            {recentMatches.length === 0
+              ? "No matches yet"
+              : `Last ${recentMatches.length} reconciliation matches`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {recentMatches.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <GitCompareArrows className="mb-2 size-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">
+                No matches yet. Start by uploading statements and documents.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {recentMatches.map((match) => {
+                const metadata = match.matchMetadata as MatchMetadata | null;
+                const explanation = metadata
+                  ? getSimplifiedExplanation(metadata)
+                  : match.matchType;
+                return (
+                  <div
+                    key={match.id}
+                    className="flex items-center justify-between gap-4 px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium">
+                          {match.vendorName ?? match.txnCounterparty ?? "Unknown"}
+                        </p>
+                        {match.docNumber && (
+                          <span className="text-xs text-muted-foreground">
+                            #{match.docNumber}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{explanation}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="whitespace-nowrap font-mono text-sm tabular-nums">
+                        {parseFloat(match.txnAmount).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                      {match.confidence && (
+                        <ConfidenceBadge confidence={match.confidence} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

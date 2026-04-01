@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { href: "/settings", label: "Organization" },
   { href: "/settings/ai", label: "AI Models & Usage" },
+  { href: "/settings/reconciliation-rules", label: "Reconciliation Rules" },
 ];
 
 export default function SettingsLayout({

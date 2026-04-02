@@ -8,9 +8,7 @@
 4. All monetary values use `NUMERIC(14, 2)` for amounts, `NUMERIC(5, 4)` for rates — never floating point
 5. Every database query must include `org_id` scoping — no cross-tenant data leaks
 6. AI suggests, humans confirm — never auto-commit AI-extracted data without a reviewable state
-7. PP 36 reverse-charge VAT NEVER offsets PP 30 input VAT — they are separate obligations with separate deadlines
-8. Financial records are soft-deleted, never hard-deleted. WHT certificates are voided, never removed
-9. Check the verification checklist at the end of this file before completing work
+7. Check the verification checklist at the end of this file before completing work
 
 ## System Overview
 
@@ -59,19 +57,25 @@ pnpm db:studio    # Drizzle Studio
 | Schema reference | `docs/exec-plans/active/001-schema.md` |
 | Thai tax rules | `thai-tax-compliance.html` |
 | Database schema | `src/lib/db/schema.ts` |
-| DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-records, reconciliation, wht-filings, wht-rates, dashboard) |
+| DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-records, reconciliation, reconciliation-metrics, reconciliation-rules, wht-filings, wht-rates, dashboard, ai-suggestions, ai-settings, vendor-aliases, bank-accounts, organizations, document-files) |
 | DB helpers | `src/lib/db/helpers/org-scope.ts` (org isolation), `src/lib/db/helpers/audit-log.ts` (mutation logging) |
 | AI extraction | `src/lib/ai/schemas/` (invoice + ID card), `src/lib/ai/extract-document.ts`, `src/lib/ai/extract-id-card.ts` |
-| Inngest pipeline | `src/lib/inngest/functions/process-document.ts` (7-step extraction), `src/lib/inngest/functions/reconcile-document.ts` |
+| AI reconciliation | `src/lib/ai/prompts/reconciliation-batch.ts` (prompt builder), `src/lib/ai/schemas/reconciliation-match.ts` (index-based schema), `src/lib/ai/reconciliation-cost-tracker.ts` (separate budget) |
+| Inngest pipeline | `src/lib/inngest/functions/process-document.ts` (7-step extraction), `src/lib/inngest/functions/reconcile-document.ts` (7-layer match cascade), `suggest-rules.ts` (auto-rule suggestion), `ai-reconciliation-dispatcher.ts` (hourly cron), `ai-reconciliation-batch.ts` (per-org AI matching), `match-imported-transactions.ts` (transaction-first) |
 | Bank parsers | `src/lib/parsers/` (KBank CSV/PDF, generic CSV, balance validation) |
 | Tax engine | `src/lib/tax/` (filing-deadlines, filing-calendar, rd-csv-export, vat-register, service-categories) |
 | WHT rates | `src/lib/db/queries/wht-rates.ts` (reads from DB `wht_rates` table) |
-| Reconciliation | `src/lib/reconciliation/matcher.ts` (exact/fuzzy/split/ambiguous matching) |
+| Reconciliation | `src/lib/reconciliation/matcher.ts` (7-layer cascade: reference, alias, exact, rule, multi-signal, split, ambiguous), `match-display.ts` (explanations + confidence), `templates/` (industry rule templates) |
+| Recon rules | `src/lib/db/queries/reconciliation-rules.ts` (CRUD + dedup), `src/app/(app)/settings/reconciliation-rules/` (management UI) |
+| Vendor aliases | `src/lib/db/queries/vendor-aliases.ts` (auto-learn from manual matches, auto-confirm at 3 occurrences) |
+| Recon insights | `src/app/(app)/reconciliation/insights/` (metrics dashboard), `src/lib/db/queries/reconciliation-metrics.ts` (9 aggregation queries) |
+| AI review | `src/app/(app)/reconciliation/ai-review/` (approve/reject AI suggestions), `src/app/(app)/reconciliation/review/actions.ts` (approve/reject/rematch server actions) |
 | Data exports | `src/lib/export/` (FlowAccount, Peak, full data export) |
 | External APIs | `src/lib/api/dbd-client.ts` (Thai DBD company lookup, no auth) |
 | PDF generation | `src/lib/pdf/fifty-tawi.tsx` (50 Tawi WHT certificate) |
 | Debugging | `docs/_ai_context/debugging-methodology.md` |
 | Domain terms | `docs/_ai_context/_glossary.md` |
+| Recon architecture | `docs/_ai_context/reconciliation-architecture.md` |
 
 ## gstack Workflow Skills
 
@@ -109,3 +113,21 @@ Before marking work as complete, verify:
 - [ ] Financial records use soft-delete (deleted_at), never hard-delete
 - [ ] Inngest steps are idempotent (safe to retry)
 - [ ] PP 36 VAT is NOT mixed into PP 30 input VAT calculations
+
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS invoke it using the Skill
+tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
+The skill has specialized workflows that produce better results than ad-hoc answers.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Bugs, errors, "why is this broken", 500 errors → invoke investigate
+- Ship, deploy, push, create PR → invoke ship
+- QA, test the site, find bugs → invoke qa
+- Code review, check my diff → invoke review
+- Update docs after shipping → invoke document-release
+- Weekly retro → invoke retro
+- Design system, brand → invoke design-consultation
+- Visual audit, design polish → invoke design-review
+- Architecture review → invoke plan-eng-review

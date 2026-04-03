@@ -18,6 +18,7 @@ import { MatchTrendTable } from "./match-trend-table";
 import { RuleEffectivenessTable } from "./rule-effectiveness-table";
 import { AiMetrics } from "./ai-metrics";
 import { RejectionAnalysis } from "./rejection-analysis";
+import { HealthSummary } from "./health-summary";
 import {
   Card,
   CardContent,
@@ -90,6 +91,14 @@ export default async function InsightsPage() {
           </p>
         </div>
       </div>
+
+      {/* Health summary banner */}
+      <HealthSummary
+        matchRate={stats.matchRate}
+        falsePositivePct={falsePositive.falsePositivePct}
+        aliasConflicts={aliasConflicts.length}
+        aiApprovalRate={aiData.approvalRate}
+      />
 
       {/* Summary cards */}
       <MetricsCards

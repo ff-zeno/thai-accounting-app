@@ -265,6 +265,8 @@ export async function approveMatchAction(
 // Bulk approve high-confidence suggestions (creates matches + updates status)
 // ---------------------------------------------------------------------------
 
+const MIN_BULK_CONFIDENCE = 0.70;
+
 export async function bulkApproveHighConfidenceAction(
   minConfidence: string = "0.90",
 ): Promise<{ success: true; approvedCount: number } | { error: string }> {
@@ -272,16 +274,20 @@ export async function bulkApproveHighConfidenceAction(
   if (!orgId) return { error: "No organization selected" };
   const actorId = (await getCurrentUserId()) ?? "system";
 
-  // Fetch pending suggestions above threshold, then approve + create matches
+  // Server-side confidence floor to prevent approving low-quality matches
+  const threshold = Math.max(parseFloat(minConfidence), MIN_BULK_CONFIDENCE);
+  if (isNaN(threshold)) return { error: "Invalid confidence value" };
+
+  // Fetch pending suggestions above threshold
   const pending = await getPendingSuggestions(orgId, 500);
-  const threshold = parseFloat(minConfidence);
   const eligible = pending.filter(
     (s) => parseFloat(s.confidence) >= threshold,
   );
 
-  let approvedCount = 0;
-  for (const suggestion of eligible) {
-    await db.transaction(async (tx) => {
+  // All-or-nothing: wrap entire bulk operation in one transaction
+  const approvedIds: Array<{ transactionId: string; documentId: string }> = [];
+  await db.transaction(async (tx) => {
+    for (const suggestion of eligible) {
       // Approve the suggestion
       await approveSuggestion(orgId, suggestion.id, actorId, tx);
 
@@ -302,22 +308,22 @@ export async function bulkApproveHighConfidenceAction(
 
       // Recompute transaction status
       await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
-    });
 
-    // Non-blocking alias learning
-    await learnAliasFromMatch(
-      orgId,
-      [suggestion.transactionId],
-      suggestion.documentId,
-      "ai_approval",
-    );
+      approvedIds.push({
+        transactionId: suggestion.transactionId,
+        documentId: suggestion.documentId,
+      });
+    }
+  });
 
-    approvedCount++;
+  // Non-blocking alias learning (outside transaction)
+  for (const { transactionId, documentId } of approvedIds) {
+    await learnAliasFromMatch(orgId, [transactionId], documentId, "ai_approval");
   }
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/ai-review");
-  return { success: true, approvedCount };
+  return { success: true, approvedCount: approvedIds.length };
 }
 
 // ---------------------------------------------------------------------------

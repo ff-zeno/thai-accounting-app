@@ -1,4 +1,4 @@
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   getReconciliationStats,
   getUnmatchedTransactions,
@@ -9,7 +9,7 @@ import { getSuggestionCounts } from "@/lib/db/queries/ai-suggestions";
 import { ReconciliationDashboard } from "./reconciliation-dashboard";
 
 export default async function ReconciliationPage() {
-  const orgId = await getActiveOrgId();
+  const orgId = await getVerifiedOrgId();
 
   const emptyStats = {
     totalTransactions: 0,

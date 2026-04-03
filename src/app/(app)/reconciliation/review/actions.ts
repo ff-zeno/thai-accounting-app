@@ -5,27 +5,26 @@ import { revalidatePath } from "next/cache";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getCurrentUserId } from "@/lib/utils/auth";
 import { db } from "@/lib/db";
-import { documents, transactions } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
 import {
   getUnmatchedTransactions,
   getUnmatchedDocuments,
   createMatch,
-  updateTransactionReconStatus,
   getMatchById,
   softDeleteMatch,
   recomputeTransactionStatus,
   updateMatchConfirmation,
+  verifyTransactionOwnership,
+  verifyDocumentOwnership,
 } from "@/lib/db/queries/reconciliation";
 import {
   approveSuggestion,
   rejectSuggestion,
   findSuggestionByPair,
-  bulkApproveHighConfidence,
+  getSuggestionById,
+  getPendingSuggestions,
 } from "@/lib/db/queries/ai-suggestions";
 import { getPaymentsByDocument } from "@/lib/db/queries/payments";
-import { upsertAlias } from "@/lib/db/queries/vendor-aliases";
-import { auditMutation } from "@/lib/db/helpers/audit-log";
+import { learnAliasFromMatch } from "@/lib/db/helpers/learn-alias";
 import { inngest } from "@/lib/inngest/client";
 
 // ---------------------------------------------------------------------------
@@ -64,6 +63,14 @@ export async function createManualMatchAction(data: {
     return { error: "Select a document" };
   }
 
+  // Verify all IDs belong to this org
+  const [txnOwned, docOwned] = await Promise.all([
+    verifyTransactionOwnership(orgId, data.transactionIds),
+    verifyDocumentOwnership(orgId, data.documentId),
+  ]);
+  if (!txnOwned) return { error: "Transaction not found" };
+  if (!docOwned) return { error: "Document not found" };
+
   const payments = await getPaymentsByDocument(orgId, data.documentId);
   const paymentId = payments.length > 0 ? payments[0].id : null;
 
@@ -87,39 +94,12 @@ export async function createManualMatchAction(data: {
         tx,
       );
 
-      await updateTransactionReconStatus(orgId, txnId, "matched", tx);
+      await recomputeTransactionStatus(orgId, txnId, tx);
     }
   });
 
-  // Non-blocking alias learning: extract counterparty from transactions → document vendor
-  try {
-    const [doc] = await db
-      .select({ vendorId: documents.vendorId })
-      .from(documents)
-      .where(and(eq(documents.id, data.documentId), eq(documents.orgId, orgId)))
-      .limit(1);
-
-    if (doc?.vendorId) {
-      for (const txnId of data.transactionIds) {
-        const [txn] = await db
-          .select({ counterparty: transactions.counterparty })
-          .from(transactions)
-          .where(and(eq(transactions.id, txnId), eq(transactions.orgId, orgId)))
-          .limit(1);
-
-        if (txn?.counterparty) {
-          await upsertAlias({
-            orgId,
-            vendorId: doc.vendorId,
-            aliasText: txn.counterparty,
-            source: "manual_match",
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.error("[manual-match] Alias learning failed (non-blocking):", err);
-  }
+  // Non-blocking alias learning (batched)
+  await learnAliasFromMatch(orgId, data.transactionIds, data.documentId, "manual_match");
 
   // Fire Inngest event for auto-rule suggestion (non-blocking)
   try {
@@ -164,10 +144,14 @@ export async function rejectAndRematchAction(
   const oldMatch = await getMatchById(orgId, matchId);
   if (!oldMatch) return { error: "Match not found" };
 
+  // Verify new transaction belongs to this org
+  const txnOwned = await verifyTransactionOwnership(orgId, [newTransactionId]);
+  if (!txnOwned) return { error: "Transaction not found" };
+
   const payments = await getPaymentsByDocument(orgId, oldMatch.documentId);
   const paymentId = payments.length > 0 ? payments[0].id : null;
 
-  // Steps 1-3 inside transaction: soft-delete old, reject AI suggestion, create new match
+  // Steps 1-5 inside transaction: soft-delete old, reject AI suggestion, create new match
   await db.transaction(async (tx) => {
     // 1. Soft-delete old match
     await softDeleteMatch(orgId, matchId, tx, actorId);
@@ -207,35 +191,12 @@ export async function rejectAndRematchAction(
       tx,
     );
 
-    // 5. Update new transaction status
-    await updateTransactionReconStatus(orgId, newTransactionId, "matched", tx);
+    // 5. Recompute new transaction status (split-match safe)
+    await recomputeTransactionStatus(orgId, newTransactionId, tx);
   });
 
-  // Step 4: Auto-learn from correction (non-blocking)
-  try {
-    const [doc] = await db
-      .select({ vendorId: documents.vendorId })
-      .from(documents)
-      .where(and(eq(documents.id, oldMatch.documentId), eq(documents.orgId, orgId)))
-      .limit(1);
-
-    const [newTxn] = await db
-      .select({ counterparty: transactions.counterparty })
-      .from(transactions)
-      .where(and(eq(transactions.id, newTransactionId), eq(transactions.orgId, orgId)))
-      .limit(1);
-
-    if (doc?.vendorId && newTxn?.counterparty) {
-      await upsertAlias({
-        orgId,
-        vendorId: doc.vendorId,
-        aliasText: newTxn.counterparty,
-        source: "rejection_correction",
-      });
-    }
-  } catch (err) {
-    console.error("[reject-rematch] Alias learning failed (non-blocking):", err);
-  }
+  // Non-blocking alias learning (batched)
+  await learnAliasFromMatch(orgId, [newTransactionId], oldMatch.documentId, "rejection_correction");
 
   // Fire Inngest event for auto-rule suggestion (non-blocking)
   try {
@@ -292,31 +253,8 @@ export async function approveMatchAction(
     await recomputeTransactionStatus(orgId, match.transactionId, tx);
   });
 
-  // Non-blocking alias learning
-  try {
-    const [doc] = await db
-      .select({ vendorId: documents.vendorId })
-      .from(documents)
-      .where(and(eq(documents.id, match.documentId), eq(documents.orgId, orgId)))
-      .limit(1);
-
-    const [txn] = await db
-      .select({ counterparty: transactions.counterparty })
-      .from(transactions)
-      .where(and(eq(transactions.id, match.transactionId), eq(transactions.orgId, orgId)))
-      .limit(1);
-
-    if (doc?.vendorId && txn?.counterparty) {
-      await upsertAlias({
-        orgId,
-        vendorId: doc.vendorId,
-        aliasText: txn.counterparty,
-        source: "approval",
-      });
-    }
-  } catch (err) {
-    console.error("[approve-match] Alias learning failed (non-blocking):", err);
-  }
+  // Non-blocking alias learning (batched)
+  await learnAliasFromMatch(orgId, [match.transactionId], match.documentId, "approval");
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/review");
@@ -324,7 +262,7 @@ export async function approveMatchAction(
 }
 
 // ---------------------------------------------------------------------------
-// Bulk approve high-confidence suggestions
+// Bulk approve high-confidence suggestions (creates matches + updates status)
 // ---------------------------------------------------------------------------
 
 export async function bulkApproveHighConfidenceAction(
@@ -334,7 +272,48 @@ export async function bulkApproveHighConfidenceAction(
   if (!orgId) return { error: "No organization selected" };
   const actorId = (await getCurrentUserId()) ?? "system";
 
-  const approvedCount = await bulkApproveHighConfidence(orgId, minConfidence, actorId);
+  // Fetch pending suggestions above threshold, then approve + create matches
+  const pending = await getPendingSuggestions(orgId, 500);
+  const threshold = parseFloat(minConfidence);
+  const eligible = pending.filter(
+    (s) => parseFloat(s.confidence) >= threshold,
+  );
+
+  let approvedCount = 0;
+  for (const suggestion of eligible) {
+    await db.transaction(async (tx) => {
+      // Approve the suggestion
+      await approveSuggestion(orgId, suggestion.id, actorId, tx);
+
+      // Create the actual reconciliation match
+      await createMatch(
+        {
+          orgId,
+          transactionId: suggestion.transactionId,
+          documentId: suggestion.documentId,
+          paymentId: suggestion.paymentId ?? undefined,
+          matchedAmount: suggestion.suggestedAmount ?? "0.00",
+          matchType: "ai_suggested",
+          confidence: suggestion.confidence,
+          matchedBy: "auto",
+        },
+        tx,
+      );
+
+      // Recompute transaction status
+      await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
+    });
+
+    // Non-blocking alias learning
+    await learnAliasFromMatch(
+      orgId,
+      [suggestion.transactionId],
+      suggestion.documentId,
+      "ai_approval",
+    );
+
+    approvedCount++;
+  }
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/ai-review");
@@ -366,7 +345,7 @@ export async function rejectSuggestionAction(
 }
 
 // ---------------------------------------------------------------------------
-// Approve single AI suggestion (standalone, for AI review page)
+// Approve single AI suggestion (creates match + updates status)
 // ---------------------------------------------------------------------------
 
 export async function approveSuggestionAction(
@@ -379,7 +358,42 @@ export async function approveSuggestionAction(
   if (!uuidCheck.success) return { error: "Invalid suggestion ID" };
 
   const actorId = (await getCurrentUserId()) ?? "system";
-  await approveSuggestion(orgId, suggestionId, actorId);
+
+  // Fetch the full suggestion to get txn/doc IDs
+  const suggestion = await getSuggestionById(orgId, suggestionId);
+  if (!suggestion) return { error: "Suggestion not found" };
+  if (suggestion.status !== "pending") return { error: "Suggestion already processed" };
+
+  await db.transaction(async (tx) => {
+    // Approve the suggestion
+    await approveSuggestion(orgId, suggestionId, actorId, tx);
+
+    // Create the actual reconciliation match
+    await createMatch(
+      {
+        orgId,
+        transactionId: suggestion.transactionId,
+        documentId: suggestion.documentId,
+        paymentId: suggestion.paymentId ?? undefined,
+        matchedAmount: suggestion.suggestedAmount ?? "0.00",
+        matchType: "ai_suggested",
+        confidence: suggestion.confidence,
+        matchedBy: "auto",
+      },
+      tx,
+    );
+
+    // Recompute transaction status
+    await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
+  });
+
+  // Non-blocking alias learning
+  await learnAliasFromMatch(
+    orgId,
+    [suggestion.transactionId],
+    suggestion.documentId,
+    "ai_approval",
+  );
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/ai-review");

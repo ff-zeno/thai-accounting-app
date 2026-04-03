@@ -43,6 +43,29 @@ export async function createAiSuggestion(data: {
 // Get pending suggestions for org
 // ---------------------------------------------------------------------------
 
+export async function getSuggestionById(
+  orgId: string,
+  suggestionId: string,
+  tx?: DbConnection,
+) {
+  const conn = tx ?? db;
+  const [row] = await conn
+    .select()
+    .from(aiMatchSuggestions)
+    .where(
+      and(
+        eq(aiMatchSuggestions.id, suggestionId),
+        ...orgScope(aiMatchSuggestions, orgId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Get pending suggestions for org
+// ---------------------------------------------------------------------------
+
 export async function getPendingSuggestions(orgId: string, limit = 50) {
   return db
     .select()

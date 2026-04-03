@@ -274,10 +274,18 @@ export const aiReconciliationBatch = inngest.createFunction(
             if (id) count++;
           }
 
-          // If no matches but cost was incurred, store a zero-suggestion record for accounting
+          // If no matches but cost was incurred, store a cost-only record for budget tracking
           if (batchResult.matches.length === 0 && batchResult.cost > 0) {
-            // Cost tracking without suggestion — no DB write needed,
-            // the cost is captured in the function return value
+            await createAiSuggestion({
+              orgId,
+              transactionId: batch.transactions[0].id,
+              documentId: batch.documents[0].id,
+              confidence: "0.00",
+              explanation: "No matches found (cost-tracking record)",
+              aiModelUsed: batchResult.modelId ?? "unknown",
+              aiCostUsd: batchResult.cost.toFixed(6),
+              batchId,
+            });
           }
 
           return count;

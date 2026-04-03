@@ -23,6 +23,45 @@ import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
 
 // ---------------------------------------------------------------------------
+// Verify entity ownership (org-scoped existence check)
+// ---------------------------------------------------------------------------
+
+export async function verifyTransactionOwnership(
+  orgId: string,
+  transactionIds: string[],
+): Promise<boolean> {
+  if (transactionIds.length === 0) return true;
+  const [row] = await db
+    .select({ cnt: count() })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.orgId, orgId),
+        isNull(transactions.deletedAt),
+        sql`${transactions.id} = ANY(${transactionIds})`,
+      ),
+    );
+  return (row?.cnt ?? 0) === transactionIds.length;
+}
+
+export async function verifyDocumentOwnership(
+  orgId: string,
+  documentId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ cnt: count() })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.id, documentId),
+        eq(documents.orgId, orgId),
+        isNull(documents.deletedAt),
+      ),
+    );
+  return (row?.cnt ?? 0) === 1;
+}
+
+// ---------------------------------------------------------------------------
 // Find candidate transactions for matching
 // ---------------------------------------------------------------------------
 

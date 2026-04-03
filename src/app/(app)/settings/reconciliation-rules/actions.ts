@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/queries/reconciliation-rules";
 import { getTemplateById } from "@/lib/reconciliation/templates";
 import { auditMutation } from "@/lib/db/helpers/audit-log";
+import { isSafeRegex } from "@/lib/reconciliation/rule-engine";
 
 // ---------------------------------------------------------------------------
 // Apply business template
@@ -113,6 +114,15 @@ export async function createRuleAction(
   const parsed = ruleFormSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  // Validate regex patterns for safety (ReDoS prevention)
+  for (const condition of parsed.data.conditions) {
+    if (condition.operator === "regex" && typeof condition.value === "string") {
+      if (!isSafeRegex(condition.value)) {
+        return { error: "Regex pattern is invalid or too complex. Avoid nested quantifiers like (a+)+ and keep patterns under 200 characters." };
+      }
+    }
+  }
+
   const ruleId = await createRule({
     orgId,
     name: parsed.data.name,
@@ -149,6 +159,15 @@ export async function updateRuleAction(
 
   const parsed = ruleFormSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  // Validate regex patterns for safety (ReDoS prevention)
+  for (const condition of parsed.data.conditions) {
+    if (condition.operator === "regex" && typeof condition.value === "string") {
+      if (!isSafeRegex(condition.value)) {
+        return { error: "Regex pattern is invalid or too complex. Avoid nested quantifiers like (a+)+ and keep patterns under 200 characters." };
+      }
+    }
+  }
 
   await updateRule(orgId, ruleId, {
     name: parsed.data.name,

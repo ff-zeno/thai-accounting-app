@@ -33,12 +33,26 @@ Domain-specific terms used in this project. Update as new terms emerge.
 
 ## Reconciliation
 
+The matching engine runs a 7-layer cascade (reference → alias → exact → rule → multi-signal → split → ambiguous). Each layer either produces a match or passes to the next.
+
 | Term | Definition | Used in |
 |------|-----------|---------|
-| Exact match | Bank transaction amount equals payment net amount, within ±7 days. Confidence 1.0 | `src/lib/reconciliation/matcher.ts` |
-| Fuzzy match | Amount within ±1%, date within ±14 days. Confidence computed from proximity | `src/lib/reconciliation/matcher.ts` |
-| Split match | 2-3 bank transactions whose sum equals the payment amount | `src/lib/reconciliation/matcher.ts` |
-| Ambiguous match | Multiple transactions match equally — flagged for manual resolution, never auto-picked | `src/lib/reconciliation/matcher.ts` |
+| 7-layer cascade | Matching pipeline: reference, alias, exact, rule, multi-signal, split, ambiguous — evaluated in order | `src/lib/reconciliation/matcher.ts` |
+| Reference match (L0) | Matched by invoice number, tax ID, or vendor name found in transaction description | `matcher.ts` Layer 0 |
+| Alias match (L1) | Matched via confirmed vendor bank alias (counterparty text → vendor mapping) | `matcher.ts` Layer 1, `vendor-aliases.ts` |
+| Exact match (L2) | Bank transaction amount equals payment net amount, within ±7 days. Confidence 1.0 | `matcher.ts` Layer 2 |
+| Rule match (L3) | Matched by a reconciliation rule's conditions (counterparty contains, amount range, etc.) | `matcher.ts` Layer 3, `reconciliation-rules.ts` |
+| Multi-signal match (L4) | Weighted score from 6 signals: amount (0.35), counterparty (0.25), date (0.15), direction (0.10), bank affinity (0.10), channel (0.05) | `matcher.ts` Layer 4 |
+| Split match (L5) | 2-3 bank transactions whose sum equals the payment amount | `matcher.ts` Layer 5 |
+| Ambiguous match (L6) | Multiple transactions match equally — flagged for manual resolution, never auto-picked | `matcher.ts` Layer 6 |
+| Match metadata | JSONB on `reconciliation_matches` storing layer, signals, candidateCount, selectedRank | `matcher.ts`, `match-display.ts` |
+| Vendor bank alias | Learned mapping from bank counterparty text to vendor. Auto-confirms at 3 occurrences | `src/lib/db/queries/vendor-aliases.ts` |
+| Reconciliation rule | User/template/auto-suggested rule with conditions and actions (assign vendor, auto-match, etc.) | `src/lib/db/queries/reconciliation-rules.ts` |
+| Rule template | Industry-specific rule set (common, restaurant, consulting, ecommerce) seeded on onboarding | `src/lib/reconciliation/templates/` |
+| Auto-suggested rule | Rule created by Inngest after 3+ manual matches with same counterparty pattern | `src/lib/inngest/functions/suggest-rules.ts` |
+| AI batch matching | Hourly Inngest job that sends unmatched transactions + candidate docs to LLM for match suggestions | `ai-reconciliation-dispatcher.ts`, `ai-reconciliation-batch.ts` |
+| Confidence badge | Color-coded UI indicator: high (>=0.90, green), medium (>=0.70, amber), low (<0.70, red) | `src/components/reconciliation/confidence-badge.tsx` |
+| Insights dashboard | Metrics page showing match rate by layer, trends, rule effectiveness, AI approval rate, rejections | `src/app/(app)/reconciliation/insights/` |
 | Petty cash | Small transactions below a configurable threshold, excluded from auto-matching | Transaction table UI |
 | Combined payment | One bank transaction paying multiple documents (batch payment to one vendor) | `src/lib/db/queries/reconciliation.ts` |
 
@@ -50,6 +64,10 @@ Domain-specific terms used in this project. Update as new terms emerge.
 | AI confidence | 0-1 score indicating extraction certainty. <0.7 triggers review flag | `src/lib/ai/schemas/invoice-extraction.ts` |
 | Model escalation | On extraction failure, retry with a stronger/more expensive model within budget | `src/lib/inngest/functions/process-document.ts` |
 | Budget guard | Per-document $0.50 cost limit on AI extraction attempts | `src/lib/inngest/functions/process-document.ts` |
+| Reconciliation budget | Separate $1.00/month default budget for AI batch matching (text-only, cheaper than extraction) | `src/lib/ai/reconciliation-cost-tracker.ts` |
+| Index-based IDs | AI prompts use T1/D1 indices instead of UUIDs — mapped back after parsing AI response | `src/lib/ai/prompts/reconciliation-batch.ts` |
+| AI suggestion | LLM-recommended match stored in `ai_match_suggestions` with status pending/approved/rejected | `src/lib/db/queries/ai-suggestions.ts` |
+| Inngest fan-out | Dispatcher cron collects eligible orgs, emits one event per org to the per-org batch processor | `ai-reconciliation-dispatcher.ts` → `ai-reconciliation-batch.ts` |
 
 ## Infrastructure
 

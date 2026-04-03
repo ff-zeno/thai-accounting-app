@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluateRules, type TransactionContext, type RuleRecord } from "./rule-engine";
+import { evaluateRules, isSafeRegex, type TransactionContext, type RuleRecord } from "./rule-engine";
 
 function txn(overrides?: Partial<TransactionContext>): TransactionContext {
   return {
@@ -96,6 +96,14 @@ describe("condition evaluation", () => {
     expect(result).toBeNull();
   });
 
+  it("regex: ReDoS patterns are rejected", () => {
+    const result = evaluateRules(
+      [rule({ conditions: [{ field: "counterparty", operator: "regex", value: "(a+)+" }] })],
+      txn({ counterparty: "aaaaaaaaaaaaaaaaaaaaa" })
+    );
+    expect(result).toBeNull();
+  });
+
   it("gt: greater than", () => {
     const result = evaluateRules(
       [rule({ conditions: [{ field: "amount", operator: "gt", value: 5000 }] })],
@@ -142,6 +150,35 @@ describe("condition evaluation", () => {
       txn({ counterparty: null })
     );
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regex safety
+// ---------------------------------------------------------------------------
+
+describe("isSafeRegex", () => {
+  it("accepts simple valid patterns", () => {
+    expect(isSafeRegex("hello")).toBe(true);
+    expect(isSafeRegex("\\d+")).toBe(true);
+    expect(isSafeRegex("^[A-Z]{3}$")).toBe(true);
+    expect(isSafeRegex("TRUE|AIS|DTAC")).toBe(true);
+  });
+
+  it("rejects nested quantifiers (ReDoS)", () => {
+    expect(isSafeRegex("(a+)+")).toBe(false);
+    expect(isSafeRegex("(a*)+")).toBe(false);
+    expect(isSafeRegex("(a+)*")).toBe(false);
+    expect(isSafeRegex("(a{2,})+")).toBe(false);
+  });
+
+  it("rejects patterns exceeding max length", () => {
+    expect(isSafeRegex("a".repeat(201))).toBe(false);
+    expect(isSafeRegex("a".repeat(200))).toBe(true);
+  });
+
+  it("rejects invalid regex syntax", () => {
+    expect(isSafeRegex("[")).toBe(false);
   });
 });
 

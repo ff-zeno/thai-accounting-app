@@ -69,6 +69,29 @@ export function evaluateRules(
 }
 
 // ---------------------------------------------------------------------------
+// Regex safety
+// ---------------------------------------------------------------------------
+
+const MAX_REGEX_LENGTH = 200;
+// Detect nested quantifiers like (a+)+, (a*)+, (a+)*, (a{2,})+, etc.
+const NESTED_QUANTIFIER_RE = /(\+|\*|\{[^}]*\})\s*\)\s*(\+|\*|\{)/;
+
+/**
+ * Reject regex patterns likely to cause catastrophic backtracking (ReDoS).
+ * Checks for: excessive length, nested quantifiers, and parse validity.
+ */
+export function isSafeRegex(pattern: string): boolean {
+  if (pattern.length > MAX_REGEX_LENGTH) return false;
+  if (NESTED_QUANTIFIER_RE.test(pattern)) return false;
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Condition evaluation (pure functions)
 // ---------------------------------------------------------------------------
 
@@ -100,7 +123,10 @@ function evaluateCondition(
 
     case "regex": {
       try {
-        const regex = new RegExp(String(condition.value), "i");
+        const pattern = String(condition.value);
+        // Reject patterns likely to cause catastrophic backtracking (ReDoS)
+        if (!isSafeRegex(pattern)) return false;
+        const regex = new RegExp(pattern, "i");
         return regex.test(String(fieldValue));
       } catch {
         return false;

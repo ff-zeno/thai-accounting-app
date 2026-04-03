@@ -2,7 +2,8 @@
 
 ## P1 — Data Integrity
 
-(No open items.)
+- **Add rate-limit lock for manual AI trigger** — `triggerAiBatchAction` checks `max(createdAt)` from `ai_match_suggestions`, which returns NULL when zero suggestions exist (letting the rate limit pass). Concurrent requests also race past the check. **Fix:** Use a DB advisory lock or a dedicated `ai_batch_runs` table that records every trigger attempt regardless of output. Found by Codex review 2026-04-03.
+- **Add amount validation to `createManualMatchAction`** — Client-supplied `amounts` dict has no Zod validation: values could be negative, exceed transaction amount, or be malformed strings. `rejectAndRematchAction` already validates with `numericAmount` regex but `createManualMatchAction` skips it. **Fix:** Add same `z.string().regex(/^\d+(\.\d{1,2})?$/)` validation + bounds check against transaction amount. Found by Codex review 2026-04-03.
 
 ## P2 — Auth & Multi-tenancy
 

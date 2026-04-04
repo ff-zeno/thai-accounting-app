@@ -777,6 +777,28 @@ export const recurringPaymentPatterns = pgTable(
   }
 );
 
+export const aiBatchRuns = pgTable(
+  "ai_batch_runs",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    triggerType: text("trigger_type").notNull(), // "manual" | "cron"
+    triggeredBy: uuid("triggered_by").references(() => users.id),
+    triggeredAt: timestamp("triggered_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    status: text("status").notNull().default("triggered"), // "triggered" | "completed" | "failed"
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    matchCount: integer("match_count"),
+    costUsd: numeric("cost_usd", { precision: 8, scale: 6 }),
+  },
+  (t) => [
+    index("ai_batch_runs_org_trigger").on(t.orgId, t.triggerType, t.triggeredAt),
+  ]
+);
+
 // ---------------------------------------------------------------------------
 // Relations
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
-import { and, eq, isNull, desc, count, gte, max, sql } from "drizzle-orm";
+import { and, eq, isNull, desc, count, gte, sql } from "drizzle-orm";
 import { db, type DbConnection } from "../index";
-import { aiMatchSuggestions, transactions, documents, vendors } from "../schema";
+import { aiMatchSuggestions, aiBatchRuns, transactions, documents, vendors } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 
 // ---------------------------------------------------------------------------
@@ -260,18 +260,55 @@ export async function bulkApproveHighConfidence(
 }
 
 // ---------------------------------------------------------------------------
-// Get last batch timestamp (for rate limiting)
+// AI Batch Run tracking (for rate limiting)
 // ---------------------------------------------------------------------------
 
-export async function getLastBatchTimestamp(orgId: string): Promise<Date | null> {
+export async function getLastManualTriggerTimestamp(orgId: string): Promise<Date | null> {
   const [row] = await db
-    .select({
-      lastCreated: max(aiMatchSuggestions.createdAt),
-    })
-    .from(aiMatchSuggestions)
-    .where(and(...orgScope(aiMatchSuggestions, orgId)));
+    .select({ triggeredAt: aiBatchRuns.triggeredAt })
+    .from(aiBatchRuns)
+    .where(
+      and(
+        eq(aiBatchRuns.orgId, orgId),
+        eq(aiBatchRuns.triggerType, "manual"),
+      ),
+    )
+    .orderBy(desc(aiBatchRuns.triggeredAt))
+    .limit(1);
 
-  return row?.lastCreated ?? null;
+  return row?.triggeredAt ?? null;
+}
+
+export async function recordBatchRun(data: {
+  orgId: string;
+  triggerType: "manual" | "cron";
+  triggeredBy?: string;
+}): Promise<string> {
+  const [row] = await db
+    .insert(aiBatchRuns)
+    .values({
+      orgId: data.orgId,
+      triggerType: data.triggerType,
+      triggeredBy: data.triggeredBy,
+    })
+    .returning({ id: aiBatchRuns.id });
+  return row.id;
+}
+
+export async function completeBatchRun(
+  batchRunId: string,
+  matchCount: number,
+  costUsd?: string,
+): Promise<void> {
+  await db
+    .update(aiBatchRuns)
+    .set({
+      status: "completed",
+      completedAt: new Date(),
+      matchCount,
+      costUsd,
+    })
+    .where(eq(aiBatchRuns.id, batchRunId));
 }
 
 // ---------------------------------------------------------------------------

@@ -130,6 +130,17 @@ export async function getTransactions(
         WHERE rm.transaction_id = "transactions"."id" AND rm.org_id = "transactions"."org_id" AND rm.deleted_at IS NULL
         LIMIT 1
       )`.as("first_linked_doc_id"),
+      linkedDocs: sql<string>`COALESCE((
+        SELECT json_agg(json_build_object(
+          'docId', rm.document_id,
+          'docNumber', d.document_number,
+          'vendorName', v.name
+        ))
+        FROM reconciliation_matches rm
+        JOIN documents d ON d.id = rm.document_id AND d.deleted_at IS NULL
+        LEFT JOIN vendors v ON v.id = d.vendor_id AND v.deleted_at IS NULL
+        WHERE rm.transaction_id = "transactions"."id" AND rm.org_id = "transactions"."org_id" AND rm.deleted_at IS NULL
+      ), '[]')`.as("linked_docs"),
     })
     .from(transactions)
     .where(and(...conditions))

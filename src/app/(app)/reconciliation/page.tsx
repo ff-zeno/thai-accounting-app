@@ -6,6 +6,7 @@ import {
   getRecentMatches,
 } from "@/lib/db/queries/reconciliation";
 import { getSuggestionCounts } from "@/lib/db/queries/ai-suggestions";
+import { getQualityScoreData } from "@/lib/db/queries/reconciliation-metrics";
 import { ReconciliationDashboard } from "./reconciliation-dashboard";
 
 export default async function ReconciliationPage() {
@@ -20,6 +21,7 @@ export default async function ReconciliationPage() {
   };
 
   const emptySuggestionCounts = { pending: 0, approved: 0, rejected: 0, total: 0 };
+  const emptyQuality = { matchRate: 0, avgAutoConfidence: null, falsePositivePct: 0, aiApprovalRate: null, score: 0 };
 
   if (!orgId) {
     return (
@@ -29,16 +31,29 @@ export default async function ReconciliationPage() {
         initialUnmatchedDocuments={[]}
         recentMatches={[]}
         suggestionCounts={emptySuggestionCounts}
+        qualityScore={emptyQuality}
+        prevQualityScore={null}
       />
     );
   }
 
-  const [stats, unmatchedTxns, unmatchedDocs, recentMatches, suggestionCounts] = await Promise.all([
+  // Compute previous month range for trend comparison
+  const now = new Date();
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const [stats, unmatchedTxns, unmatchedDocs, recentMatches, suggestionCounts, qualityScore, prevQualityScore] = await Promise.all([
     getReconciliationStats(orgId),
     getUnmatchedTransactions(orgId, 10),
     getUnmatchedDocuments(orgId, 10),
     getRecentMatches(orgId, 10),
     getSuggestionCounts(orgId),
+    getQualityScoreData(orgId),
+    getQualityScoreData(
+      orgId,
+      prevMonthStart.toISOString().split("T")[0],
+      prevMonthEnd.toISOString().split("T")[0],
+    ),
   ]);
 
   return (
@@ -48,6 +63,8 @@ export default async function ReconciliationPage() {
       initialUnmatchedDocuments={unmatchedDocs}
       recentMatches={recentMatches}
       suggestionCounts={suggestionCounts}
+      qualityScore={qualityScore}
+      prevQualityScore={prevQualityScore}
     />
   );
 }

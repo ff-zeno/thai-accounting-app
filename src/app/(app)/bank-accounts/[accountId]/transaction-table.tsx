@@ -397,23 +397,46 @@ export function TransactionTable({
       header: "Documents",
       cell: ({ row }) => {
         const count = row.original.linkedDocCount;
-        const firstId = row.original.firstLinkedDocId;
 
         if (!count || count === 0) {
           return <span className="text-sm text-muted-foreground">{"\u2014"}</span>;
         }
 
-        const label = count === 1 ? "1 Document" : `${count} Documents`;
-        const href = firstId ? `/documents/${firstId}/review` : "#";
+        let docs: Array<{ docId: string; docNumber: string | null; vendorName: string | null }> = [];
+        try {
+          docs = typeof row.original.linkedDocs === "string"
+            ? JSON.parse(row.original.linkedDocs)
+            : row.original.linkedDocs ?? [];
+        } catch { /* malformed JSON — fall through to empty */ }
+
+        if (docs.length === 1) {
+          const doc = docs[0];
+          return (
+            <Link
+              href={`/documents/${doc.docId}/review`}
+              className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-primary hover:underline"
+            >
+              <FileText className="size-3.5" />
+              {doc.docNumber ? `#${doc.docNumber}` : "1 Document"}
+            </Link>
+          );
+        }
 
         return (
-          <Link
-            href={href}
-            className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-primary hover:underline"
-          >
-            <FileText className="size-3.5" />
-            {label}
-          </Link>
+          <div className="space-y-0.5">
+            {docs.map((doc) => (
+              <Link
+                key={doc.docId}
+                href={`/documents/${doc.docId}/review`}
+                className="flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                <FileText className="size-3 shrink-0" />
+                <span className="truncate">
+                  {doc.docNumber ? `#${doc.docNumber}` : doc.vendorName ?? "Document"}
+                </span>
+              </Link>
+            ))}
+          </div>
         );
       },
     },

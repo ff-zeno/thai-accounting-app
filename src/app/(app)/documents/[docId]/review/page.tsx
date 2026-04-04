@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getDocumentWithDetails } from "@/lib/db/queries/documents";
+import { getMatchesByDocumentId } from "@/lib/db/queries/reconciliation";
 import { DocumentReview } from "./document-review";
+import { MatchedTransactions } from "./matched-transactions";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
@@ -18,7 +20,10 @@ export default async function DocumentReviewPage({
 
   if (!orgId) notFound();
 
-  const doc = await getDocumentWithDetails(orgId, docId);
+  const [doc, matches] = await Promise.all([
+    getDocumentWithDetails(orgId, docId),
+    getMatchesByDocumentId(orgId, docId),
+  ]);
   if (!doc) notFound();
 
   return (
@@ -78,6 +83,10 @@ export default async function DocumentReviewPage({
             : null
         }
       />
+
+      {matches.length > 0 && (
+        <MatchedTransactions matches={matches} />
+      )}
     </div>
   );
 }

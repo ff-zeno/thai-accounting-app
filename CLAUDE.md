@@ -58,7 +58,7 @@ pnpm db:studio    # Drizzle Studio
 | Thai tax rules | `thai-tax-compliance.html` |
 | Database schema | `src/lib/db/schema.ts` |
 | DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-records, reconciliation, reconciliation-metrics, reconciliation-rules, wht-filings, wht-rates, dashboard, ai-suggestions, ai-settings, vendor-aliases, bank-accounts, organizations, document-files) |
-| DB helpers | `src/lib/db/helpers/org-scope.ts` (org isolation), `src/lib/db/helpers/audit-log.ts` (mutation logging) |
+| DB helpers | `src/lib/db/helpers/org-scope.ts` (org isolation), `src/lib/db/helpers/audit-log.ts` (mutation logging), `src/lib/db/helpers/learn-alias.ts` (batched alias learning from matches) |
 | AI extraction | `src/lib/ai/schemas/` (invoice + ID card), `src/lib/ai/extract-document.ts`, `src/lib/ai/extract-id-card.ts` |
 | AI reconciliation | `src/lib/ai/prompts/reconciliation-batch.ts` (prompt builder), `src/lib/ai/schemas/reconciliation-match.ts` (index-based schema), `src/lib/ai/reconciliation-cost-tracker.ts` (separate budget) |
 | Inngest pipeline | `src/lib/inngest/functions/process-document.ts` (7-step extraction), `src/lib/inngest/functions/reconcile-document.ts` (7-layer match cascade), `suggest-rules.ts` (auto-rule suggestion), `ai-reconciliation-dispatcher.ts` (hourly cron), `ai-reconciliation-batch.ts` (per-org AI matching), `match-imported-transactions.ts` (transaction-first) |
@@ -68,11 +68,11 @@ pnpm db:studio    # Drizzle Studio
 | Reconciliation | `src/lib/reconciliation/matcher.ts` (7-layer cascade: reference, alias, exact, rule, multi-signal, split, ambiguous), `match-display.ts` (explanations + confidence), `templates/` (industry rule templates) |
 | Recon rules | `src/lib/db/queries/reconciliation-rules.ts` (CRUD + dedup), `src/app/(app)/settings/reconciliation-rules/` (management UI) |
 | Vendor aliases | `src/lib/db/queries/vendor-aliases.ts` (auto-learn from manual matches, auto-confirm at 3 occurrences) |
-| Recon insights | `src/app/(app)/reconciliation/insights/` (metrics dashboard), `src/lib/db/queries/reconciliation-metrics.ts` (9 aggregation queries) |
+| Recon insights | `src/app/(app)/reconciliation/insights/` (metrics dashboard, confidence trend, PDF export), `src/lib/db/queries/reconciliation-metrics.ts` (11 aggregation queries incl. quality score + confidence trend) |
 | AI review | `src/app/(app)/reconciliation/ai-review/` (approve/reject AI suggestions), `src/app/(app)/reconciliation/review/actions.ts` (approve/reject/rematch server actions) |
 | Data exports | `src/lib/export/` (FlowAccount, Peak, full data export) |
 | External APIs | `src/lib/api/dbd-client.ts` (Thai DBD company lookup, no auth) |
-| PDF generation | `src/lib/pdf/fifty-tawi.tsx` (50 Tawi WHT certificate) |
+| PDF generation | `src/lib/pdf/fifty-tawi.tsx` (50 Tawi WHT certificate), `src/lib/pdf/reconciliation-summary.tsx` (monthly recon PDF), `src/app/api/reconciliation-summary/route.ts` (PDF download API) |
 | Debugging | `docs/_ai_context/debugging-methodology.md` |
 | Domain terms | `docs/_ai_context/_glossary.md` |
 | Recon architecture | `docs/_ai_context/reconciliation-architecture.md` |

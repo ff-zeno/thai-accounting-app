@@ -5,6 +5,7 @@ import { getReconciliationStats } from "@/lib/db/queries/reconciliation";
 import {
   getMatchRateByLayer,
   getMatchRateTrend,
+  getConfidenceTrend,
   getAliasGrowthMetrics,
   getRuleEffectiveness,
   getAiSuggestionMetrics,
@@ -19,6 +20,8 @@ import { RuleEffectivenessTable } from "./rule-effectiveness-table";
 import { AiMetrics } from "./ai-metrics";
 import { RejectionAnalysis } from "./rejection-analysis";
 import { HealthSummary } from "./health-summary";
+import { ConfidenceTrend } from "./confidence-trend";
+import { ExportPdfButton } from "./export-pdf-button";
 import {
   Card,
   CardContent,
@@ -50,6 +53,7 @@ export default async function InsightsPage() {
     stats,
     layerData,
     trendData,
+    confidenceTrendData,
     aliasMetrics,
     ruleData,
     aiData,
@@ -60,6 +64,7 @@ export default async function InsightsPage() {
     getReconciliationStats(orgId),
     getMatchRateByLayer(orgId),
     getMatchRateTrend(orgId, trendStart, trendEnd, "week"),
+    getConfidenceTrend(orgId, trendStart, trendEnd, "week"),
     getAliasGrowthMetrics(orgId),
     getRuleEffectiveness(orgId),
     getAiSuggestionMetrics(orgId),
@@ -75,21 +80,24 @@ export default async function InsightsPage() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/reconciliation"
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="size-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Reconciliation Insights
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Match quality metrics and learning feedback
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/reconciliation"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="size-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Reconciliation Insights
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Match quality metrics and learning feedback
+            </p>
+          </div>
         </div>
+        <ExportPdfButton />
       </div>
 
       {/* Health summary banner */}
@@ -118,8 +126,11 @@ export default async function InsightsPage() {
         <AiMetrics data={aiData} />
       </div>
 
-      {/* Trend table */}
-      <MatchTrendTable data={trendData} />
+      {/* Trend table + Confidence trend */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <MatchTrendTable data={trendData} />
+        <ConfidenceTrend data={confidenceTrendData} />
+      </div>
 
       {/* Rule effectiveness + Rejection analysis */}
       <div className="grid gap-6 lg:grid-cols-2">

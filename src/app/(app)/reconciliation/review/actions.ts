@@ -4,7 +4,9 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getCurrentUserId } from "@/lib/utils/auth";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { aiMatchSuggestions } from "@/lib/db/schema";
 import {
   getUnmatchedTransactions,
   getUnmatchedDocuments,
@@ -47,6 +49,20 @@ export async function getUnmatchedItemsAction() {
 // Create manual match (rewired with transaction + alias learning)
 // ---------------------------------------------------------------------------
 
+const manualMatchSchema = z
+  .object({
+    transactionIds: z.array(z.string().uuid()).min(1, "Select at least one transaction"),
+    documentId: z.string().uuid("Invalid document ID"),
+    amounts: z.record(
+      z.string().uuid(),
+      z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+    ),
+  })
+  .refine(
+    (d) => d.transactionIds.every((id) => id in d.amounts),
+    { message: "Missing amount for one or more transactions" },
+  );
+
 export async function createManualMatchAction(data: {
   transactionIds: string[];
   documentId: string;
@@ -56,12 +72,8 @@ export async function createManualMatchAction(data: {
   if (!orgId) return { error: "No organization selected" };
   const actorId = (await getCurrentUserId()) ?? undefined;
 
-  if (data.transactionIds.length === 0) {
-    return { error: "Select at least one transaction" };
-  }
-  if (!data.documentId) {
-    return { error: "Select a document" };
-  }
+  const parsed = manualMatchSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   // Verify all IDs belong to this org
   const [txnOwned, docOwned] = await Promise.all([
@@ -403,5 +415,65 @@ export async function approveSuggestionAction(
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/ai-review");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Undo match (soft-delete + recompute + rollback AI suggestion)
+// ---------------------------------------------------------------------------
+
+export async function undoMatchAction(
+  matchId: string,
+): Promise<{ success: true } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+
+  const uuidCheck = z.string().uuid().safeParse(matchId);
+  if (!uuidCheck.success) return { error: "Invalid match ID" };
+
+  const actorId = (await getCurrentUserId()) ?? undefined;
+
+  const match = await getMatchById(orgId, matchId);
+  if (!match) return { error: "Match not found" };
+
+  // Already deleted (idempotent)
+  if (match.deletedAt) return { success: true };
+
+  await db.transaction(async (tx) => {
+    // Soft-delete the match
+    await softDeleteMatch(orgId, matchId, tx, actorId);
+
+    // If AI-created, roll suggestion back to pending
+    if (match.matchType === "ai_suggested") {
+      const suggestion = await findSuggestionByPair(
+        orgId,
+        match.transactionId,
+        match.documentId,
+        tx,
+      );
+      if (suggestion && suggestion.status === "approved") {
+        // Reset to pending so it can be re-reviewed
+        await tx
+          .update(aiMatchSuggestions)
+          .set({
+            status: "pending",
+            reviewedAt: null,
+            reviewedBy: null,
+          })
+          .where(
+            and(
+              eq(aiMatchSuggestions.id, suggestion.id),
+              eq(aiMatchSuggestions.orgId, orgId),
+            ),
+          );
+      }
+    }
+
+    // Recompute transaction status (handles split-match correctly)
+    await recomputeTransactionStatus(orgId, match.transactionId, tx);
+  });
+
+  revalidatePath("/reconciliation");
+  revalidatePath("/reconciliation/review");
   return { success: true };
 }

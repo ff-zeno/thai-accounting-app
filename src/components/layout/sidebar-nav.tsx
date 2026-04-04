@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -15,9 +16,13 @@ import {
   Users,
   BarChart3,
   Settings,
-  Camera,
   Lightbulb,
+  ChevronRight,
 } from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Nav data
+// ---------------------------------------------------------------------------
 
 interface NavItem {
   labelKey: string;
@@ -94,59 +99,141 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Active state detection
+// ---------------------------------------------------------------------------
+
+function isItemActive(
+  pathname: string,
+  item: NavItem,
+  group: NavGroup,
+): boolean {
+  const isExact = pathname === item.href;
+  const isPrefix =
+    !isExact &&
+    item.href !== "/dashboard" &&
+    pathname.startsWith(item.href + "/");
+  const hasSiblingMatch =
+    isPrefix &&
+    group.items.some(
+      (sibling) =>
+        sibling.href !== item.href &&
+        sibling.href.startsWith(item.href + "/") &&
+        (pathname === sibling.href ||
+          pathname.startsWith(sibling.href + "/")),
+    );
+  return isExact || (isPrefix && !hasSiblingMatch);
+}
+
+function isGroupActive(pathname: string, group: NavGroup): boolean {
+  return group.items.some((item) => isItemActive(pathname, item, group));
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible group
+// ---------------------------------------------------------------------------
+
+function NavGroupSection({
+  group,
+  pathname,
+  t,
+  expanded,
+  onToggle,
+}: {
+  group: NavGroup;
+  pathname: string;
+  t: (key: string) => string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const groupActive = isGroupActive(pathname, group);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-150",
+          groupActive
+            ? "text-foreground/60"
+            : "text-foreground/40 hover:text-foreground/60",
+        )}
+      >
+        {t(group.labelKey)}
+        <ChevronRight
+          className={cn(
+            "size-3 transition-transform duration-200",
+            expanded && "rotate-90",
+          )}
+        />
+      </button>
+
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-in-out",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <ul className="overflow-hidden">
+          {group.items.map((item) => {
+            const isActive = isItemActive(pathname, item, group);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex min-h-[44px] items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition-colors duration-150",
+                    isActive
+                      ? "bg-accent font-semibold text-accent-foreground"
+                      : "font-medium text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground",
+                  )}
+                >
+                  <item.icon className="size-4 shrink-0" />
+                  {t(item.labelKey)}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar nav
+// ---------------------------------------------------------------------------
+
 export function SidebarNav() {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
+  // Track manually collapsed groups. Active groups are always expanded.
+  const [manuallyCollapsed, setManuallyCollapsed] = useState<Record<string, boolean>>({});
+
+  function toggleGroup(key: string) {
+    setManuallyCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-4">
-      {navGroups.map((group, groupIndex) => (
-        <div
-          key={group.labelKey}
-          className={cn(groupIndex > 0 && "mt-5")}
-        >
-          <p className="mb-1 px-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
-            {t(group.labelKey)}
-          </p>
-          <ul className="space-y-1">
-            {group.items.map((item) => {
-              // Exact match always wins. For prefix match, only activate
-              // if no sibling nav item is a more specific prefix match.
-              const isExact = pathname === item.href;
-              const isPrefix =
-                !isExact &&
-                item.href !== "/dashboard" &&
-                pathname.startsWith(item.href + "/");
-              const hasSiblingMatch =
-                isPrefix &&
-                group.items.some(
-                  (sibling) =>
-                    sibling.href !== item.href &&
-                    sibling.href.startsWith(item.href + "/") &&
-                    (pathname === sibling.href ||
-                      pathname.startsWith(sibling.href + "/"))
-                );
-              const isActive = isExact || (isPrefix && !hasSiblingMatch);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-150",
-                      isActive
-                        ? "bg-accent text-accent-foreground font-semibold"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    )}
-                  >
-                    <item.icon className="size-4" />
-                    {t(item.labelKey)}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+      {navGroups.map((group) => {
+        const active = isGroupActive(pathname, group);
+        // Active groups are always expanded. Inactive groups default expanded
+        // unless manually collapsed.
+        const expanded = active || !manuallyCollapsed[group.labelKey];
+        return (
+          <NavGroupSection
+            key={group.labelKey}
+            group={group}
+            pathname={pathname}
+            t={t}
+            expanded={expanded}
+            onToggle={() => toggleGroup(group.labelKey)}
+          />
+        );
+      })}
     </nav>
   );
 }

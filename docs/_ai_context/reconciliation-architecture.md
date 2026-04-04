@@ -53,15 +53,20 @@ When users approve or reject matches, the system learns:
 **Approval:** `approveMatchAction()` in `review/actions.ts`
 - Confirms match as human-reviewed (`matchedBy: "manual"`)
 - Updates AI suggestion status if applicable
-- Calls `upsertAlias()` — maps counterparty → vendor (auto-confirms at 3 occurrences)
+- Calls `learnAliasFromMatch()` — batched alias learning, maps counterparty → vendor (auto-confirms at 3 occurrences)
 
 **Rejection:** `rejectAndRematchAction()` in `review/actions.ts`
 - Soft-deletes old match (inside `db.transaction()`)
 - Rejects AI suggestion with reason if applicable
 - Recomputes transaction status from remaining active matches (split-safe)
 - Creates new manual match
-- Calls `upsertAlias()` with corrected mapping (`source: "rejection_correction"`)
+- Calls `learnAliasFromMatch()` with corrected mapping (`source: "rejection_correction"`)
 - Fires Inngest event for auto-rule suggestion
+
+**Undo:** `undoMatchAction()` in `review/actions.ts`
+- Soft-deletes match, recomputes transaction status (split-safe)
+- If AI-created match, rolls suggestion back to "pending" for re-review
+- Does NOT remove learned aliases (aliases represent observed patterns, not match state)
 
 **Auto-Rule Suggestion:** `suggest-rules.ts` Inngest function
 - Debounced (10 min per user per org)
@@ -100,7 +105,7 @@ Two Inngest functions implement a dispatcher + per-org processor pattern.
 - Hourly cron via dispatcher
 - Bank statement import → `match-imported-transactions.ts` → immediate AI trigger
 - Document reconciliation no-match fallback → queues for AI
-- Manual trigger via `/reconciliation` dashboard (rate-limited: 1 per 10 min)
+- Manual trigger via `/reconciliation` dashboard (rate-limited: 1 per 10 min via `ai_batch_runs` table)
 
 ## Key Tables
 
@@ -110,6 +115,7 @@ Two Inngest functions implement a dispatcher + per-org processor pattern.
 | `ai_match_suggestions` | AI-generated match suggestions. Lifecycle: pending → approved/rejected. Cost tracked per suggestion |
 | `vendor_bank_aliases` | Learned counterparty → vendor mappings. Auto-confirms at 3 occurrences |
 | `reconciliation_rules` | User/template/auto-suggested rules with conditions and actions |
+| `ai_batch_runs` | Tracks manual and cron AI batch triggers with timestamps, status, cost. Used for rate-limiting manual triggers (1 per 10 min) |
 | `org_ai_settings` | Per-org AI configuration: models, extraction budget, reconciliation budget |
 
 ## Key Files

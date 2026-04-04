@@ -12,6 +12,7 @@ export interface Transaction {
   vendorName: string | null;
   linkedDocCount: number;
   firstLinkedDocId: string | null;
+  linkedDocs: string; // JSON array of {docId, docNumber, vendorName}
 }
 
 export interface Statement {

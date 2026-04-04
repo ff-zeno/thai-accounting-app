@@ -6,7 +6,8 @@ import {
   getUnmatchedTransactions,
   getUnmatchedDocuments,
 } from "@/lib/db/queries/reconciliation";
-import { getLastBatchTimestamp } from "@/lib/db/queries/ai-suggestions";
+import { getLastManualTriggerTimestamp, recordBatchRun } from "@/lib/db/queries/ai-suggestions";
+import { getCurrentUserId } from "@/lib/utils/auth";
 import { isWithinReconciliationBudget } from "@/lib/ai/reconciliation-cost-tracker";
 import { inngest } from "@/lib/inngest/client";
 
@@ -59,13 +60,22 @@ export async function triggerAiBatchAction(): Promise<
   }
 
   // Rate limit: max 1 manual trigger per 10 minutes
-  const lastBatch = await getLastBatchTimestamp(orgId);
-  if (lastBatch) {
+  const lastTrigger = await getLastManualTriggerTimestamp(orgId);
+  if (lastTrigger) {
     const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
-    if (lastBatch > tenMinAgo) {
+    if (lastTrigger > tenMinAgo) {
       return { error: "Please wait 10 minutes between manual AI triggers" };
     }
   }
+
+  const actorId = (await getCurrentUserId()) ?? undefined;
+
+  // Record the trigger BEFORE sending event (prevents rapid re-triggering)
+  await recordBatchRun({
+    orgId,
+    triggerType: "manual",
+    triggeredBy: actorId,
+  });
 
   try {
     await inngest.send({

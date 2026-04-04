@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowRight, Brain, FileText, GitCompareArrows, Landmark, Loader2, TrendingUp } from "lucide-react";
+import { ArrowRight, ArrowUp, ArrowDown, Minus, Brain, FileText, GitCompareArrows, Landmark, Loader2, TrendingUp, Gauge, Undo2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -22,7 +22,9 @@ import { Badge } from "@/components/ui/badge";
 import { ConfidenceBadge } from "@/components/reconciliation/confidence-badge";
 import { getSimplifiedExplanation, getLayerLabel } from "@/lib/reconciliation/match-display";
 import type { MatchMetadata } from "@/lib/reconciliation/matcher";
+import { toast } from "sonner";
 import { getReconciliationDashboardData } from "./actions";
+import { undoMatchAction } from "./review/actions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,12 +79,22 @@ interface SuggestionCounts {
   total: number;
 }
 
+interface QualityScoreData {
+  matchRate: number;
+  avgAutoConfidence: number | null;
+  falsePositivePct: number;
+  aiApprovalRate: number | null;
+  score: number;
+}
+
 interface Props {
   initialStats: Stats;
   initialUnmatchedTransactions: UnmatchedTransaction[];
   initialUnmatchedDocuments: UnmatchedDocument[];
   recentMatches: RecentMatch[];
   suggestionCounts: SuggestionCounts;
+  qualityScore: QualityScoreData;
+  prevQualityScore: QualityScoreData | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,12 +161,58 @@ function formatAmount(amount: string | null, currency?: string | null): string {
 // Component
 // ---------------------------------------------------------------------------
 
+function UndoButton({ matchId }: { matchId: string }) {
+  const [pending, startUndo] = useTransition();
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      disabled={pending}
+      onClick={() =>
+        startUndo(async () => {
+          const result = await undoMatchAction(matchId);
+          if ("error" in result) toast.error(result.error);
+        })
+      }
+      title="Undo match"
+    >
+      {pending ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : (
+        <Undo2 className="size-3.5" />
+      )}
+    </Button>
+  );
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 70) return "text-green-600";
+  if (score >= 40) return "text-amber-600";
+  return "text-red-600";
+}
+
+function getScoreBg(score: number): string {
+  if (score >= 70) return "bg-green-50 border-green-200";
+  if (score >= 40) return "bg-amber-50 border-amber-200";
+  return "bg-red-50 border-red-200";
+}
+
+function getScoreLabel(score: number): string {
+  if (score >= 80) return "Excellent";
+  if (score >= 70) return "Good";
+  if (score >= 50) return "Fair";
+  if (score >= 30) return "Needs Work";
+  return "Poor";
+}
+
 export function ReconciliationDashboard({
   initialStats,
   initialUnmatchedTransactions,
   initialUnmatchedDocuments,
   recentMatches,
   suggestionCounts,
+  qualityScore,
+  prevQualityScore,
 }: Props) {
   const [stats, setStats] = useState(initialStats);
   const [unmatchedTxns, setUnmatchedTxns] = useState(initialUnmatchedTransactions);
@@ -208,8 +266,39 @@ export function ReconciliationDashboard({
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Quality Score + Summary Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card size="sm" className={`border ${getScoreBg(qualityScore.score)}`}>
+          <CardHeader>
+            <CardDescription className="flex items-center gap-1.5">
+              <Gauge className="size-3.5" />
+              Quality Score
+            </CardDescription>
+            <CardTitle className={`text-3xl tabular-nums ${getScoreColor(qualityScore.score)}`}>
+              {qualityScore.score}
+              <span className="text-sm font-normal text-muted-foreground">/100</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-xs font-medium ${getScoreColor(qualityScore.score)}`}>
+                {getScoreLabel(qualityScore.score)}
+              </span>
+              {prevQualityScore && (() => {
+                const delta = qualityScore.score - prevQualityScore.score;
+                if (delta > 0) return <ArrowUp className="size-3 text-green-600" />;
+                if (delta < 0) return <ArrowDown className="size-3 text-red-600" />;
+                return <Minus className="size-3 text-muted-foreground" />;
+              })()}
+              {prevQualityScore && (
+                <span className="text-xs text-muted-foreground">
+                  vs last month
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card size="sm">
           <CardHeader>
             <CardDescription>Total Transactions</CardDescription>
@@ -474,6 +563,7 @@ export function ReconciliationDashboard({
                       {match.confidence && (
                         <ConfidenceBadge confidence={match.confidence} />
                       )}
+                      <UndoButton matchId={match.id} />
                     </div>
                   </div>
                 );

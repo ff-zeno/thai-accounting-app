@@ -16,6 +16,8 @@ export async function getMatchRateByLayer(
   periodStart?: string,
   periodEnd?: string,
 ): Promise<LayerMatchRate[]> {
+  const pStart = periodStart ?? null;
+  const pEnd = periodEnd ?? null;
   const rows = await db.execute<{
     layer: string;
     match_count: string;
@@ -28,8 +30,8 @@ export async function getMatchRateByLayer(
     FROM reconciliation_matches m
     WHERE m.org_id = ${orgId}
       AND m.deleted_at IS NULL
-      AND (${periodStart}::timestamptz IS NULL OR m.matched_at >= ${periodStart}::timestamptz)
-      AND (${periodEnd}::timestamptz IS NULL OR m.matched_at < ${periodEnd}::timestamptz)
+      AND (${pStart}::timestamptz IS NULL OR m.matched_at >= ${pStart}::timestamptz)
+      AND (${pEnd}::timestamptz IS NULL OR m.matched_at < ${pEnd}::timestamptz)
     GROUP BY match_metadata->>'layer'
     ORDER BY COUNT(*) DESC
   `);
@@ -79,6 +81,47 @@ export async function getMatchRateTrend(
     period: r.period,
     matches: parseInt(r.matches, 10),
     exactMatches: parseInt(r.exact_matches, 10),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Confidence trend (avg confidence per period)
+// ---------------------------------------------------------------------------
+
+export interface ConfidenceTrendRow {
+  period: string;
+  avgConfidence: number;
+  matchCount: number;
+}
+
+export async function getConfidenceTrend(
+  orgId: string,
+  periodStart: string,
+  periodEnd: string,
+  granularity: "week" | "month" = "week",
+): Promise<ConfidenceTrendRow[]> {
+  const rows = await db.execute<{
+    period: string;
+    avg_confidence: string;
+    match_count: string;
+  }>(sql`
+    SELECT
+      date_trunc(${granularity}, matched_at)::text AS period,
+      ROUND(AVG(confidence::numeric), 4)::text AS avg_confidence,
+      COUNT(*)::text AS match_count
+    FROM reconciliation_matches
+    WHERE org_id = ${orgId}
+      AND deleted_at IS NULL
+      AND matched_at >= ${periodStart}::timestamptz
+      AND matched_at < ${periodEnd}::timestamptz
+    GROUP BY date_trunc(${granularity}, matched_at)
+    ORDER BY period
+  `);
+
+  return rows.rows.map((r) => ({
+    period: r.period,
+    avgConfidence: parseFloat(r.avg_confidence),
+    matchCount: parseInt(r.match_count, 10),
   }));
 }
 
@@ -298,6 +341,113 @@ export async function getRejectionAnalysis(
       reason: r.reason,
       count: parseInt(r.count, 10),
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Quality score components (for composite dashboard score)
+// ---------------------------------------------------------------------------
+
+export interface QualityScoreData {
+  matchRate: number;
+  avgAutoConfidence: number | null;
+  falsePositivePct: number;
+  aiApprovalRate: number | null;
+  score: number;
+}
+
+/**
+ * Composite quality score (0-100):
+ *   Match rate        × 40 (0-40 pts)
+ *   Avg confidence    × 25 (0-25 pts)
+ *   1-FP rate         × 20 (0-20 pts)
+ *   AI approval rate  × 15 (0-15 pts)
+ */
+function computeQualityScore(
+  matchRate: number,
+  avgConfidence: number | null,
+  falsePositivePct: number,
+  aiApprovalRate: number | null,
+): number {
+  const matchPts = matchRate * 40;
+  const confPts = (avgConfidence ?? 0.7) * 25; // default 0.7 when no data
+  const fpPts = (1 - Math.min(falsePositivePct, 100) / 100) * 20;
+  const aiPts = ((aiApprovalRate ?? 70) / 100) * 15; // default 70% when no data
+  return Math.round(matchPts + confPts + fpPts + aiPts);
+}
+
+export async function getQualityScoreData(
+  orgId: string,
+  periodStart?: string,
+  periodEnd?: string,
+): Promise<QualityScoreData> {
+  const pStart = periodStart ?? null;
+  const pEnd = periodEnd ?? null;
+  const rows = await db.execute<{
+    match_rate: string;
+    avg_auto_confidence: string | null;
+    false_positive_pct: string;
+    ai_approval_rate: string | null;
+  }>(sql`
+    WITH match_stats AS (
+      SELECT
+        COUNT(*) FILTER (WHERE t.reconciliation_status IN ('matched', 'partially_matched'))::numeric
+          / NULLIF(COUNT(*), 0) AS match_rate
+      FROM transactions t
+      WHERE t.org_id = ${orgId} AND t.deleted_at IS NULL AND t.is_petty_cash = false
+        AND (${pStart}::date IS NULL OR t.date >= ${pStart}::date)
+        AND (${pEnd}::date IS NULL OR t.date <= ${pEnd}::date)
+    ),
+    confidence_stats AS (
+      SELECT
+        ROUND(AVG(confidence::numeric), 4) AS avg_auto_confidence
+      FROM reconciliation_matches
+      WHERE org_id = ${orgId} AND deleted_at IS NULL AND matched_by = 'auto'
+        AND (${pStart}::timestamptz IS NULL OR matched_at >= ${pStart}::timestamptz)
+        AND (${pEnd}::timestamptz IS NULL OR matched_at < ${pEnd}::timestamptz)
+    ),
+    fp_stats AS (
+      SELECT
+        ROUND(
+          COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::numeric /
+          NULLIF(COUNT(*), 0) * 100, 2
+        ) AS false_positive_pct
+      FROM reconciliation_matches
+      WHERE org_id = ${orgId} AND matched_by = 'auto'
+        AND (${pStart}::timestamptz IS NULL OR matched_at >= ${pStart}::timestamptz)
+        AND (${pEnd}::timestamptz IS NULL OR matched_at < ${pEnd}::timestamptz)
+    ),
+    ai_stats AS (
+      SELECT
+        ROUND(
+          COUNT(*) FILTER (WHERE status = 'approved')::numeric /
+          NULLIF(COUNT(*) FILTER (WHERE status IN ('approved', 'rejected')), 0) * 100, 2
+        ) AS ai_approval_rate
+      FROM ai_match_suggestions
+      WHERE org_id = ${orgId} AND deleted_at IS NULL
+        AND (${pStart}::timestamptz IS NULL OR created_at >= ${pStart}::timestamptz)
+        AND (${pEnd}::timestamptz IS NULL OR created_at < ${pEnd}::timestamptz)
+    )
+    SELECT
+      COALESCE(ms.match_rate, 0)::text AS match_rate,
+      cs.avg_auto_confidence::text AS avg_auto_confidence,
+      COALESCE(fp.false_positive_pct, 0)::text AS false_positive_pct,
+      ai.ai_approval_rate::text AS ai_approval_rate
+    FROM match_stats ms, confidence_stats cs, fp_stats fp, ai_stats ai
+  `);
+
+  const r = rows.rows[0];
+  const matchRate = parseFloat(r?.match_rate ?? "0");
+  const avgAutoConfidence = r?.avg_auto_confidence ? parseFloat(r.avg_auto_confidence) : null;
+  const falsePositivePct = parseFloat(r?.false_positive_pct ?? "0");
+  const aiApprovalRate = r?.ai_approval_rate ? parseFloat(r.ai_approval_rate) : null;
+
+  return {
+    matchRate,
+    avgAutoConfidence,
+    falsePositivePct,
+    aiApprovalRate,
+    score: computeQualityScore(matchRate, avgAutoConfidence, falsePositivePct, aiApprovalRate),
   };
 }
 

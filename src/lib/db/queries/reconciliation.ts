@@ -550,6 +550,73 @@ export async function getRecentMatches(orgId: string, limit = 10) {
 }
 
 // ---------------------------------------------------------------------------
+// Get matches by document ID (for document review page)
+// ---------------------------------------------------------------------------
+
+export async function getMatchesByDocumentId(orgId: string, documentId: string) {
+  return db
+    .select({
+      id: reconciliationMatches.id,
+      matchedAmount: reconciliationMatches.matchedAmount,
+      matchType: reconciliationMatches.matchType,
+      confidence: reconciliationMatches.confidence,
+      matchedBy: reconciliationMatches.matchedBy,
+      matchMetadata: reconciliationMatches.matchMetadata,
+      matchedAt: reconciliationMatches.matchedAt,
+      txnId: transactions.id,
+      txnDate: transactions.date,
+      txnAmount: transactions.amount,
+      txnType: transactions.type,
+      txnCounterparty: transactions.counterparty,
+      txnDescription: transactions.description,
+    })
+    .from(reconciliationMatches)
+    .innerJoin(transactions, eq(reconciliationMatches.transactionId, transactions.id))
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, orgId),
+        eq(reconciliationMatches.documentId, documentId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    )
+    .orderBy(desc(reconciliationMatches.matchedAt));
+}
+
+// ---------------------------------------------------------------------------
+// Get matches by transaction ID (for transaction detail views)
+// ---------------------------------------------------------------------------
+
+export async function getMatchesByTransactionId(orgId: string, transactionId: string) {
+  return db
+    .select({
+      id: reconciliationMatches.id,
+      matchedAmount: reconciliationMatches.matchedAmount,
+      matchType: reconciliationMatches.matchType,
+      confidence: reconciliationMatches.confidence,
+      matchedBy: reconciliationMatches.matchedBy,
+      matchMetadata: reconciliationMatches.matchMetadata,
+      matchedAt: reconciliationMatches.matchedAt,
+      docId: documents.id,
+      docNumber: documents.documentNumber,
+      docAmount: documents.totalAmount,
+      docDirection: documents.direction,
+      docIssueDate: documents.issueDate,
+      vendorName: vendors.name,
+    })
+    .from(reconciliationMatches)
+    .innerJoin(documents, eq(reconciliationMatches.documentId, documents.id))
+    .leftJoin(vendors, eq(documents.vendorId, vendors.id))
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, orgId),
+        eq(reconciliationMatches.transactionId, transactionId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    )
+    .orderBy(desc(reconciliationMatches.matchedAt));
+}
+
+// ---------------------------------------------------------------------------
 // Get unmatched transactions for AI matching
 // Same as getUnmatchedTransactions but excludes transactions with pending
 // AI suggestions created less than 24 hours ago (to avoid re-processing).

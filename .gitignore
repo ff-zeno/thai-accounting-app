@@ -54,3 +54,9 @@ scripts/output/
 .gstack/
 _samples/
 sample LUMERA statement.pdf
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.auth/

@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Vendored gstack skills (not our code)
     ".claude/skills/gstack/**",
+    // Playwright E2E tests (separate tsconfig)
+    "e2e/**",
   ]),
 ]);
 

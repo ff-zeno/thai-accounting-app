@@ -59,13 +59,16 @@ export async function getMatchRateTrend(
   periodEnd: string,
   granularity: "week" | "month" = "week",
 ): Promise<MatchRateTrendRow[]> {
+  // date_trunc's first arg must be a SQL literal, not a bound parameter
+  const gran = granularity === "month" ? sql.raw(`'month'`) : sql.raw(`'week'`);
+
   const rows = await db.execute<{
     period: string;
     matches: string;
     exact_matches: string;
   }>(sql`
     SELECT
-      date_trunc(${granularity}, matched_at)::text AS period,
+      date_trunc(${gran}, matched_at)::text AS period,
       COUNT(*)::text AS matches,
       COUNT(*) FILTER (WHERE match_metadata->>'layer' = 'exact')::text AS exact_matches
     FROM reconciliation_matches
@@ -73,7 +76,7 @@ export async function getMatchRateTrend(
       AND deleted_at IS NULL
       AND matched_at >= ${periodStart}::timestamptz
       AND matched_at < ${periodEnd}::timestamptz
-    GROUP BY date_trunc(${granularity}, matched_at)
+    GROUP BY date_trunc(${gran}, matched_at)
     ORDER BY period
   `);
 
@@ -100,13 +103,16 @@ export async function getConfidenceTrend(
   periodEnd: string,
   granularity: "week" | "month" = "week",
 ): Promise<ConfidenceTrendRow[]> {
+  // date_trunc's first arg must be a SQL literal, not a bound parameter
+  const gran = granularity === "month" ? sql.raw(`'month'`) : sql.raw(`'week'`);
+
   const rows = await db.execute<{
     period: string;
     avg_confidence: string;
     match_count: string;
   }>(sql`
     SELECT
-      date_trunc(${granularity}, matched_at)::text AS period,
+      date_trunc(${gran}, matched_at)::text AS period,
       ROUND(AVG(confidence::numeric), 4)::text AS avg_confidence,
       COUNT(*)::text AS match_count
     FROM reconciliation_matches
@@ -114,7 +120,7 @@ export async function getConfidenceTrend(
       AND deleted_at IS NULL
       AND matched_at >= ${periodStart}::timestamptz
       AND matched_at < ${periodEnd}::timestamptz
-    GROUP BY date_trunc(${granularity}, matched_at)
+    GROUP BY date_trunc(${gran}, matched_at)
     ORDER BY period
   `);
 

@@ -1,0 +1,118 @@
+import { and, desc, eq, sql } from "drizzle-orm";
+import { db } from "../index";
+import { extractionLog } from "../schema";
+import { orgScopeAlive } from "../helpers/org-scope";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface InsertExtractionLogInput {
+  documentId: string;
+  orgId: string;
+  vendorId: string | null;
+  tierUsed: number;
+  exemplarIds: string[];
+  modelUsed: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: string;
+  latencyMs?: number;
+  inngestIdempotencyKey: string;
+}
+
+export interface ExtractionLogRow {
+  id: string;
+  documentId: string;
+  orgId: string;
+  vendorId: string | null;
+  tierUsed: number;
+  exemplarIds: string[] | null;
+  modelUsed: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUsd: string | null;
+  latencyMs: number | null;
+  inngestIdempotencyKey: string;
+  createdAt: Date;
+}
+
+// ---------------------------------------------------------------------------
+// Insert extraction log (idempotent via inngest_idempotency_key)
+// ---------------------------------------------------------------------------
+
+/**
+ * Insert an extraction log entry. Idempotent — duplicate
+ * inngest_idempotency_key is silently ignored via ON CONFLICT DO NOTHING.
+ */
+export async function insertExtractionLog(
+  input: InsertExtractionLogInput
+): Promise<{ id: string } | null> {
+  const [result] = await db
+    .insert(extractionLog)
+    .values({
+      documentId: input.documentId,
+      orgId: input.orgId,
+      vendorId: input.vendorId,
+      tierUsed: input.tierUsed,
+      exemplarIds: input.exemplarIds.length > 0 ? input.exemplarIds : null,
+      modelUsed: input.modelUsed,
+      inputTokens: input.inputTokens ?? null,
+      outputTokens: input.outputTokens ?? null,
+      costUsd: input.costUsd ?? null,
+      latencyMs: input.latencyMs ?? null,
+      inngestIdempotencyKey: input.inngestIdempotencyKey,
+    })
+    .onConflictDoNothing({
+      target: [extractionLog.inngestIdempotencyKey],
+    })
+    .returning({ id: extractionLog.id });
+
+  // Returns null if conflict (idempotent skip)
+  return result ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Get latest extraction log for a document
+// ---------------------------------------------------------------------------
+
+export async function getLatestExtractionLog(
+  orgId: string,
+  documentId: string
+): Promise<ExtractionLogRow | null> {
+  const [row] = await db
+    .select()
+    .from(extractionLog)
+    .where(
+      and(
+        ...orgScopeAlive(extractionLog, orgId),
+        eq(extractionLog.documentId, documentId)
+      )
+    )
+    .orderBy(desc(extractionLog.createdAt))
+    .limit(1);
+
+  return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Get extraction logs for a vendor (for correction rate calculation)
+// ---------------------------------------------------------------------------
+
+export async function getRecentExtractionLogs(
+  orgId: string,
+  vendorId: string,
+  limit: number = 30
+): Promise<ExtractionLogRow[]> {
+  return db
+    .select()
+    .from(extractionLog)
+    .where(
+      and(
+        ...orgScopeAlive(extractionLog, orgId),
+        eq(extractionLog.vendorId, vendorId)
+      )
+    )
+    .orderBy(desc(extractionLog.createdAt))
+    .limit(limit);
+}

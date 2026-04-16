@@ -15,12 +15,26 @@ import { lookupWhtRate } from "@/lib/db/queries/wht-rates";
 import {
   extractDocument,
   type ExtractionResult,
+  type ExtractionContext,
 } from "@/lib/ai/extract-document";
 import { detectLanguage, type DetectedLanguage } from "@/lib/ai/detect-language";
 import { translateVendorName } from "@/lib/ai/translate";
 import { estimateCost, isWithinBudget } from "@/lib/ai/cost-tracker";
 import { lookupCompany, mapBranchNumber } from "@/lib/api/dbd-client";
 import type { InvoiceExtraction } from "@/lib/ai/schemas/invoice-extraction";
+import {
+  headPrivateBlob,
+  fetchPrivateBlobBytes,
+} from "@/lib/storage/private-blob";
+// Dynamic imports to avoid pulling pdf-to-img into the Inngest route at build time.
+// pdfjs-dist fails during Next.js page data collection if statically imported.
+const lazyExtractPdfText = () =>
+  import("@/lib/pdf/rasterize").then((m) => m.extractPdfText);
+const lazyProbeVendorIdentity = () =>
+  import("@/lib/vendor/probe-identity").then((m) => m.probeVendorIdentity);
+import { getVendorTier } from "@/lib/db/queries/vendor-tier";
+import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
+import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
 
 // ---------------------------------------------------------------------------
 // Types for Inngest step serialization
@@ -155,47 +169,38 @@ export const processDocument = inngest.createFunction(
           continue;
         }
 
-        // File size / accessibility check via HEAD request
+        // File size / accessibility check — authenticated HEAD against the
+        // private Vercel Blob. A plain fetch returns 403 for private blobs.
         let fileFailed = false;
         try {
-          const headResponse = await fetch(file.fileUrl, { method: "HEAD" });
-          if (headResponse.ok) {
-            const contentLength = headResponse.headers.get("content-length");
-            if (contentLength) {
-              const sizeBytes = parseInt(contentLength, 10);
-              if (sizeBytes < MIN_FILE_SIZE_BYTES) {
-                await updateFilePipelineStatus(orgId, file.id, "failed_validation");
-                console.warn(
-                  `[process-document] File ${file.originalFilename ?? file.id} too small (${sizeBytes} bytes) — skipping`
-                );
-                fileFailed = true;
-              }
+          const meta = await headPrivateBlob(file.fileUrl);
+          if (meta) {
+            if (meta.size < MIN_FILE_SIZE_BYTES) {
+              await updateFilePipelineStatus(orgId, file.id, "failed_validation");
+              console.warn(
+                `[process-document] File ${file.originalFilename ?? file.id} too small (${meta.size} bytes) — skipping`
+              );
+              fileFailed = true;
             }
 
             // Resolution check: log warning only (decoding images in a
             // serverless function is expensive; skip for now)
-            if (!fileFailed) {
-              const contentType = headResponse.headers.get("content-type");
-              if (contentType?.startsWith("image/")) {
-                console.warn(
-                  `[process-document] Image resolution check skipped for ${file.id} — requires image decoding`
-                );
-              }
+            if (!fileFailed && meta.contentType?.startsWith("image/")) {
+              console.warn(
+                `[process-document] Image resolution check skipped for ${file.id} — requires image decoding`
+              );
             }
           } else {
-            // File URL returned non-OK status — file is inaccessible
             await updateFilePipelineStatus(orgId, file.id, "failed_validation");
             console.warn(
-              `[process-document] File ${file.id} URL returned ${headResponse.status} — skipping`
+              `[process-document] File ${file.id} HEAD failed — skipping`
             );
             fileFailed = true;
           }
         } catch (error) {
-          // Retryable network errors should propagate for Inngest to retry
           if (isRetryableError(error)) {
             throw error;
           }
-          // Non-fatal: file URL might not support HEAD — let extraction try
           console.warn(
             `[process-document] Could not verify file ${file.id}: ${error instanceof Error ? error.message : "unknown"}`
           );
@@ -223,11 +228,99 @@ export const processDocument = inngest.createFunction(
       }));
     });
 
-    // Step 2: AI extraction per file (vision model)
+    // Step 2: Probe vendor identity (pre-extraction, text layer).
+    // Extract text from PDF files and run regex to find a vendor tax ID.
+    // If found, we can inject exemplars into the extraction prompt (Tier 1+).
+    const probeResult: {
+      vendorId: string | null;
+      taxIdFound: string | null;
+    } = await step.run("probe-vendor-identity", async () => {
+      // Only probe PDF files — images don't have a text layer
+      const pdfFiles = files.filter(
+        (f) => f.fileType === "application/pdf" || f.fileType === "pdf"
+      );
+      if (pdfFiles.length === 0) {
+        return { vendorId: null, taxIdFound: null };
+      }
+
+      try {
+        // Use the first PDF file for probing
+        const { bytes } = await fetchPrivateBlobBytes(pdfFiles[0].fileUrl);
+        const extractPdfText = await lazyExtractPdfText();
+        const pageTexts = await extractPdfText(bytes);
+        const probeVendorIdentity = await lazyProbeVendorIdentity();
+        const result = await probeVendorIdentity(orgId, pageTexts);
+        return { vendorId: result.vendorId, taxIdFound: result.taxIdFound };
+      } catch (error) {
+        // Probe failure is non-fatal — fall back to Tier 0
+        console.warn("[process-document] probe-vendor-identity failed:", error);
+        return { vendorId: null, taxIdFound: null };
+      }
+    });
+
+    // Step 3: Resolve extraction context (tier + exemplars).
+    // If the probe found a known vendor, load their tier and exemplars.
+    // Note: Inngest serializes step results through JSON, so we cast the
+    // deserialized result back to ExtractionContext.
+    const extractionContext = await step.run(
+      "resolve-extraction-context",
+      async (): Promise<ExtractionContext> => {
+        if (!probeResult.vendorId) {
+          return { tier: 0, vendorId: null, exemplarIds: [], exemplars: [] };
+        }
+
+        try {
+          const tierRow = await getVendorTier(orgId, probeResult.vendorId);
+          const tier = (tierRow?.tier === 1 ? 1 : 0) as 0 | 1;
+
+          if (tier === 0) {
+            return {
+              tier: 0 as const,
+              vendorId: probeResult.vendorId,
+              exemplarIds: [],
+              exemplars: [],
+            };
+          }
+
+          // Tier 1: load top exemplars for prompt injection
+          const exemplars = await getTopExemplars(
+            orgId,
+            probeResult.vendorId,
+            3
+          );
+
+          return {
+            tier,
+            vendorId: probeResult.vendorId,
+            exemplarIds: exemplars.map((e) => e.id),
+            exemplars: exemplars.map((e) => ({
+              fieldName: e.fieldName,
+              aiValue: e.aiValue,
+              userValue: e.userValue,
+            })),
+          };
+        } catch (error) {
+          console.warn("[process-document] resolve-extraction-context failed:", error);
+          return { tier: 0 as const, vendorId: null, exemplarIds: [], exemplars: [] };
+        }
+      }
+    );
+
+    // Step 4: AI extraction per file (vision model).
+    // Private Vercel Blob URLs are not fetchable by external model providers,
+    // so we materialize each file's bytes server-side and inline them into
+    // the AI SDK request (as `image` or `file` parts depending on type).
     const extraction: { data: InvoiceExtraction; cost: number } = await step.run(
       "ai-extraction",
       async () => {
-        const imageUrls = files.map((f) => f.fileUrl);
+        const extractionFiles = await Promise.all(
+          files.map(async (f) => {
+            const { bytes, contentType } = await fetchPrivateBlobBytes(
+              f.fileUrl
+            );
+            return { bytes, contentType };
+          })
+        );
 
         // Budget check: per-org monthly budget
         // NOTE: Budget check is not atomic — concurrent extractions could both pass.
@@ -248,10 +341,13 @@ export const processDocument = inngest.createFunction(
         }
 
         try {
+          const startMs = Date.now();
           const result: ExtractionResult = await extractDocument(
-            imageUrls,
-            orgId
+            extractionFiles,
+            orgId,
+            extractionContext
           );
+          const latencyMs = Date.now() - startMs;
 
           const cost = estimateCost(
             result.modelUsed,
@@ -290,6 +386,21 @@ export const processDocument = inngest.createFunction(
               aiOutputTokens: result.tokenUsage.output,
             });
           }
+
+          // Write extraction log (idempotent by inngest event ID + step)
+          await insertExtractionLog({
+            documentId,
+            orgId,
+            vendorId: extractionContext.vendorId,
+            tierUsed: extractionContext.tier,
+            exemplarIds: extractionContext.exemplarIds,
+            modelUsed: result.modelUsed,
+            inputTokens: result.tokenUsage.input,
+            outputTokens: result.tokenUsage.output,
+            costUsd: cost.totalCost.toFixed(8),
+            latencyMs,
+            inngestIdempotencyKey: `${event.id}:ai-extraction`,
+          });
 
           return { data: result.data, cost: cost.totalCost };
         } catch (error) {

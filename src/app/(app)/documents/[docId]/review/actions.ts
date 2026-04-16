@@ -1,6 +1,7 @@
 "use server";
 
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { getCurrentUser } from "@/lib/utils/auth";
 import {
   confirmDocument,
   getDocumentWithDetails,
@@ -23,6 +24,15 @@ import {
 import { isPeriodLocked } from "@/lib/db/queries/wht-filings";
 import { inngest } from "@/lib/inngest/client";
 import { revalidatePath } from "next/cache";
+import { getLatestExtractionLog } from "@/lib/db/queries/extraction-log";
+import { upsertExemplar } from "@/lib/db/queries/extraction-exemplars";
+import { insertReviewOutcome } from "@/lib/db/queries/extraction-review-outcome";
+import { normalizeFieldValue, fieldValuesEqual } from "@/lib/ai/field-normalization";
+import {
+  getFieldCriticality,
+  LEARNABLE_INVOICE_FIELDS,
+} from "@/lib/ai/field-criticality";
+import type { FieldCriticality } from "@/lib/ai/field-criticality";
 
 export async function confirmDocumentAction(docId: string) {
   const orgId = await getVerifiedOrgId();
@@ -108,23 +118,27 @@ export async function confirmDocumentAction(docId: string) {
     }
   }
 
-  // 5. Emit Inngest event for reconciliation engine (full context for smart matching)
-  await inngest.send({
-    name: "document/confirmed",
-    data: {
-      documentId: docId,
-      orgId,
-      paymentId,
-      netAmountPaid,
-      paymentDate,
-      vendorId: doc?.vendorId ?? null,
-      vendorName: doc?.vendor?.name ?? null,
-      vendorNameTh: doc?.vendor?.nameTh ?? null,
-      vendorTaxId: doc?.vendor?.taxId ?? null,
-      documentNumber: doc?.documentNumber ?? null,
-      direction: doc?.direction ?? "expense",
-    },
-  });
+  // 5. Emit Inngest event for reconciliation engine (fire-and-forget).
+  void inngest
+    .send({
+      name: "document/confirmed",
+      data: {
+        documentId: docId,
+        orgId,
+        paymentId,
+        netAmountPaid,
+        paymentDate,
+        vendorId: doc?.vendorId ?? null,
+        vendorName: doc?.vendor?.name ?? null,
+        vendorNameTh: doc?.vendor?.nameTh ?? null,
+        vendorTaxId: doc?.vendor?.taxId ?? null,
+        documentNumber: doc?.documentNumber ?? null,
+        direction: doc?.direction ?? "expense",
+      },
+    })
+    .catch((err) => {
+      console.error("[confirm-doc] Failed to emit document/confirmed:", err);
+    });
 
   revalidatePath(`/documents/${docId}/review`);
   return { success: true };
@@ -150,14 +164,141 @@ export async function updateDocumentAction(
     vatAmount?: string | null;
     totalAmount?: string | null;
     currency?: string | null;
-  }
+  },
+  expectedUpdatedAt?: string
 ) {
   const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
+  // Optimistic concurrency check (Phase 8)
+  if (expectedUpdatedAt) {
+    const doc = await getDocumentWithDetails(orgId, docId);
+    if (!doc) throw new Error("Document not found");
+    const currentUpdatedAt = doc.updatedAt?.toISOString();
+    if (currentUpdatedAt && currentUpdatedAt !== expectedUpdatedAt) {
+      return {
+        success: false,
+        error: "Document modified elsewhere — please reload and try again",
+      };
+    }
+  }
+
   await updateDocumentFromExtraction(orgId, docId, data);
+
+  // --- Phase 8: Extraction learning loop ---
+  // Write exemplars from the diff between AI extraction and user-saved values.
+  // Fire-and-forget: errors here don't block the document save.
+  try {
+    await writeExtractionExemplars(orgId, docId, data);
+  } catch (error) {
+    console.error("[updateDocumentAction] exemplar write failed:", error);
+  }
+
   revalidatePath(`/documents/${docId}/review`);
   return { success: true };
+}
+
+/**
+ * Phase 8: Compare AI extraction output with user-saved values and write
+ * exemplars for fields where the user corrected the AI.
+ */
+async function writeExtractionExemplars(
+  orgId: string,
+  docId: string,
+  savedData: Record<string, unknown>
+) {
+  // Load the extraction log to get the AI's raw output and vendor ID
+  const extractionLog = await getLatestExtractionLog(orgId, docId);
+  if (!extractionLog) return; // No extraction log = doc wasn't AI-extracted
+
+  // Load the AI raw response from the document files
+  const doc = await getDocumentWithDetails(orgId, docId);
+  if (!doc) return;
+
+  // Get the AI raw response from the first file that has one
+  const aiRaw = doc.files?.find(
+    (f: { aiRawResponse: unknown }) => f.aiRawResponse
+  )?.aiRawResponse as Record<string, unknown> | null;
+  if (!aiRaw) return;
+
+  const vendorId = extractionLog.vendorId ?? doc.vendorId;
+  if (!vendorId) return; // Can't write exemplars without a vendor
+
+  const user = await getCurrentUser();
+  const userId = user?.id ?? "unknown";
+
+  // Map of document table column names to extraction schema field names
+  const DOC_TO_SCHEMA_MAP: Record<string, string> = {
+    type: "documentType",
+    documentNumber: "documentNumber",
+    issueDate: "issueDate",
+    dueDate: "dueDate",
+    subtotal: "subtotal",
+    vatAmount: "vatAmount",
+    totalAmount: "totalAmount",
+    currency: "currency",
+  };
+
+  let correctionCount = 0;
+
+  for (const field of LEARNABLE_INVOICE_FIELDS) {
+    // Find the user-saved value for this field
+    const docColumnName = Object.entries(DOC_TO_SCHEMA_MAP).find(
+      ([, schema]) => schema === field
+    )?.[0];
+
+    // Get the user's value from what they saved
+    const userValue = docColumnName
+      ? (savedData[docColumnName] as string | null | undefined)
+      : undefined;
+    // Get the AI's value from the raw response
+    const aiValue = aiRaw[field] as string | null | undefined;
+
+    // Skip fields not in the saved data (user didn't edit them)
+    if (userValue === undefined && !docColumnName) continue;
+
+    const userStr = userValue ?? null;
+    const aiStr = aiValue != null ? String(aiValue) : null;
+    const wasCorrected = !fieldValuesEqual(field, aiStr, userStr);
+
+    if (wasCorrected) correctionCount++;
+
+    await upsertExemplar({
+      orgId,
+      vendorId,
+      fieldName: field,
+      fieldCriticality: getFieldCriticality(field) as FieldCriticality,
+      aiValue: aiStr ? normalizeFieldValue(field, aiStr) : null,
+      userValue: userStr ? normalizeFieldValue(field, userStr) : null,
+      wasCorrected,
+      documentId: docId,
+      modelUsed: extractionLog.modelUsed ?? undefined,
+      confidenceAtTime: undefined,
+    });
+  }
+
+  // Write review outcome
+  await insertReviewOutcome({
+    extractionLogId: extractionLog.id,
+    documentId: docId,
+    orgId,
+    userCorrected: correctionCount > 0,
+    correctionCount,
+    reviewedByUserId: userId,
+  });
+
+  // Emit learning event for tier promotion/demotion
+  void inngest.send({
+    name: "learning/review-saved",
+    data: {
+      orgId,
+      documentId: docId,
+      vendorId,
+      extractionLogId: extractionLog.id,
+      correctionCount,
+      userCorrected: correctionCount > 0,
+    },
+  });
 }
 
 export async function updateLineItemsAction(
@@ -208,10 +349,14 @@ export async function retryExtractionAction(docId: string) {
   const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
-  await inngest.send({
-    name: "document/uploaded",
-    data: { documentId: docId, orgId, fileIds: [] },
-  });
+  void inngest
+    .send({
+      name: "document/uploaded",
+      data: { documentId: docId, orgId, fileIds: [] },
+    })
+    .catch((err) => {
+      console.error("[retry-extraction] Failed to emit document/uploaded:", err);
+    });
 
   revalidatePath(`/documents/${docId}/review`);
   return { success: true };

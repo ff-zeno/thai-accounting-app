@@ -11,7 +11,7 @@ import {
   createLineItems,
 } from "@/lib/db/queries/documents";
 import { translateText } from "@/lib/ai/translate";
-import { updateVendor } from "@/lib/db/queries/vendors";
+import { updateVendor, getVendorById } from "@/lib/db/queries/vendors";
 import {
   createPayment,
   getPaymentsByDocument,
@@ -224,6 +224,10 @@ async function writeExtractionExemplars(
   const vendorId = extractionLog.vendorId ?? doc.vendorId;
   if (!vendorId) return; // Can't write exemplars without a vendor
 
+  // Look up vendor's tax ID for cross-org consensus (Phase 8 Phase 2)
+  const vendor = await getVendorById(orgId, vendorId);
+  const vendorTaxId = vendor?.taxId ?? null;
+
   const user = await getCurrentUser();
   const userId = user?.id ?? "unknown";
 
@@ -274,6 +278,7 @@ async function writeExtractionExemplars(
       documentId: docId,
       modelUsed: extractionLog.modelUsed ?? undefined,
       confidenceAtTime: undefined,
+      vendorTaxId,
     });
   }
 
@@ -287,13 +292,14 @@ async function writeExtractionExemplars(
     reviewedByUserId: userId,
   });
 
-  // Emit learning event for tier promotion/demotion
+  // Emit learning event for tier promotion/demotion + reputation tracking
   void inngest.send({
     name: "learning/review-saved",
     data: {
       orgId,
       documentId: docId,
       vendorId,
+      vendorTaxId,
       extractionLogId: extractionLog.id,
       correctionCount,
       userCorrected: correctionCount > 0,

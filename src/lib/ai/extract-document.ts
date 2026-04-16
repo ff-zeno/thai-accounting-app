@@ -34,9 +34,11 @@ export interface ExtractionFile {
 // ---------------------------------------------------------------------------
 
 export interface ExtractionContext {
-  tier: 0 | 1;
+  tier: 0 | 1 | 2;
   vendorId: string | null;
+  vendorKey?: string | null;
   exemplarIds: string[];
+  globalExemplarIds?: string[];
   exemplars: Array<{
     fieldName: string;
     aiValue: string | null;
@@ -46,12 +48,29 @@ export interface ExtractionContext {
 
 /**
  * Build a few-shot exemplar block for the extraction prompt.
- * Only invoked when tier >= 1 and exemplars are available.
+ * Tier 1: private corrections from this org's history.
+ * Tier 2: community patterns from the global exemplar pool.
+ *
+ * Exported for testing.
  */
-function buildExemplarPrompt(ctx: ExtractionContext): string {
+export function buildExemplarPrompt(ctx: ExtractionContext): string {
   if (ctx.tier < 1 || ctx.exemplars.length === 0) return "";
 
-  // Group corrections by field
+  if (ctx.tier === 2) {
+    // Tier 2: global community patterns
+    const lines = ctx.exemplars.map((e) => {
+      return `- ${e.fieldName}: expected value "${e.userValue ?? "(empty)"}"`;
+    });
+
+    return `\n\nIMPORTANT — Community patterns for this vendor:
+Multiple organizations have confirmed the following field values for documents from this vendor.
+Use these community-verified patterns as guidance for field extraction:
+${lines.join("\n")}
+
+These are consensus values from multiple independent sources — treat as reliable defaults.`;
+  }
+
+  // Tier 1: private corrections
   const corrections = ctx.exemplars.filter(
     (e) => e.aiValue !== e.userValue && e.userValue != null
   );

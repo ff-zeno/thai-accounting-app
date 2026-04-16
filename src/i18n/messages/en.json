@@ -48,7 +48,9 @@
     "management": "Management",
     "vendors": "Vendors",
     "reports": "Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "admin": "Admin",
+    "extractionHealth": "Extraction Health"
   },
   "org": {
     "switchOrg": "Switch Organization",

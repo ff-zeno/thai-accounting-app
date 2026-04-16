@@ -18,6 +18,7 @@ import {
   Settings,
   Lightbulb,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -95,6 +96,12 @@ const navGroups: NavGroup[] = [
       { labelKey: "vendors", href: "/vendors", icon: Users },
       { labelKey: "reports", href: "/reports", icon: BarChart3 },
       { labelKey: "settings", href: "/settings", icon: Settings },
+    ],
+  },
+  {
+    labelKey: "admin",
+    items: [
+      { labelKey: "extractionHealth", href: "/admin/extraction-health", icon: Activity },
     ],
   },
 ];

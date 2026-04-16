@@ -20,6 +20,7 @@ export interface UpsertExemplarInput {
   documentId: string;
   modelUsed?: string;
   confidenceAtTime?: string;
+  vendorTaxId?: string | null;
 }
 
 export interface Exemplar {
@@ -59,6 +60,7 @@ export async function upsertExemplar(
       documentId: input.documentId,
       modelUsed: input.modelUsed ?? null,
       confidenceAtTime: input.confidenceAtTime ?? null,
+      vendorTaxId: input.vendorTaxId ?? null,
     })
     .onConflictDoUpdate({
       target: [
@@ -171,4 +173,56 @@ export async function getExemplarsByDocument(
       )
     )
     .orderBy(extractionExemplars.fieldName);
+}
+
+// ---------------------------------------------------------------------------
+// Cross-org aggregation for consensus cron (Phase 8 Phase 2)
+// ---------------------------------------------------------------------------
+
+export interface VendorFieldAggregation {
+  vendorTaxId: string;
+  fieldName: string;
+  fieldCriticality: FieldCriticality;
+  userValue: string;
+  orgId: string;
+}
+
+/**
+ * Aggregate corrected exemplars across eligible orgs, grouped by vendor_tax_id.
+ * Cross-org query — no org_id scoping (intentional for consensus building).
+ *
+ * Returns all corrected exemplars from eligible orgs that have a vendor_tax_id,
+ * so the consensus cron can group and count agreements.
+ */
+export async function aggregateExemplarsByVendorKey(
+  eligibleOrgIds: string[]
+): Promise<VendorFieldAggregation[]> {
+  if (eligibleOrgIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      vendorTaxId: extractionExemplars.vendorTaxId,
+      fieldName: extractionExemplars.fieldName,
+      fieldCriticality: extractionExemplars.fieldCriticality,
+      userValue: extractionExemplars.userValue,
+      orgId: extractionExemplars.orgId,
+    })
+    .from(extractionExemplars)
+    .where(
+      and(
+        eq(extractionExemplars.wasCorrected, true),
+        isNull(extractionExemplars.deletedAt),
+        sql`${extractionExemplars.vendorTaxId} IS NOT NULL`,
+        sql`${extractionExemplars.orgId} IN (${sql.join(
+          eligibleOrgIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`
+      )
+    );
+
+  // Filter out nulls (TypeScript narrowing)
+  return rows.filter(
+    (r): r is VendorFieldAggregation =>
+      r.vendorTaxId != null && r.userValue != null
+  );
 }

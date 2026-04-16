@@ -816,6 +816,13 @@ export const vendorTierScopeKindEnum = pgEnum("vendor_tier_scope_kind", [
   "global",
 ]);
 
+export const consensusStatusEnum = pgEnum("consensus_status", [
+  "candidate",
+  "shadow_pending",
+  "promoted",
+  "retired",
+]);
+
 // NOTE: The migration for this table includes a hand-edited CHECK constraint:
 //   (was_corrected = true AND ai_value IS DISTINCT FROM user_value)
 //   OR (was_corrected = false AND ai_value IS NOT DISTINCT FROM user_value)
@@ -841,6 +848,7 @@ export const extractionExemplars = pgTable(
     sourceRegion: jsonb("source_region"),
     modelUsed: text("model_used"),
     confidenceAtTime: numeric("confidence_at_time", { precision: 5, scale: 4 }),
+    vendorTaxId: varchar("vendor_tax_id", { length: 13 }),
     createdAt,
     deletedAt,
   },
@@ -851,6 +859,9 @@ export const extractionExemplars = pgTable(
     index("idx_exemplars_top_recent")
       .on(t.orgId, t.vendorId, t.fieldName, t.createdAt)
       .where(sql`${t.deletedAt} IS NULL`),
+    index("idx_exemplars_by_vendor_tax_id")
+      .on(t.vendorTaxId, t.fieldName)
+      .where(sql`${t.wasCorrected} = true AND ${t.deletedAt} IS NULL AND ${t.vendorTaxId} IS NOT NULL`),
   ]
 );
 
@@ -929,6 +940,88 @@ export const extractionReviewOutcome = pgTable(
       .defaultNow()
       .notNull(),
   }
+);
+
+// ---------------------------------------------------------------------------
+// Global Consensus Tables (Phase 8 Phase 2)
+// ---------------------------------------------------------------------------
+
+export const orgReputation = pgTable("org_reputation", {
+  id,
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id)
+    .unique(),
+  score: numeric("score", { precision: 5, scale: 4 }).notNull().default("1.0"),
+  correctionsTotal: integer("corrections_total").notNull().default(0),
+  correctionsAgreed: integer("corrections_agreed").notNull().default(0),
+  correctionsDisputed: integer("corrections_disputed").notNull().default(0),
+  firstDocAt: timestamp("first_doc_at", { withTimezone: true }),
+  docsProcessed: integer("docs_processed").notNull().default(0),
+  eligible: boolean("eligible").notNull().default(false),
+  updatedAt,
+});
+
+export const exemplarConsensus = pgTable(
+  "exemplar_consensus",
+  {
+    id,
+    vendorKey: varchar("vendor_key", { length: 13 }).notNull(),
+    fieldName: text("field_name").notNull(),
+    normalizedValue: text("normalized_value").notNull(),
+    normalizedValueHash: text("normalized_value_hash").notNull(),
+    fieldCriticality: fieldCriticalityEnum("field_criticality").notNull(),
+    weightedOrgCount: numeric("weighted_org_count", { precision: 8, scale: 4 })
+      .notNull()
+      .default("0"),
+    agreeingOrgCount: integer("agreeing_org_count").notNull().default(0),
+    contradictingCount: integer("contradicting_count").notNull().default(0),
+    status: consensusStatusEnum("status").notNull().default("candidate"),
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+    recomputedAt: timestamp("recomputed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex("idx_consensus_unique_value").on(
+      t.vendorKey,
+      t.fieldName,
+      t.normalizedValueHash
+    ),
+    index("idx_consensus_promotion_lookup").on(
+      t.status,
+      t.vendorKey,
+      t.fieldName
+    ),
+  ]
+);
+
+export const globalExemplarPool = pgTable(
+  "global_exemplar_pool",
+  {
+    id,
+    vendorKey: varchar("vendor_key", { length: 13 }).notNull(),
+    fieldName: text("field_name").notNull(),
+    canonicalValue: text("canonical_value").notNull(),
+    fieldCriticality: fieldCriticalityEnum("field_criticality").notNull(),
+    consensusId: uuid("consensus_id")
+      .notNull()
+      .references(() => exemplarConsensus.id),
+    promotedAt: timestamp("promoted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("idx_global_pool_active_field")
+      .on(t.vendorKey, t.fieldName)
+      .where(sql`${t.retiredAt} IS NULL`),
+    index("idx_global_pool_vendor_active")
+      .on(t.vendorKey)
+      .where(sql`${t.retiredAt} IS NULL`),
+  ]
 );
 
 // ---------------------------------------------------------------------------
@@ -1327,6 +1420,30 @@ export const extractionReviewOutcomeRelations = relations(
     organization: one(organizations, {
       fields: [extractionReviewOutcome.orgId],
       references: [organizations.id],
+    }),
+  })
+);
+
+export const orgReputationRelations = relations(orgReputation, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [orgReputation.orgId],
+    references: [organizations.id],
+  }),
+}));
+
+export const exemplarConsensusRelations = relations(
+  exemplarConsensus,
+  ({ many }) => ({
+    globalPoolEntries: many(globalExemplarPool),
+  })
+);
+
+export const globalExemplarPoolRelations = relations(
+  globalExemplarPool,
+  ({ one }) => ({
+    consensus: one(exemplarConsensus, {
+      fields: [globalExemplarPool.consensusId],
+      references: [exemplarConsensus.id],
     }),
   })
 );

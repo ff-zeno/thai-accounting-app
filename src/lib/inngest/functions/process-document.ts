@@ -34,6 +34,7 @@ const lazyProbeVendorIdentity = () =>
   import("@/lib/vendor/probe-identity").then((m) => m.probeVendorIdentity);
 import { getVendorTier } from "@/lib/db/queries/vendor-tier";
 import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
+import { getGlobalExemplars } from "@/lib/db/queries/global-exemplar-pool";
 import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
 
 // ---------------------------------------------------------------------------
@@ -266,6 +267,28 @@ export const processDocument = inngest.createFunction(
       "resolve-extraction-context",
       async (): Promise<ExtractionContext> => {
         if (!probeResult.vendorId) {
+          // No vendor identified — check if we have a tax ID for Tier 2
+          if (probeResult.taxIdFound) {
+            try {
+              const globalExemplars = await getGlobalExemplars(probeResult.taxIdFound);
+              if (globalExemplars.length > 0) {
+                return {
+                  tier: 2 as const,
+                  vendorId: null,
+                  vendorKey: probeResult.taxIdFound,
+                  exemplarIds: [],
+                  globalExemplarIds: globalExemplars.map((e) => e.id),
+                  exemplars: globalExemplars.map((e) => ({
+                    fieldName: e.fieldName,
+                    aiValue: null,
+                    userValue: e.canonicalValue,
+                  })),
+                };
+              }
+            } catch {
+              // Tier 2 lookup failure is non-fatal
+            }
+          }
           return { tier: 0, vendorId: null, exemplarIds: [], exemplars: [] };
         }
 
@@ -273,31 +296,52 @@ export const processDocument = inngest.createFunction(
           const tierRow = await getVendorTier(orgId, probeResult.vendorId);
           const tier = (tierRow?.tier === 1 ? 1 : 0) as 0 | 1;
 
-          if (tier === 0) {
-            return {
-              tier: 0 as const,
-              vendorId: probeResult.vendorId,
-              exemplarIds: [],
-              exemplars: [],
-            };
+          if (tier === 1) {
+            // Tier 1: load top private exemplars for prompt injection
+            const exemplars = await getTopExemplars(
+              orgId,
+              probeResult.vendorId,
+              3
+            );
+
+            if (exemplars.length > 0) {
+              return {
+                tier: 1 as const,
+                vendorId: probeResult.vendorId,
+                exemplarIds: exemplars.map((e) => e.id),
+                exemplars: exemplars.map((e) => ({
+                  fieldName: e.fieldName,
+                  aiValue: e.aiValue,
+                  userValue: e.userValue,
+                })),
+              };
+            }
           }
 
-          // Tier 1: load top exemplars for prompt injection
-          const exemplars = await getTopExemplars(
-            orgId,
-            probeResult.vendorId,
-            3
-          );
+          // Tier 0 or Tier 1 with no exemplars — try Tier 2 fallback
+          if (probeResult.taxIdFound) {
+            const globalExemplars = await getGlobalExemplars(probeResult.taxIdFound);
+            if (globalExemplars.length > 0) {
+              return {
+                tier: 2 as const,
+                vendorId: probeResult.vendorId,
+                vendorKey: probeResult.taxIdFound,
+                exemplarIds: [],
+                globalExemplarIds: globalExemplars.map((e) => e.id),
+                exemplars: globalExemplars.map((e) => ({
+                  fieldName: e.fieldName,
+                  aiValue: null,
+                  userValue: e.canonicalValue,
+                })),
+              };
+            }
+          }
 
           return {
-            tier,
+            tier: 0 as const,
             vendorId: probeResult.vendorId,
-            exemplarIds: exemplars.map((e) => e.id),
-            exemplars: exemplars.map((e) => ({
-              fieldName: e.fieldName,
-              aiValue: e.aiValue,
-              userValue: e.userValue,
-            })),
+            exemplarIds: [],
+            exemplars: [],
           };
         } catch (error) {
           console.warn("[process-document] resolve-extraction-context failed:", error);
@@ -388,12 +432,17 @@ export const processDocument = inngest.createFunction(
           }
 
           // Write extraction log (idempotent by inngest event ID + step)
+          // For Tier 2, log global exemplar IDs since private exemplarIds is empty
+          const loggedExemplarIds =
+            extractionContext.tier === 2
+              ? (extractionContext.globalExemplarIds ?? [])
+              : extractionContext.exemplarIds;
           await insertExtractionLog({
             documentId,
             orgId,
             vendorId: extractionContext.vendorId,
             tierUsed: extractionContext.tier,
-            exemplarIds: extractionContext.exemplarIds,
+            exemplarIds: loggedExemplarIds,
             modelUsed: result.modelUsed,
             inputTokens: result.tokenUsage.input,
             outputTokens: result.tokenUsage.output,

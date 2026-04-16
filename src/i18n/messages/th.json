@@ -48,7 +48,9 @@
     "management": "จัดการ",
     "vendors": "คู่ค้า",
     "reports": "รายงาน",
-    "settings": "ตั้งค่า"
+    "settings": "ตั้งค่า",
+    "admin": "ผู้ดูแลระบบ",
+    "extractionHealth": "สุขภาพการดึงข้อมูล"
   },
   "org": {
     "switchOrg": "เปลี่ยนองค์กร",

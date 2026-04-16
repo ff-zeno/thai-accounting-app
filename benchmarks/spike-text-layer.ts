@@ -98,7 +98,6 @@ function extractScoredTaxIds(text: string): ScoredTaxId[] {
 
 async function extractTextFromPdf(bytes: Uint8Array): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // @ts-expect-error - legacy entry, no worker needed for text extraction in node
   const loadingTask = pdfjsLib.getDocument({
     data: bytes,
     useSystemFonts: true,

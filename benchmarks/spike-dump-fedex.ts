@@ -8,7 +8,6 @@ async function main() {
     "_sample_file_types/Paid already with Debit Device/Fedex/TH_VATINV_3552969_04022026_1308.pdf"
   );
   const bytes = new Uint8Array(readFileSync(path));
-  // @ts-expect-error legacy entry
   const doc = await pdfjsLib.getDocument({ data: bytes, useSystemFonts: true, isEvalSupported: false }).promise;
 
   for (let i = 1; i <= doc.numPages; i++) {

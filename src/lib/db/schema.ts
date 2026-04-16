@@ -5,15 +5,17 @@ import {
   varchar,
   boolean,
   integer,
+  smallint,
   numeric,
   date,
   timestamp,
   jsonb,
   index,
   unique,
+  uniqueIndex,
   pgEnum,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -800,6 +802,136 @@ export const aiBatchRuns = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Extraction Learning Loop Tables (Phase 8)
+// ---------------------------------------------------------------------------
+
+export const fieldCriticalityEnum = pgEnum("field_criticality", [
+  "low",
+  "medium",
+  "high",
+]);
+
+export const vendorTierScopeKindEnum = pgEnum("vendor_tier_scope_kind", [
+  "org",
+  "global",
+]);
+
+// NOTE: The migration for this table includes a hand-edited CHECK constraint:
+//   (was_corrected = true AND ai_value IS DISTINCT FROM user_value)
+//   OR (was_corrected = false AND ai_value IS NOT DISTINCT FROM user_value)
+// Do not regenerate the migration without preserving this CHECK.
+export const extractionExemplars = pgTable(
+  "extraction_exemplars",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    fieldName: text("field_name").notNull(),
+    fieldCriticality: fieldCriticalityEnum("field_criticality").notNull(),
+    aiValue: text("ai_value"),
+    userValue: text("user_value"),
+    wasCorrected: boolean("was_corrected").notNull(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    sourceRegion: jsonb("source_region"),
+    modelUsed: text("model_used"),
+    confidenceAtTime: numeric("confidence_at_time", { precision: 5, scale: 4 }),
+    createdAt,
+    deletedAt,
+  },
+  (t) => [
+    uniqueIndex("idx_exemplars_unique_active")
+      .on(t.orgId, t.vendorId, t.fieldName, t.documentId)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index("idx_exemplars_top_recent")
+      .on(t.orgId, t.vendorId, t.fieldName, t.createdAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ]
+);
+
+export const vendorTier = pgTable(
+  "vendor_tier",
+  {
+    id,
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    scopeKind: vendorTierScopeKindEnum("scope_kind").notNull(),
+    orgId: uuid("org_id").references(() => organizations.id),
+    tier: smallint("tier").notNull().default(0),
+    docsProcessedTotal: integer("docs_processed_total").notNull().default(0),
+    lastDocAt: timestamp("last_doc_at", { withTimezone: true }),
+    lastPromotedAt: timestamp("last_promoted_at", { withTimezone: true }),
+    lastDemotedAt: timestamp("last_demoted_at", { withTimezone: true }),
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("idx_vendor_tier_unique_org")
+      .on(t.vendorId, t.orgId)
+      .where(sql`${t.scopeKind} = 'org'`),
+    uniqueIndex("idx_vendor_tier_unique_global")
+      .on(t.vendorId)
+      .where(sql`${t.scopeKind} = 'global'`),
+  ]
+);
+
+export const extractionLog = pgTable(
+  "extraction_log",
+  {
+    id,
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    tierUsed: smallint("tier_used").notNull(),
+    exemplarIds: uuid("exemplar_ids").array(),
+    modelUsed: text("model_used"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    costUsd: numeric("cost_usd", { precision: 12, scale: 8 }),
+    latencyMs: integer("latency_ms"),
+    inngestIdempotencyKey: text("inngest_idempotency_key").notNull(),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex("idx_extraction_log_idempotency").on(t.inngestIdempotencyKey),
+    index("idx_extraction_log_document").on(t.documentId, t.createdAt),
+    index("idx_extraction_log_vendor").on(t.vendorId, t.createdAt),
+  ]
+);
+
+export const extractionReviewOutcome = pgTable(
+  "extraction_review_outcome",
+  {
+    id,
+    extractionLogId: uuid("extraction_log_id")
+      .notNull()
+      .references(() => extractionLog.id)
+      .unique(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    userCorrected: boolean("user_corrected").notNull(),
+    correctionCount: integer("correction_count").notNull().default(0),
+    reviewedByUserId: text("reviewed_by_user_id").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Relations
 // ---------------------------------------------------------------------------
 
@@ -1125,6 +1257,76 @@ export const aiMatchSuggestionsRelations = relations(
     reviewer: one(users, {
       fields: [aiMatchSuggestions.reviewedBy],
       references: [users.id],
+    }),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Extraction Learning Loop Relations
+// ---------------------------------------------------------------------------
+
+export const extractionExemplarsRelations = relations(
+  extractionExemplars,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [extractionExemplars.orgId],
+      references: [organizations.id],
+    }),
+    vendor: one(vendors, {
+      fields: [extractionExemplars.vendorId],
+      references: [vendors.id],
+    }),
+    document: one(documents, {
+      fields: [extractionExemplars.documentId],
+      references: [documents.id],
+    }),
+  })
+);
+
+export const vendorTierRelations = relations(vendorTier, ({ one }) => ({
+  vendor: one(vendors, {
+    fields: [vendorTier.vendorId],
+    references: [vendors.id],
+  }),
+  organization: one(organizations, {
+    fields: [vendorTier.orgId],
+    references: [organizations.id],
+  }),
+}));
+
+export const extractionLogRelations = relations(
+  extractionLog,
+  ({ one }) => ({
+    document: one(documents, {
+      fields: [extractionLog.documentId],
+      references: [documents.id],
+    }),
+    organization: one(organizations, {
+      fields: [extractionLog.orgId],
+      references: [organizations.id],
+    }),
+    vendor: one(vendors, {
+      fields: [extractionLog.vendorId],
+      references: [vendors.id],
+    }),
+    reviewOutcome: one(extractionReviewOutcome),
+  })
+);
+
+export const extractionReviewOutcomeRelations = relations(
+  extractionReviewOutcome,
+  ({ one }) => ({
+    extractionLog: one(extractionLog, {
+      fields: [extractionReviewOutcome.extractionLogId],
+      references: [extractionLog.id],
+    }),
+    document: one(documents, {
+      fields: [extractionReviewOutcome.documentId],
+      references: [documents.id],
+    }),
+    organization: one(organizations, {
+      fields: [extractionReviewOutcome.orgId],
+      references: [organizations.id],
     }),
   })
 );

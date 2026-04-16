@@ -22,9 +22,9 @@ import { invoiceExtractionSchema, type InvoiceExtraction } from "../src/lib/ai/s
 config({ path: ".env.local" });
 
 const MODELS = [
-  "anthropic/claude-sonnet-4",
   "google/gemini-2.0-flash-001",
-  "openai/gpt-4o",
+  "google/gemini-2.5-flash-preview",
+  "openai/gpt-4o-mini",
 ];
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");

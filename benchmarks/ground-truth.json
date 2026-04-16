@@ -1,0 +1,89 @@
+{
+  "_note": "Opus 4.6 + user-confirmed ground truth for extraction benchmark. Generated 2026-04-15.",
+  "ksher-settlement": {
+    "schema": "invoice",
+    "expected": {
+      "documentType": "invoice",
+      "documentNumber": "IW011-01-05436",
+      "issueDate": "2026-03-11",
+      "vendorName": "บริษัท เคเชอร์ เพย์เมนท์ จำกัด",
+      "vendorNameEn": "Ksher Payment Co., Ltd.",
+      "vendorTaxId": "0105560199507",
+      "vendorBranchNumber": "00000",
+      "buyerName": "บริษัท ลูเมร่า(ประเทศไทย) จำกัด",
+      "buyerTaxId": "0105568102529",
+      "subtotal": "5350.00",
+      "vatRate": "7",
+      "vatAmount": "2.62",
+      "totalAmount": "5350.00",
+      "currency": "THB",
+      "detectedLanguage": "mixed"
+    },
+    "_notes": "Top-line transaction amount 5350.00 is the totalAmount. Commission 37.45, VAT on commission 2.62, WHT 1.12, net credit to merchant 5309.93 — these are derived, not headline total. Models returning 40.07 or 5309.93 as totalAmount are wrong per user."
+  },
+  "fedex-invoice": {
+    "schema": "invoice",
+    "expected": {
+      "documentType": "invoice",
+      "documentNumber": "F26020605",
+      "issueDate": "2026-02-03",
+      "vendorName": "Federal Express (Thailand) Limited",
+      "vendorTaxId": "0105537121271",
+      "vendorBranchNumber": "00009",
+      "buyerName": "LUMERA (THAILAND) CO., LTD",
+      "buyerTaxId": "0105568102529",
+      "subtotal": "1178.39",
+      "vatRate": "7",
+      "vatAmount": "82.49",
+      "totalAmount": "21917.88",
+      "currency": "THB",
+      "detectedLanguage": "en"
+    },
+    "_notes": "Subtotal = taxable portion only (1178.39). Non-VAT portion (20657.00) is the duties/taxes pass-through. Air Waybill 406229232391."
+  },
+  "tiktok-invoice": {
+    "schema": "invoice",
+    "expected": {
+      "documentType": "invoice",
+      "documentNumber": "THTT202601830303",
+      "issueDate": "2026-03-11",
+      "dueDate": "2026-03-11",
+      "vendorName": "TIKTOK PTE. LTD.",
+      "vendorTaxId": "0993000455738",
+      "vendorAddress": "1 Raffles Quay #26-10, Singapore (048583)",
+      "buyerName": "LUMERA (THAILAND) CO., LTD",
+      "buyerTaxId": "0105568102529",
+      "subtotal": "7948.00",
+      "vatRate": "0",
+      "vatAmount": "0.00",
+      "totalAmount": "7948.00",
+      "currency": "THB",
+      "detectedLanguage": "en"
+    },
+    "_notes": "Vendor is Singapore-registered. 0993000455738 is Singapore GST — not Thai 13-digit format. Accept the value; models returning null score partial. Contract No: CON7547983927086492161. Five campaign line items totaling 7948.00."
+  },
+  "influencer-id-card": {
+    "schema": "idCard",
+    "expected": {
+      "nameTh": "น.ส. พิมพ์วิมล จิรไพศาล",
+      "nameEn": "Miss Pimwimol Jirapaisal",
+      "citizenId": "1103500032505",
+      "dateOfBirth": "2000-07-06",
+      "address": "82/341 ถ.กัลปพฤกษ์ แขวงบางแค เขตบางแค กรุงเทพมหานคร",
+      "expiryDate": "2034-07-05"
+    },
+    "_notes": "Date of Issue 2026-01-24 not in schema. Laser code 1040-06-01241325 not in schema."
+  },
+  "_scoring": {
+    "critical_fields": {
+      "invoice": ["totalAmount", "vendorTaxId", "documentNumber", "issueDate"],
+      "idCard": ["nameTh", "citizenId", "address"]
+    },
+    "rules": {
+      "correct": "Exact match (after string normalization: trim, collapse spaces, Thai digit → Arabic)",
+      "partial": "Semantically equivalent but formatted differently (e.g. '21,917.88' vs '21917.88', 'Federal Express' vs 'Federal Express (Thailand) Limited')",
+      "missing": "Field returned as null/undefined — penalized less than hallucination",
+      "hallucinated": "Field has a value but is factually wrong — worst outcome, especially for tax IDs / totals"
+    }
+  }
+}

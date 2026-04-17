@@ -173,10 +173,51 @@ export const consensusRecompute = inngest.createFunction(
       return retiredCount;
     });
 
+    // Step 6: Check for vendors eligible for compilation (Phase 8 Phase 3)
+    const compilationEmitted = await step.run("check-compilation-eligibility", async () => {
+      // Find vendors with >=20 Tier 2 exemplars
+      // Group the aggregation by vendor key and count unique fields
+      const vendorCounts = new Map<string, { orgIds: Set<string>; total: number }>();
+
+      for (const row of aggregations) {
+        let entry = vendorCounts.get(row.vendorTaxId);
+        if (!entry) {
+          entry = { orgIds: new Set(), total: 0 };
+          vendorCounts.set(row.vendorTaxId, entry);
+        }
+        entry.orgIds.add(row.orgId);
+        entry.total++;
+      }
+
+      const eligibleVendors: string[] = [];
+      for (const [vendorKey, data] of vendorCounts) {
+        if (data.total >= 20) {
+          eligibleVendors.push(vendorKey);
+        }
+      }
+
+      return eligibleVendors;
+    });
+
+    // Emit compilation events for eligible vendors
+    if (compilationEmitted.length > 0) {
+      await step.sendEvent(
+        "emit-compilation-events",
+        compilationEmitted.map((vendorKey) => ({
+          name: "learning/vendor-ready-for-compilation" as const,
+          data: {
+            vendorKey,
+            eligibleOrgIds,
+          },
+        }))
+      );
+    }
+
     return {
       eligible: eligibleOrgIds.length,
       promoted,
       retired,
+      compilationCandidates: compilationEmitted.length,
     };
   }
 );

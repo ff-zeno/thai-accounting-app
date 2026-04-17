@@ -132,7 +132,7 @@ describe("consensusRecompute", () => {
       })
     );
 
-    expect(result).toEqual({ eligible: 3, promoted: 0, retired: 0 });
+    expect(result).toMatchObject({ eligible: 3, promoted: 0, retired: 0 });
   });
 
   it("promotes candidates that meet threshold", async () => {
@@ -183,7 +183,7 @@ describe("consensusRecompute", () => {
         consensusId: "c-1",
       })
     );
-    expect(result).toEqual({ eligible: 1, promoted: 1, retired: 0 });
+    expect(result).toMatchObject({ eligible: 1, promoted: 1, retired: 0 });
   });
 
   it("retires contradicted candidates", async () => {
@@ -227,6 +227,6 @@ describe("consensusRecompute", () => {
 
     expect(markRetired).toHaveBeenCalledWith("c-2");
     expect(retireGlobalExemplar).toHaveBeenCalledWith("1111111111111", "dueDate");
-    expect(result).toEqual({ eligible: 1, promoted: 0, retired: 1 });
+    expect(result).toMatchObject({ eligible: 1, promoted: 0, retired: 1 });
   });
 });

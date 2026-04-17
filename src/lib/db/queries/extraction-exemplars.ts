@@ -226,3 +226,101 @@ export async function aggregateExemplarsByVendorKey(
       r.vendorTaxId != null && r.userValue != null
   );
 }
+
+// ---------------------------------------------------------------------------
+// Backfill: vendor_tax_id from vendors table (Phase 8 Phase 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Count exemplars missing vendor_tax_id that could be backfilled
+ * from the vendors table.
+ */
+export async function countMissingVendorTaxId(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(extractionExemplars)
+    .where(
+      and(
+        isNull(extractionExemplars.deletedAt),
+        sql`${extractionExemplars.vendorTaxId} IS NULL`
+      )
+    );
+  return row.count;
+}
+
+/**
+ * Backfill vendor_tax_id from the vendors table in batches.
+ * Returns the number of rows updated in this batch.
+ */
+export async function backfillVendorTaxIdBatch(
+  limit: number = 500
+): Promise<number> {
+  const result = await db.execute(sql`
+    UPDATE extraction_exemplars ee
+    SET vendor_tax_id = v.tax_id
+    FROM vendors v
+    WHERE ee.vendor_id = v.id
+      AND ee.vendor_tax_id IS NULL
+      AND ee.deleted_at IS NULL
+      AND v.tax_id IS NOT NULL
+    LIMIT ${limit}
+  `);
+  // Neon / node-postgres: rowCount is on the result
+  return (result as unknown as { rowCount: number }).rowCount ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Decay: find stale vendor exemplars (Phase 8 Phase 3)
+// ---------------------------------------------------------------------------
+
+export interface StaleVendorExemplarGroup {
+  orgId: string;
+  vendorId: string;
+  count: number;
+}
+
+/**
+ * Find (org_id, vendor_id) pairs where ALL exemplars are older than maxAge.
+ * These are candidates for decay — their exemplars are stale.
+ */
+export async function findStaleVendorExemplars(
+  maxAge: Date
+): Promise<StaleVendorExemplarGroup[]> {
+  const rows = await db
+    .select({
+      orgId: extractionExemplars.orgId,
+      vendorId: extractionExemplars.vendorId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(extractionExemplars)
+    .where(isNull(extractionExemplars.deletedAt))
+    .groupBy(extractionExemplars.orgId, extractionExemplars.vendorId)
+    .having(sql`max(${extractionExemplars.createdAt}) < ${maxAge}`);
+
+  return rows.map((r) => ({
+    orgId: r.orgId,
+    vendorId: r.vendorId,
+    count: r.count,
+  }));
+}
+
+/**
+ * Soft-delete all exemplars for a specific vendor+org pair.
+ * Returns the number of rows soft-deleted.
+ */
+export async function softDeleteExemplarsByVendor(
+  orgId: string,
+  vendorId: string
+): Promise<number> {
+  const result = await db
+    .update(extractionExemplars)
+    .set({ deletedAt: sql`now()` })
+    .where(
+      and(
+        eq(extractionExemplars.orgId, orgId),
+        eq(extractionExemplars.vendorId, vendorId),
+        isNull(extractionExemplars.deletedAt)
+      )
+    );
+  return (result as unknown as { rowCount: number }).rowCount ?? 0;
+}

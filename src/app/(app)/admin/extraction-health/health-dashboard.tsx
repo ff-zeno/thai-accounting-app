@@ -16,11 +16,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { retireGlobalExemplarAction } from "./actions";
+import { retireGlobalExemplarAction, forgetVendorExemplarsAction } from "./actions";
 import type {
   PromotionTimelineEntry,
   VendorTierDistribution,
   RecentHighCritPromotion,
+  PerVendorCard,
+  GlobalExtractionHealth,
+  ConsensusHealth,
+  ReputationBucket,
+  IdempotencyHealth,
+  ShadowCanaryHealth,
+  CompiledPatternHealth,
 } from "@/lib/db/queries/extraction-health";
 
 interface HealthDashboardProps {
@@ -37,6 +44,13 @@ interface HealthDashboardProps {
   promotionTimeline: PromotionTimelineEntry[];
   tierDistribution: VendorTierDistribution[];
   highCritPromotions: RecentHighCritPromotion[];
+  perVendorCards: PerVendorCard[];
+  globalHealth: GlobalExtractionHealth;
+  consensusHealth: ConsensusHealth;
+  reputationDistribution: ReputationBucket[];
+  idempotencyHealth: IdempotencyHealth;
+  shadowCanaryHealth: ShadowCanaryHealth;
+  compiledPatternHealth: CompiledPatternHealth;
 }
 
 function criticalityColor(c: string) {
@@ -59,6 +73,13 @@ export function HealthDashboard({
   promotionTimeline,
   tierDistribution,
   highCritPromotions,
+  perVendorCards,
+  globalHealth,
+  consensusHealth,
+  reputationDistribution,
+  idempotencyHealth,
+  shadowCanaryHealth,
+  compiledPatternHealth,
 }: HealthDashboardProps) {
   return (
     <div className="space-y-6">
@@ -211,6 +232,193 @@ export function HealthDashboard({
           </CardContent>
         </Card>
       )}
+
+      {/* Global extraction health summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Global Extraction Health</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Avg Tier</p>
+              <p className="text-xl font-semibold">{globalHealth.avgTier.toFixed(1)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Avg Cost/Doc</p>
+              <p className="text-xl font-semibold">${globalHealth.costPerDocTrend.toFixed(4)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Correction Rate</p>
+              <p className="text-xl font-semibold">{(globalHealth.correctionRate * 100).toFixed(1)}%</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Consensus pipeline health */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Consensus Pipeline Health</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-sm text-muted-foreground">In Shadow</p>
+              <p className="text-xl font-semibold">{consensusHealth.candidatesInShadow}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Promoted (7d)</p>
+              <p className="text-xl font-semibold">{consensusHealth.promotedThisWeek}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Demoted (7d)</p>
+              <p className="text-xl font-semibold">{consensusHealth.demotedThisWeek}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Avg Days to Promote</p>
+              <p className="text-xl font-semibold">{consensusHealth.avgTimeToPromote.toFixed(1)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Reputation distribution histogram */}
+      {reputationDistribution.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Reputation Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-1" style={{ height: 120 }}>
+              {(() => {
+                const maxCount = Math.max(...reputationDistribution.map((b) => b.count), 1);
+                return reputationDistribution.map((bucket) => (
+                  <div
+                    key={bucket.bucket}
+                    className="flex flex-1 flex-col items-center gap-1"
+                  >
+                    <span className="text-xs text-muted-foreground">{bucket.count}</span>
+                    <div
+                      className="w-full rounded-t bg-primary"
+                      style={{ height: `${(bucket.count / maxCount) * 80}px`, minHeight: 2 }}
+                    />
+                    <span className="text-xs text-muted-foreground">{bucket.bucket}</span>
+                  </div>
+                ));
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Per-vendor cards */}
+      {perVendorCards.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Top Vendors by Volume</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Tax ID</TableHead>
+                  <TableHead>Tier</TableHead>
+                  <TableHead>Docs</TableHead>
+                  <TableHead>Correction Rate (30d)</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {perVendorCards.map((v) => (
+                  <TableRow key={`${v.vendorName}-${v.vendorTaxId}`}>
+                    <TableCell className="max-w-[200px] truncate">{v.vendorName}</TableCell>
+                    <TableCell className="font-mono text-xs">{v.vendorTaxId ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={v.currentTier >= 2 ? "default" : "secondary"}>
+                        Tier {v.currentTier}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{v.docsProcessed}</TableCell>
+                    <TableCell>{(v.correctionRate30d * 100).toFixed(1)}%</TableCell>
+                    <TableCell>
+                      <form action={() => forgetVendorExemplarsAction(v.vendorId)}>
+                        <Button type="submit" variant="ghost" size="sm" className="text-destructive">
+                          Forget
+                        </Button>
+                      </form>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Idempotency health */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Idempotency
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{idempotencyHealth.duplicatesPrevented}</p>
+            <p className="text-xs text-muted-foreground">duplicates prevented</p>
+          </CardContent>
+        </Card>
+
+        {/* Shadow canary */}
+        <Card className={shadowCanaryHealth.activeCanaries === 0 ? "opacity-50" : ""}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Shadow Canary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {shadowCanaryHealth.activeCanaries || "—"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {shadowCanaryHealth.activeCanaries > 0
+                ? `${(shadowCanaryHealth.agreementRate * 100).toFixed(1)}% agreement`
+                : "no active canaries"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Compiled patterns */}
+      <Card className={compiledPatternHealth.active === 0 && compiledPatternHealth.shadow === 0 ? "opacity-50" : ""}>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Compiled Patterns
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Active</p>
+              <p className="text-xl font-semibold">{compiledPatternHealth.active || "—"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Shadow</p>
+              <p className="text-xl font-semibold">{compiledPatternHealth.shadow || "—"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Retired</p>
+              <p className="text-xl font-semibold">{compiledPatternHealth.retired || "—"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Awaiting Review</p>
+              <p className="text-xl font-semibold">{compiledPatternHealth.awaitingReview || "—"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Promotion/retirement timeline */}
       {promotionTimeline.length > 0 && (

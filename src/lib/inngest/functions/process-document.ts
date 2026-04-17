@@ -36,6 +36,8 @@ import { getVendorTier } from "@/lib/db/queries/vendor-tier";
 import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
 import { getGlobalExemplars } from "@/lib/db/queries/global-exemplar-pool";
 import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
+import { getActivePattern } from "@/lib/db/queries/compiled-patterns";
+import { runCompiledPattern } from "@/lib/ai/compiled-patterns/sandbox-runner";
 
 // ---------------------------------------------------------------------------
 // Types for Inngest step serialization
@@ -334,6 +336,26 @@ export const processDocument = inngest.createFunction(
                   userValue: e.canonicalValue,
                 })),
               };
+            }
+          }
+
+          // Tier 3: Check for compiled pattern
+          if (probeResult.taxIdFound && tierRow && tierRow.tier >= 3) {
+            try {
+              const pattern = await getActivePattern(probeResult.taxIdFound, "global");
+              if (pattern) {
+                return {
+                  tier: 3 as const,
+                  vendorId: probeResult.vendorId,
+                  vendorKey: probeResult.taxIdFound,
+                  exemplarIds: [],
+                  exemplars: [],
+                  compiledPatternId: pattern.id,
+                  compiledJs: pattern.compiledJs,
+                };
+              }
+            } catch {
+              // Tier 3 lookup failure is non-fatal
             }
           }
 

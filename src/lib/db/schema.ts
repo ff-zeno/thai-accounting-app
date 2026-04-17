@@ -823,6 +823,12 @@ export const consensusStatusEnum = pgEnum("consensus_status", [
   "retired",
 ]);
 
+export const compiledPatternStatusEnum = pgEnum("compiled_pattern_status", [
+  "shadow",
+  "active",
+  "retired",
+]);
+
 // NOTE: The migration for this table includes a hand-edited CHECK constraint:
 //   (was_corrected = true AND ai_value IS DISTINCT FROM user_value)
 //   OR (was_corrected = false AND ai_value IS NOT DISTINCT FROM user_value)
@@ -1021,6 +1027,51 @@ export const globalExemplarPool = pgTable(
     index("idx_global_pool_vendor_active")
       .on(t.vendorKey)
       .where(sql`${t.retiredAt} IS NULL`),
+  ]
+);
+
+// ---------------------------------------------------------------------------
+// Compiled Patterns (Phase 8 Phase 3 — Tier 3)
+// ---------------------------------------------------------------------------
+
+export const extractionCompiledPatterns = pgTable(
+  "extraction_compiled_patterns",
+  {
+    id,
+    vendorKey: text("vendor_key").notNull(),
+    scopeKind: vendorTierScopeKindEnum("scope_kind").notNull(),
+    orgId: uuid("org_id").references(() => organizations.id),
+    version: integer("version").notNull(),
+    sourceTs: text("source_ts").notNull(),
+    compiledJs: text("compiled_js").notNull(),
+    tsCompilerVersion: text("ts_compiler_version").notNull(),
+    astHash: text("ast_hash").notNull(),
+    trainingSetHash: text("training_set_hash").notNull(),
+    shadowAccuracy: numeric("shadow_accuracy", { precision: 5, scale: 4 }),
+    shadowSampleSize: integer("shadow_sample_size"),
+    status: compiledPatternStatusEnum("status").notNull().default("shadow"),
+    requiresManualReview: boolean("requires_manual_review")
+      .notNull()
+      .default(true),
+    createdAt,
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+    retirementReason: text("retirement_reason"),
+  },
+  (t) => [
+    // Only one active pattern per vendor+scope+org
+    uniqueIndex("idx_compiled_pattern_active")
+      .on(t.vendorKey, t.scopeKind, sql`COALESCE(${t.orgId}::text, 'global')`)
+      .where(sql`${t.status} = 'active'`),
+    // Versioned patterns per vendor+scope+org
+    uniqueIndex("idx_compiled_pattern_version").on(
+      t.vendorKey,
+      t.scopeKind,
+      sql`COALESCE(${t.orgId}::text, 'global')`,
+      t.version
+    ),
+    // CHECK: (scope_kind = 'org' AND org_id IS NOT NULL) OR (scope_kind = 'global' AND org_id IS NULL)
+    // NOTE: This CHECK constraint must be added manually in the migration SQL
   ]
 );
 

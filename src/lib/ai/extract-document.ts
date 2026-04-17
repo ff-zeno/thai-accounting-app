@@ -34,7 +34,7 @@ export interface ExtractionFile {
 // ---------------------------------------------------------------------------
 
 export interface ExtractionContext {
-  tier: 0 | 1 | 2;
+  tier: 0 | 1 | 2 | 3;
   vendorId: string | null;
   vendorKey?: string | null;
   exemplarIds: string[];
@@ -44,6 +44,9 @@ export interface ExtractionContext {
     aiValue: string | null;
     userValue: string | null;
   }>;
+  compiledPatternId?: string;
+  compiledJs?: string;
+  compiledResult?: Record<string, string>;
 }
 
 /**

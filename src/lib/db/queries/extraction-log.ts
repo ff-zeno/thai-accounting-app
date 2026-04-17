@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, gte } from "drizzle-orm";
 import { db } from "../index";
 import { extractionLog } from "../schema";
 import { orgScopeAlive } from "../helpers/org-scope";
@@ -115,4 +115,29 @@ export async function getRecentExtractionLogs(
     )
     .orderBy(desc(extractionLog.createdAt))
     .limit(limit);
+}
+
+// ---------------------------------------------------------------------------
+// Has recent extraction for vendor (Phase 8 Phase 3 — decay check)
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if there's been any extraction log entry for a vendor since the given date.
+ * Used by exemplar decay to avoid decaying vendors that are still active.
+ */
+export async function hasRecentExtractionForVendor(
+  vendorId: string,
+  since: Date
+): Promise<boolean> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(extractionLog)
+    .where(
+      and(
+        eq(extractionLog.vendorId, vendorId),
+        gte(extractionLog.createdAt, since)
+      )
+    )
+    .limit(1);
+  return row.count > 0;
 }

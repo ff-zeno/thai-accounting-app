@@ -6,6 +6,13 @@ import {
   getPromotionTimeline,
   getVendorTierDistribution,
   getRecentHighCriticalityPromotions,
+  getPerVendorCards,
+  getGlobalExtractionHealth,
+  getConsensusHealth,
+  getReputationDistribution,
+  getIdempotencyHealth,
+  getShadowCanaryHealth,
+  getCompiledPatternHealth,
 } from "@/lib/db/queries/extraction-health";
 import { HealthDashboard } from "./health-dashboard";
 
@@ -19,6 +26,13 @@ export default async function ExtractionHealthPage() {
     promotionTimeline,
     tierDistribution,
     highCritPromotions,
+    perVendorCards,
+    globalHealth,
+    consensusHealth,
+    reputationDistribution,
+    idempotencyHealth,
+    shadowCanaryHealth,
+    compiledPatternHealth,
   ] = await Promise.all([
     getGlobalPoolStats(),
     getConsensusStats(),
@@ -26,6 +40,13 @@ export default async function ExtractionHealthPage() {
     getPromotionTimeline(20),
     getVendorTierDistribution(orgId),
     getRecentHighCriticalityPromotions(10),
+    getPerVendorCards(orgId, 20),
+    getGlobalExtractionHealth(),
+    getConsensusHealth(),
+    getReputationDistribution(),
+    getIdempotencyHealth(),
+    getShadowCanaryHealth(),
+    getCompiledPatternHealth(),
   ]);
 
   return (
@@ -46,6 +67,13 @@ export default async function ExtractionHealthPage() {
         promotionTimeline={promotionTimeline}
         tierDistribution={tierDistribution}
         highCritPromotions={highCritPromotions}
+        perVendorCards={perVendorCards}
+        globalHealth={globalHealth}
+        consensusHealth={consensusHealth}
+        reputationDistribution={reputationDistribution}
+        idempotencyHealth={idempotencyHealth}
+        shadowCanaryHealth={shadowCanaryHealth}
+        compiledPatternHealth={compiledPatternHealth}
       />
     </div>
   );

@@ -5,10 +5,14 @@ import {
   whtCertificateItems,
   whtSequenceCounters,
   vendors,
+  organizations,
+  whtAnnualThresholdDecisions,
 } from "../schema";
 import { orgScope, orgScopeAlive } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
 import { isPeriodLocked } from "./period-locks";
+
+const WHT_ANNUAL_EXEMPTION_THRESHOLD = 1000;
 
 // ---------------------------------------------------------------------------
 // Form type determination
@@ -131,16 +135,23 @@ export async function createWhtCertificateDraft(data: {
   vendorId: string;
   formType: WhtFormType;
   paymentDate: string;
+  paymentId?: string;
+  applyAnnualThreshold?: boolean;
   lineItems: Array<{
     documentId: string;
-    lineItemId: string;
+    lineItemId: string | null;
     baseAmount: string;
     whtRate: string;
     whtAmount: string;
     rdPaymentTypeCode?: string;
     whtType?: string;
   }>;
-}): Promise<{ certificateId: string; certificateNo: string }> {
+}): Promise<{
+  certificateId: string;
+  certificateNo: string;
+  totalBaseAmount: string;
+  totalWht: string;
+}> {
   // Check if the payment date's period is locked
   const paymentDateObj = new Date(data.paymentDate);
   const paymentYear = paymentDateObj.getFullYear();
@@ -160,16 +171,61 @@ export async function createWhtCertificateDraft(data: {
   }
 
   const year = new Date(data.paymentDate).getFullYear();
+  const thresholdLineItems = data.applyAnnualThreshold
+    ? await applyAnnualWhtThreshold({
+        orgId: data.orgId,
+        vendorId: data.vendorId,
+        paymentId: data.paymentId,
+        taxYear: year,
+        lineItems: data.lineItems,
+      })
+    : data.lineItems;
+
+  if (thresholdLineItems.length === 0) {
+    return {
+      certificateId: "",
+      certificateNo: "",
+      totalBaseAmount: "0.00",
+      totalWht: "0.00",
+    };
+  }
+
   const seq = await allocateSequenceNumber(data.orgId, data.formType, year);
   const certificateNo = formatCertificateNo(data.formType, year, seq);
 
   // Calculate totals from line items using integer arithmetic to avoid float precision
-  const totalBaseAmountCents = data.lineItems
+  const totalBaseAmountCents = thresholdLineItems
     .reduce((sum, li) => sum + Math.round(parseFloat(li.baseAmount) * 100), 0);
   const totalBaseAmount = (totalBaseAmountCents / 100).toFixed(2);
-  const totalWhtCents = data.lineItems
+  const totalWhtCents = thresholdLineItems
     .reduce((sum, li) => sum + Math.round(parseFloat(li.whtAmount) * 100), 0);
   const totalWht = (totalWhtCents / 100).toFixed(2);
+
+  const [org] = await db
+    .select({
+      taxId: organizations.taxId,
+      address: organizations.address,
+      addressTh: organizations.addressTh,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, data.orgId))
+    .limit(1);
+  const [payee] = await db
+    .select({
+      taxId: vendors.taxId,
+      address: vendors.address,
+      addressTh: vendors.addressTh,
+    })
+    .from(vendors)
+    .where(and(eq(vendors.id, data.vendorId), eq(vendors.orgId, data.orgId)))
+    .limit(1);
+  const paymentTypeDescription = Array.from(
+    new Set(
+      thresholdLineItems
+        .map((li) => li.whtType ?? li.rdPaymentTypeCode)
+        .filter((value): value is string => Boolean(value))
+    )
+  ).join(", ");
 
   const [cert] = await db
     .insert(whtCertificates)
@@ -182,13 +238,20 @@ export async function createWhtCertificateDraft(data: {
       totalWht,
       formType: data.formType,
       status: "draft",
+      payerTaxIdSnapshot: org?.taxId ?? "",
+      payerAddressSnapshot: org?.addressTh ?? org?.address ?? "",
+      payeeAddressSnapshot: payee?.addressTh ?? payee?.address ?? "",
+      payeeIdNumberSnapshot: payee?.taxId ?? "",
+      paymentTypeDescription,
+      signatoryNameSnapshot: "",
+      signatoryPositionSnapshot: "",
     })
     .returning({ id: whtCertificates.id });
 
   // Create certificate items
-  if (data.lineItems.length > 0) {
+  if (thresholdLineItems.length > 0) {
     await db.insert(whtCertificateItems).values(
-      data.lineItems.map((li) => ({
+      thresholdLineItems.map((li) => ({
         orgId: data.orgId,
         certificateId: cert.id,
         documentId: li.documentId,
@@ -202,7 +265,185 @@ export async function createWhtCertificateDraft(data: {
     );
   }
 
-  return { certificateId: cert.id, certificateNo };
+  if (data.applyAnnualThreshold) {
+    await db
+      .update(whtAnnualThresholdDecisions)
+      .set({ certificateId: cert.id })
+      .where(
+        and(
+          eq(whtAnnualThresholdDecisions.orgId, data.orgId),
+          eq(whtAnnualThresholdDecisions.payeeVendorId, data.vendorId),
+          eq(whtAnnualThresholdDecisions.taxYear, year),
+          sql`${whtAnnualThresholdDecisions.certificateId} IS NULL`,
+          sql`${whtAnnualThresholdDecisions.thresholdStatus} IN ('withheld', 'catch_up_withheld')`
+        )
+      );
+  }
+
+  return { certificateId: cert.id, certificateNo, totalBaseAmount, totalWht };
+}
+
+async function applyAnnualWhtThreshold(data: {
+  orgId: string;
+  vendorId: string;
+  paymentId?: string;
+  taxYear: number;
+  lineItems: Array<{
+    documentId: string;
+    lineItemId: string | null;
+    baseAmount: string;
+    whtRate: string;
+    whtAmount: string;
+    rdPaymentTypeCode?: string;
+    whtType?: string;
+  }>;
+}) {
+  const eligibleLineItems = data.lineItems.filter(
+    (li) => parseFloat(li.baseAmount) > 0 && parseFloat(li.whtRate) > 0
+  );
+  if (eligibleLineItems.length === 0) return data.lineItems;
+
+  const [ytd] = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${whtAnnualThresholdDecisions.eligibleBaseAmount}), 0)::numeric(14,2)::text`,
+    })
+    .from(whtAnnualThresholdDecisions)
+    .where(
+      and(
+        eq(whtAnnualThresholdDecisions.orgId, data.orgId),
+        eq(whtAnnualThresholdDecisions.payeeVendorId, data.vendorId),
+        eq(whtAnnualThresholdDecisions.taxYear, data.taxYear)
+      )
+    );
+
+  const ytdBase = parseFloat(ytd?.total ?? "0");
+  const currentBase = eligibleLineItems.reduce(
+    (sum, li) => sum + parseFloat(li.baseAmount),
+    0
+  );
+  const cumulativeBase = ytdBase + currentBase;
+
+  if (cumulativeBase <= WHT_ANNUAL_EXEMPTION_THRESHOLD) {
+    const decisions = await db
+      .insert(whtAnnualThresholdDecisions)
+      .values(
+        eligibleLineItems.map((li) => ({
+          orgId: data.orgId,
+          payeeVendorId: data.vendorId,
+          documentId: li.documentId,
+          lineItemId: li.lineItemId,
+          paymentId: data.paymentId,
+          taxYear: data.taxYear,
+          eligibleBaseAmount: li.baseAmount,
+          whtRate: li.whtRate,
+          whtAmount: "0.00",
+          thresholdStatus: "threshold_skipped",
+        }))
+      )
+      .onConflictDoNothing()
+      .returning({ id: whtAnnualThresholdDecisions.id });
+
+    for (const decision of decisions) {
+      await auditMutation({
+        orgId: data.orgId,
+        entityType: "wht_threshold_decision",
+        entityId: decision.id,
+        action: "create",
+        newValue: {
+          payeeVendorId: data.vendorId,
+          taxYear: data.taxYear,
+          ytdBase,
+          currentBase,
+          cumulativeBase,
+          thresholdStatus: "threshold_skipped",
+        },
+      });
+    }
+
+    return [];
+  }
+
+  const skipped = await db
+    .select({
+      id: whtAnnualThresholdDecisions.id,
+      documentId: whtAnnualThresholdDecisions.documentId,
+      lineItemId: whtAnnualThresholdDecisions.lineItemId,
+      baseAmount: whtAnnualThresholdDecisions.eligibleBaseAmount,
+      whtRate: whtAnnualThresholdDecisions.whtRate,
+    })
+    .from(whtAnnualThresholdDecisions)
+    .where(
+      and(
+        eq(whtAnnualThresholdDecisions.orgId, data.orgId),
+        eq(whtAnnualThresholdDecisions.payeeVendorId, data.vendorId),
+        eq(whtAnnualThresholdDecisions.taxYear, data.taxYear),
+        eq(whtAnnualThresholdDecisions.thresholdStatus, "threshold_skipped"),
+        sql`${whtAnnualThresholdDecisions.certificateId} IS NULL`
+      )
+    );
+
+  const catchUpItems = skipped.map((decision) => {
+    const base = parseFloat(decision.baseAmount);
+    const rate = parseFloat(decision.whtRate);
+    return {
+      documentId: decision.documentId,
+      lineItemId: decision.lineItemId,
+      baseAmount: Number(base).toFixed(2),
+      whtRate: Number(rate).toFixed(4),
+      whtAmount: (base * rate).toFixed(2),
+      rdPaymentTypeCode: "catch_up",
+      whtType: "annual_threshold_catch_up",
+    };
+  });
+
+  if (skipped.length > 0) {
+    await db
+      .update(whtAnnualThresholdDecisions)
+      .set({
+        thresholdStatus: "catch_up_withheld",
+        whtAmount: sql`${whtAnnualThresholdDecisions.eligibleBaseAmount} * ${whtAnnualThresholdDecisions.whtRate}`,
+      })
+      .where(
+        and(
+          eq(whtAnnualThresholdDecisions.orgId, data.orgId),
+          eq(whtAnnualThresholdDecisions.payeeVendorId, data.vendorId),
+          eq(whtAnnualThresholdDecisions.taxYear, data.taxYear),
+          eq(whtAnnualThresholdDecisions.thresholdStatus, "threshold_skipped"),
+          sql`${whtAnnualThresholdDecisions.certificateId} IS NULL`
+        )
+      );
+  }
+
+  const currentWithheld = eligibleLineItems.map((li) => {
+    const base = parseFloat(li.baseAmount);
+    const rate = parseFloat(li.whtRate);
+    return {
+      ...li,
+      whtAmount: (base * rate).toFixed(2),
+    };
+  });
+
+  await db
+    .insert(whtAnnualThresholdDecisions)
+    .values(
+      currentWithheld.map((li) => ({
+        orgId: data.orgId,
+        payeeVendorId: data.vendorId,
+        documentId: li.documentId,
+        lineItemId: li.lineItemId,
+        paymentId: data.paymentId,
+        taxYear: data.taxYear,
+        eligibleBaseAmount: li.baseAmount,
+        whtRate: li.whtRate,
+        whtAmount: li.whtAmount,
+        thresholdStatus: ytdBase <= WHT_ANNUAL_EXEMPTION_THRESHOLD
+          ? "catch_up_withheld"
+          : "withheld",
+      }))
+    )
+    .onConflictDoNothing();
+
+  return [...catchUpItems, ...currentWithheld];
 }
 
 // ---------------------------------------------------------------------------

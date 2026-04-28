@@ -78,7 +78,7 @@ All active plans live in `docs/exec-plans/active/`.
 ## Immediate Work Order
 
 1. Close or explicitly defer active residuals.
-   - `today-gap-remediation.md`: finish PP30 POS/channel guard, VAT-period override constraint/workflow, foreign-vendor review, §3.4 WHT snapshots, annual below-1000 WHT exemption, Thai holiday calendar, PND.2, exception queues, below-default foreign WHT gate, and WHT reissue/received tracking.
+   - `today-gap-remediation.md`: finish Thai holiday calendar, PND.2, broader exception queues, below-default foreign WHT gate, and WHT reissue/received tracking.
 2. Run the DBD/TFRS research spike early.
    - This is the highest calendar-risk dependency because CPA/DBD Builder validation can take weeks even if engineering effort is small.
 3. Finish Phase 8 dogfood decisions.

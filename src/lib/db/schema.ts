@@ -154,6 +154,7 @@ export const organizations = pgTable("organizations", {
   address: text("address"),
   addressTh: text("address_th"),
   isVatRegistered: boolean("is_vat_registered").default(false),
+  hasPosSales: boolean("has_pos_sales").default(false).notNull(),
   fiscalYearEndMonth: integer("fiscal_year_end_month").default(12),
   fiscalYearEndDay: integer("fiscal_year_end_day").default(31),
   createdAt,
@@ -333,6 +334,11 @@ export const documents = pgTable(
     status: documentStatusEnum("status").notNull().default("draft"),
     vatPeriodYear: integer("vat_period_year"),
     vatPeriodMonth: integer("vat_period_month"),
+    vatPeriodOverrideReason: text("vat_period_override_reason"),
+    vatPeriodOverriddenByUserId: text("vat_period_overridden_by_user_id"),
+    vatPeriodOverriddenAt: timestamp("vat_period_overridden_at", {
+      withTimezone: true,
+    }),
     detectedLanguage: varchar("detected_language", { length: 5 }),
     aiConfidence: numeric("ai_confidence", { precision: 3, scale: 2 }),
     needsReview: boolean("needs_review").default(true),
@@ -482,7 +488,16 @@ export const whtCertificates = pgTable(
     totalBaseAmount: numeric("total_base_amount", { precision: 14, scale: 2 }),
     totalWht: numeric("total_wht", { precision: 14, scale: 2 }),
     formType: whtFormTypeEnum("form_type").notNull(),
-    filingId: uuid("filing_id"),
+    filingId: uuid("filing_id").references(() => whtMonthlyFilings.id),
+    payerTaxIdSnapshot: text("payer_tax_id_snapshot").notNull().default(""),
+    payerAddressSnapshot: text("payer_address_snapshot").notNull().default(""),
+    payeeAddressSnapshot: text("payee_address_snapshot").notNull().default(""),
+    payeeIdNumberSnapshot: text("payee_id_number_snapshot").notNull().default(""),
+    paymentTypeDescription: text("payment_type_description").notNull().default(""),
+    signatoryNameSnapshot: text("signatory_name_snapshot").notNull().default(""),
+    signatoryPositionSnapshot: text("signatory_position_snapshot")
+      .notNull()
+      .default(""),
     pdfUrl: text("pdf_url"),
     status: whtCertStatusEnum("status").notNull().default("draft"),
     voidedAt: timestamp("voided_at", { withTimezone: true }),
@@ -661,6 +676,72 @@ export const taxConfig = pgTable(
     // NO deletedAt — config managed via effective dates
   },
   (t) => [unique("tax_config_key").on(t.key)]
+);
+
+export const exceptionQueue = pgTable(
+  "exception_queue",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    exceptionType: text("exception_type").notNull(),
+    severity: text("severity").notNull(),
+    summary: text("summary").notNull(),
+    payload: jsonb("payload"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolution: text("resolution"),
+    createdAt,
+  },
+  (t) => [
+    index("exception_queue_org_created").on(t.orgId, t.createdAt),
+    index("exception_queue_org_type").on(t.orgId, t.exceptionType),
+    uniqueIndex("exception_queue_open_unique")
+      .on(t.orgId, t.entityType, t.entityId, t.exceptionType)
+      .where(sql`${t.resolvedAt} IS NULL`),
+  ]
+);
+
+export const whtAnnualThresholdDecisions = pgTable(
+  "wht_annual_threshold_decisions",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    payeeVendorId: uuid("payee_vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    lineItemId: uuid("line_item_id").references(() => documentLineItems.id),
+    certificateId: uuid("certificate_id").references(() => whtCertificates.id),
+    paymentId: uuid("payment_id").references(() => payments.id),
+    taxYear: integer("tax_year").notNull(),
+    eligibleBaseAmount: numeric("eligible_base_amount", {
+      precision: 14,
+      scale: 2,
+    }).notNull(),
+    whtRate: numeric("wht_rate", { precision: 5, scale: 4 }).notNull(),
+    whtAmount: numeric("wht_amount", { precision: 14, scale: 2 }).notNull(),
+    thresholdStatus: text("threshold_status").notNull(),
+    createdAt,
+  },
+  (t) => [
+    index("wht_threshold_org_payee_year").on(
+      t.orgId,
+      t.payeeVendorId,
+      t.taxYear
+    ),
+    unique("wht_threshold_line_payment_unique").on(
+      t.orgId,
+      t.lineItemId,
+      t.paymentId
+    ),
+  ]
 );
 
 export const auditLog = pgTable(

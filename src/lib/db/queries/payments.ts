@@ -34,7 +34,21 @@ export async function createPayment(data: {
     })
     .returning({ id: payments.id });
 
-  await createWhtDraftForPaymentEvent(data);
+  const whtResult = await createWhtDraftForPaymentEvent({
+    ...data,
+    paymentId: payment.id,
+  });
+  if (whtResult && whtResult.totalWht !== data.whtAmountWithheld) {
+    const totalWht = parseFloat(whtResult.totalWht);
+    const gross = parseFloat(data.grossAmount);
+    await db
+      .update(payments)
+      .set({
+        whtAmountWithheld: whtResult.totalWht,
+        netAmountPaid: (gross - totalWht).toFixed(2),
+      })
+      .where(and(eq(payments.id, payment.id), eq(payments.orgId, data.orgId)));
+  }
 
   return { paymentId: payment.id };
 }
@@ -43,6 +57,7 @@ async function createWhtDraftForPaymentEvent(data: {
   orgId: string;
   documentId: string;
   paymentDate: string;
+  paymentId: string;
 }) {
   const existingCerts = await getCertificatesByDocument(data.orgId, data.documentId);
   if (existingCerts.length > 0) return;
@@ -75,18 +90,20 @@ async function createWhtDraftForPaymentEvent(data: {
       and(
         eq(documentLineItems.orgId, data.orgId),
         eq(documentLineItems.documentId, data.documentId),
-        sql`COALESCE(${documentLineItems.whtAmount}, 0) > 0`,
+        sql`COALESCE(${documentLineItems.whtRate}, 0) > 0`,
         sql`${documentLineItems.deletedAt} IS NULL`
       )
     );
 
-  if (whtLineItems.length === 0) return;
+  if (whtLineItems.length === 0) return null;
 
-  await createWhtCertificateDraft({
+  return createWhtCertificateDraft({
     orgId: data.orgId,
     vendorId: doc.vendorId,
     formType: getFormTypeForEntity(doc.vendorEntityType),
     paymentDate: data.paymentDate,
+    paymentId: data.paymentId,
+    applyAnnualThreshold: true,
     lineItems: whtLineItems.map((li) => ({
       documentId: data.documentId,
       lineItemId: li.id,

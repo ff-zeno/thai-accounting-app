@@ -169,6 +169,13 @@
       "when": 1777977600000,
       "tag": "0023_baseline_review_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778064000000,
+      "tag": "0024_today_gap_remediation",
+      "breakpoints": true
     }
   ]
 }

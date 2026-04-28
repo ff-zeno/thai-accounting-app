@@ -1,11 +1,11 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Active residual — partially closed by baseline v2; remaining shipped-code gaps still need implementation or explicit deferral
+**Status:** Active residual — P0 gaps closed; P1/P2 gaps still need implementation or explicit deferral
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
 
-## Current Status — 2026-04-28 Validation
+## Current Status — 2026-04-29 Validation
 
 Do not move this file to `completed` yet.
 
@@ -14,17 +14,14 @@ Closed by baseline v2:
 - P0-3 DB-level period lock enforcement for current VAT/WHT filing/source paths via shared `period_locks`.
 - P0-4 PP36 self-assessment fix for marked foreign-service documents.
 - P1-4 document tax-invoice subtype: `full_ti`, `abb`, `e_tax_invoice`, `not_a_ti`; recoverable input VAT limited to full/e-tax invoices.
-
-Partially closed:
-
-- P0-2 tax point integrity: confirmation derives VAT period from `issue_date`, but explicit override-reason columns, DB override constraint, and override audit workflow are not implemented.
-- P0-6 WHT certificate hardening: current v2 improves payment-date behavior and locks, but §3.4 certificate snapshot fields and `filing_id` FK hardening remain open.
+- P0-1 PP30 document-derived output VAT is blocked for organizations flagged with POS/channel sales.
+- P0-2 VAT period must match `issue_date` unless explicit override metadata is present.
+- P0-5 suspected foreign vendors mis-tagged as Thai are excluded from PP30 input VAT and queued for country review.
+- P0-6 WHT certificates now snapshot §3.4 payer/payee/payment fields at creation and `filing_id` has a real FK.
+- P0-7 annual cumulative below-1000-baht WHT exemption is tracked per vendor/year with catch-up withholding after threshold crossover.
 
 Still open:
 
-- P0-1 block PP30 document-derived output VAT for tenants with POS/channel sales.
-- P0-5 foreign-vendor input-VAT leak guard and review queue.
-- P0-7 annual cumulative below-1000-baht WHT exemption.
 - P1-1 weekend/Thai-holiday filing-calendar adjustment.
 - P1-2 PND.2 form coverage.
 - P1-3 exception queues for silent-drop/review-needed paths.

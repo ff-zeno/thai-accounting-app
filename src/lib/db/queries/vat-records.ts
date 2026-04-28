@@ -1,6 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../index";
-import { vatRecords, documents, vendors } from "../schema";
+import {
+  vatRecords,
+  documents,
+  vendors,
+  organizations,
+  exceptionQueue,
+} from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation, isAuditActorId } from "../helpers/audit-log";
 import {
@@ -14,6 +20,116 @@ import {
 } from "./period-locks";
 
 const THAI_VAT_RATE = "0.07";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export class OutputVatPathDisabledError extends Error {
+  constructor(orgId: string) {
+    super(
+      `PP30 document-derived output VAT is disabled for organization ${orgId} because POS/channel sales are enabled`
+    );
+    this.name = "OutputVatPathDisabledError";
+  }
+}
+
+function foreignVendorNamePattern() {
+  return sql`(
+    lower(${vendors.name}) LIKE '%pte ltd%'
+    OR lower(${vendors.name}) LIKE '%pte. ltd%'
+    OR lower(${vendors.name}) LIKE '%gmbh%'
+    OR lower(${vendors.name}) LIKE '% llc%'
+    OR lower(${vendors.name}) LIKE '% inc%'
+    OR lower(${vendors.name}) LIKE '% limited%'
+    OR lower(${vendors.name}) LIKE '%ltd.%'
+    OR lower(${vendors.name}) LIKE '%tiktok%'
+    OR lower(${vendors.name}) LIKE '%meta platforms%'
+    OR lower(${vendors.name}) LIKE '%google%'
+    OR lower(${vendors.name}) LIKE '%amazon web services%'
+    OR lower(${vendors.name}) LIKE '%aws%'
+  )`;
+}
+
+async function assertDocumentOutputVatAllowed(orgId: string) {
+  if (!UUID_PATTERN.test(orgId)) return;
+
+  const [org] = await db
+    .select({ hasPosSales: organizations.hasPosSales })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  if (!org?.hasPosSales) return;
+
+  await auditMutation({
+    orgId,
+    entityType: "organization",
+    entityId: orgId,
+    action: "update",
+    newValue: {
+      auditContext: {
+        event: "pp30_document_output_vat_blocked",
+        reason: "organization_has_pos_sales",
+      },
+    },
+  });
+
+  throw new OutputVatPathDisabledError(orgId);
+}
+
+async function queueForeignVendorInputVatReviews(
+  orgId: string,
+  year: number,
+  month: number
+) {
+  if (!UUID_PATTERN.test(orgId)) return;
+
+  const candidates = await db
+    .select({
+      id: documents.id,
+      vendorId: vendors.id,
+      vendorName: vendors.name,
+      vatAmount: documents.vatAmount,
+    })
+    .from(documents)
+    .innerJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
+    .where(
+      and(
+        ...orgScope(documents, orgId),
+        eq(documents.direction, "expense"),
+        eq(documents.status, "confirmed"),
+        eq(documents.vatPeriodYear, year),
+        eq(documents.vatPeriodMonth, month),
+        sql`COALESCE(${documents.vatAmount}, 0) > 0`,
+        sql`${vendors.entityType} != 'foreign'`,
+        sql`COALESCE(${vendors.country}, 'TH') = 'TH'`,
+        foreignVendorNamePattern()
+      )
+    );
+
+  for (const doc of candidates) {
+    await db
+      .insert(exceptionQueue)
+      .values({
+        orgId,
+        entityType: "document",
+        entityId: doc.id,
+        exceptionType: "vendor_country_review",
+        severity: "p0",
+        summary: `Possible foreign vendor input VAT blocked pending review: ${doc.vendorName}`,
+        payload: {
+          vendorId: doc.vendorId,
+          vendorName: doc.vendorName,
+          vatAmount: doc.vatAmount,
+          periodYear: year,
+          periodMonth: month,
+        },
+      })
+      .onConflictDoNothing();
+  }
+}
 
 async function isVatPeriodLocked(orgId: string, year: number, month: number) {
   return (
@@ -37,6 +153,9 @@ export async function computeVatForPeriod(
   pp36ReverseCharge: string;
   netVatPayable: string;
 }> {
+  await assertDocumentOutputVatAllowed(orgId);
+  await queueForeignVendorInputVatReviews(orgId, year, month);
+
   // Output VAT: confirmed income documents with VAT in this period
   const outputResult = await db
     .select({
@@ -93,7 +212,8 @@ export async function computeVatForPeriod(
         sql`${documents.type} != 'credit_note'`,
         // Domestic vendors only: not foreign entity type and country is TH
         sql`${vendors.entityType} != 'foreign'`,
-        sql`COALESCE(${vendors.country}, 'TH') = 'TH'`
+        sql`COALESCE(${vendors.country}, 'TH') = 'TH'`,
+        sql`NOT ${foreignVendorNamePattern()}`
       )
     );
 
@@ -118,7 +238,8 @@ export async function computeVatForPeriod(
         sql`${documents.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
         eq(vendors.isVatRegistered, true),
         sql`${vendors.entityType} != 'foreign'`,
-        sql`COALESCE(${vendors.country}, 'TH') = 'TH'`
+        sql`COALESCE(${vendors.country}, 'TH') = 'TH'`,
+        sql`NOT ${foreignVendorNamePattern()}`
       )
     );
 

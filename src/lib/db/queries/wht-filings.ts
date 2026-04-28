@@ -6,11 +6,32 @@ import {
   vendors,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
-import { auditMutation } from "../helpers/audit-log";
+import { auditMutation, isAuditActorId } from "../helpers/audit-log";
 import {
   whtEfilingDeadline,
   DEFAULT_TAX_CONFIG,
 } from "@/lib/tax/filing-deadlines";
+import {
+  isPeriodLocked as isCanonicalPeriodLocked,
+  lockPeriod,
+  type PeriodLockDomain,
+} from "./period-locks";
+
+function whtDomain(formType: "pnd3" | "pnd53" | "pnd54"): PeriodLockDomain {
+  return `wht_${formType}` as PeriodLockDomain;
+}
+
+async function isWhtFilingLocked(
+  orgId: string,
+  formType: "pnd3" | "pnd53" | "pnd54",
+  year: number,
+  month: number
+) {
+  return (
+    (await isCanonicalPeriodLocked(orgId, "wht", year, month)) ||
+    (await isCanonicalPeriodLocked(orgId, whtDomain(formType), year, month))
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Aggregate certificates into monthly filing totals
@@ -60,6 +81,19 @@ export async function upsertMonthlyFiling(data: {
   totalWhtAmount: string;
   deadline: string;
 }): Promise<string> {
+  if (
+    await isWhtFilingLocked(
+      data.orgId,
+      data.formType,
+      data.periodYear,
+      data.periodMonth
+    )
+  ) {
+    throw new Error(
+      `Cannot refresh WHT filing — period ${data.periodMonth}/${data.periodYear} is locked`
+    );
+  }
+
   const [filing] = await db
     .insert(whtMonthlyFilings)
     .values({
@@ -143,7 +177,13 @@ export async function getCertificatesForFiling(
       vendorTaxId: vendors.taxId,
     })
     .from(whtCertificates)
-    .innerJoin(vendors, eq(whtCertificates.payeeVendorId, vendors.id))
+    .innerJoin(
+      vendors,
+      and(
+        eq(whtCertificates.payeeVendorId, vendors.id),
+        eq(whtCertificates.orgId, vendors.orgId)
+      )
+    )
     .where(
       and(
         ...orgScope(whtCertificates, orgId),
@@ -162,35 +202,67 @@ export async function getCertificatesForFiling(
 
 export async function markFilingAsFiled(
   orgId: string,
-  filingId: string
+  filingId: string,
+  lockedByUserId = "system"
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [updated] = await db
-    .update(whtMonthlyFilings)
-    .set({
-      status: "filed",
-      periodLocked: true,
-      filingDate: today,
-    })
-    .where(
-      and(
-        ...orgScope(whtMonthlyFilings, orgId),
-        eq(whtMonthlyFilings.id, filingId)
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(whtMonthlyFilings)
+      .set({
+        status: "filed",
+        periodLocked: true,
+        filingDate: today,
+      })
+      .where(
+        and(
+          ...orgScope(whtMonthlyFilings, orgId),
+          eq(whtMonthlyFilings.id, filingId)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    throw new Error("Filing not found");
-  }
+    if (!updated) {
+      throw new Error("Filing not found");
+    }
 
-  await auditMutation({
-    orgId,
-    entityType: "wht_monthly_filing",
-    entityId: filingId,
-    action: "update",
-    newValue: { status: "filed", periodLocked: true, filingDate: today },
+    await lockPeriod({
+      orgId,
+      domain: whtDomain(updated.formType),
+      periodYear: updated.periodYear,
+      periodMonth: updated.periodMonth,
+      lockedByUserId,
+      lockReason: `${updated.formType}_filed`,
+      entityType: "wht_monthly_filing",
+      entityId: filingId,
+      tx,
+    });
+
+    await auditMutation(
+      {
+        orgId,
+        entityType: "wht_monthly_filing",
+        entityId: filingId,
+        action: "update",
+        actorId: isAuditActorId(lockedByUserId) ? lockedByUserId : undefined,
+        newValue: {
+          status: "filed",
+          periodLocked: true,
+          filingDate: today,
+          auditContext: {
+            event: "filing_marked_filed",
+            filingType: updated.formType,
+            lockDomain: whtDomain(updated.formType),
+            periodYear: updated.periodYear,
+            periodMonth: updated.periodMonth,
+            lockReason: `${updated.formType}_filed`,
+            actorUserId: lockedByUserId,
+          },
+        },
+      },
+      tx
+    );
   });
 }
 
@@ -203,19 +275,7 @@ export async function isPeriodLocked(
   year: number,
   month: number
 ): Promise<boolean> {
-  const result = await db
-    .select({ count: sql<number>`COUNT(*)::int` })
-    .from(whtMonthlyFilings)
-    .where(
-      and(
-        ...orgScope(whtMonthlyFilings, orgId),
-        eq(whtMonthlyFilings.periodYear, year),
-        eq(whtMonthlyFilings.periodMonth, month),
-        eq(whtMonthlyFilings.periodLocked, true)
-      )
-    );
-
-  return (result[0]?.count ?? 0) > 0;
+  return isCanonicalPeriodLocked(orgId, "wht", year, month);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +286,42 @@ export async function voidFiling(
   orgId: string,
   filingId: string
 ): Promise<void> {
+  const existing = await db
+    .select({
+      periodYear: whtMonthlyFilings.periodYear,
+      periodMonth: whtMonthlyFilings.periodMonth,
+      formType: whtMonthlyFilings.formType,
+    })
+    .from(whtMonthlyFilings)
+    .where(
+      and(
+        ...orgScope(whtMonthlyFilings, orgId),
+        eq(whtMonthlyFilings.id, filingId)
+      )
+    )
+    .limit(1);
+
+  if (!existing[0]) {
+    throw new Error("Filing not found");
+  }
+
+  if (
+    (await isCanonicalPeriodLocked(
+      orgId,
+      "wht",
+      existing[0].periodYear,
+      existing[0].periodMonth
+    )) ||
+    (await isCanonicalPeriodLocked(
+      orgId,
+      whtDomain(existing[0].formType),
+      existing[0].periodYear,
+      existing[0].periodMonth
+    ))
+  ) {
+    throw new Error("Cannot void a locked WHT filing directly; create an amendment workflow");
+  }
+
   const [updated] = await db
     .update(whtMonthlyFilings)
     .set({

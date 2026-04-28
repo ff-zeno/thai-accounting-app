@@ -20,6 +20,21 @@ export async function createDocumentFile(data: {
   return file;
 }
 
+export async function getFileById(orgId: string, fileId: string) {
+  const [file] = await db
+    .select()
+    .from(documentFiles)
+    .where(
+      and(
+        eq(documentFiles.id, fileId),
+        eq(documentFiles.orgId, orgId),
+        isNull(documentFiles.deletedAt)
+      )
+    )
+    .limit(1);
+  return file ?? null;
+}
+
 export async function getFilesByDocument(orgId: string, documentId: string) {
   return db
     .select()

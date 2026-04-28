@@ -1,7 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../index";
-import { payments, documents } from "../schema";
+import { payments, documents, documentLineItems, vendors } from "../schema";
 import { orgScope } from "../helpers/org-scope";
+import {
+  createWhtCertificateDraft,
+  getCertificatesByDocument,
+  getFormTypeForEntity,
+} from "./wht-certificates";
 
 // ---------------------------------------------------------------------------
 // Create payment
@@ -29,7 +34,69 @@ export async function createPayment(data: {
     })
     .returning({ id: payments.id });
 
+  await createWhtDraftForPaymentEvent(data);
+
   return { paymentId: payment.id };
+}
+
+async function createWhtDraftForPaymentEvent(data: {
+  orgId: string;
+  documentId: string;
+  paymentDate: string;
+}) {
+  const existingCerts = await getCertificatesByDocument(data.orgId, data.documentId);
+  if (existingCerts.length > 0) return;
+
+  const [doc] = await db
+    .select({
+      id: documents.id,
+      vendorId: documents.vendorId,
+      vendorEntityType: vendors.entityType,
+    })
+    .from(documents)
+    .innerJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
+    .where(
+      and(
+        ...orgScope(documents, data.orgId),
+        eq(documents.id, data.documentId)
+      )
+    )
+    .limit(1);
+
+  if (!doc?.vendorId || !doc.vendorEntityType) return;
+
+  const whtLineItems = await db
+    .select()
+    .from(documentLineItems)
+    .where(
+      and(
+        eq(documentLineItems.orgId, data.orgId),
+        eq(documentLineItems.documentId, data.documentId),
+        sql`COALESCE(${documentLineItems.whtAmount}, 0) > 0`,
+        sql`${documentLineItems.deletedAt} IS NULL`
+      )
+    );
+
+  if (whtLineItems.length === 0) return;
+
+  await createWhtCertificateDraft({
+    orgId: data.orgId,
+    vendorId: doc.vendorId,
+    formType: getFormTypeForEntity(doc.vendorEntityType),
+    paymentDate: data.paymentDate,
+    lineItems: whtLineItems.map((li) => ({
+      documentId: data.documentId,
+      lineItemId: li.id,
+      baseAmount: li.amount ?? "0.00",
+      whtRate: li.whtRate ?? "0.00",
+      whtAmount: li.whtAmount ?? "0.00",
+      rdPaymentTypeCode: li.rdPaymentTypeCode ?? undefined,
+      whtType: li.whtType ?? undefined,
+    })),
+  });
 }
 
 // ---------------------------------------------------------------------------

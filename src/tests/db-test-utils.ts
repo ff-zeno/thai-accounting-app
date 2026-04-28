@@ -69,6 +69,47 @@ export async function createTestOrg(db: ReturnType<typeof createTestDb>["db"]) {
 }
 
 /**
+ * Create a test vendor and return it.
+ */
+export async function createTestVendor(
+  db: ReturnType<typeof createTestDb>["db"],
+  orgId: string,
+  overrides: { taxId?: string; name?: string } = {}
+) {
+  const [vendor] = await db
+    .insert(schema.vendors)
+    .values({
+      orgId,
+      name: overrides.name ?? "Test Vendor",
+      taxId: overrides.taxId ?? "3333333333333",
+      entityType: "company",
+    })
+    .returning();
+  return vendor;
+}
+
+/**
+ * Create a minimal test document and return it.
+ */
+export async function createTestDocument(
+  db: ReturnType<typeof createTestDb>["db"],
+  orgId: string,
+  vendorId?: string
+) {
+  const [doc] = await db
+    .insert(schema.documents)
+    .values({
+      orgId,
+      direction: "expense",
+      type: "invoice",
+      status: "draft",
+      ...(vendorId ? { vendorId } : {}),
+    })
+    .returning();
+  return doc;
+}
+
+/**
  * Create a test bank account and return it.
  */
 export async function createTestBankAccount(

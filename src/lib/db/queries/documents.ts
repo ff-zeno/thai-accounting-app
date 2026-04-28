@@ -10,6 +10,181 @@ import {
   bankAccounts,
 } from "../schema";
 import { auditMutation } from "../helpers/audit-log";
+import { isPeriodLocked } from "./period-locks";
+
+type TaxInvoiceSubtype = "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti";
+
+function moneyToNumber(value: string | null): number | null {
+  if (value == null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isDomesticVendor(vendor: { entityType: string; country: string | null }) {
+  return vendor.entityType !== "foreign" && (vendor.country ?? "TH") === "TH";
+}
+
+function deriveVatPeriod(issueDate: string | Date): {
+  vatPeriodYear: number;
+  vatPeriodMonth: number;
+} {
+  const date = issueDate instanceof Date ? issueDate : new Date(issueDate);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Cannot confirm document: issue date is invalid");
+  }
+  return {
+    vatPeriodYear: date.getFullYear(),
+    vatPeriodMonth: date.getMonth() + 1,
+  };
+}
+
+function isRecoverableTaxInvoiceSubtype(subtype: TaxInvoiceSubtype | null) {
+  return subtype === "full_ti" || subtype === "e_tax_invoice";
+}
+
+function isPp36Category(category: string | null) {
+  if (!category) return false;
+  const normalized = category.toLowerCase();
+  return [
+    "foreign_service",
+    "foreign services",
+    "online_ads",
+    "software",
+    "saas",
+    "royalty",
+    "professional_fee",
+    "professional fees",
+  ].some((token) => normalized.includes(token));
+}
+
+function isGoodsImportCategory(category: string | null) {
+  if (!category) return false;
+  const normalized = category.toLowerCase();
+  return ["goods_import", "import_goods", "inventory_import", "merchandise_import"].some(
+    (token) => normalized.includes(token)
+  );
+}
+
+export class DocumentConfirmationError extends Error {
+  constructor(public readonly issues: string[]) {
+    super(`Cannot confirm document: ${issues.join("; ")}`);
+    this.name = "DocumentConfirmationError";
+  }
+}
+
+export async function validateDocumentForConfirmation(orgId: string, docId: string) {
+  const doc = await getDocumentWithDetails(orgId, docId);
+  if (!doc) {
+    throw new DocumentConfirmationError(["document not found"]);
+  }
+
+  const issues: string[] = [];
+  if (!doc.issueDate) issues.push("issue date is required");
+  if (!doc.vendorId || !doc.vendor) issues.push("vendor is required");
+  if (!doc.documentNumber?.trim()) {
+    issues.push("document number is required");
+  }
+  if (doc.subtotal == null) issues.push("subtotal is required");
+  if (doc.vatAmount == null) issues.push("VAT amount is required, use 0.00 when none");
+  if (doc.totalAmount == null) issues.push("total amount is required");
+  if (
+    (doc.type === "credit_note" || doc.type === "debit_note") &&
+    !doc.relatedDocumentId
+  ) {
+    issues.push("credit/debit notes must link to the original document");
+  }
+
+  const subtotal = moneyToNumber(doc.subtotal);
+  const vatAmount = moneyToNumber(doc.vatAmount);
+  const totalAmount = moneyToNumber(doc.totalAmount);
+  if (doc.subtotal != null && subtotal == null) issues.push("subtotal is invalid");
+  if (doc.vatAmount != null && vatAmount == null) issues.push("VAT amount is invalid");
+  if (doc.totalAmount != null && totalAmount == null) issues.push("total amount is invalid");
+  if (subtotal != null && subtotal < 0) issues.push("subtotal cannot be negative");
+  if (vatAmount != null && vatAmount < 0) issues.push("VAT amount cannot be negative");
+  if (totalAmount != null && totalAmount < 0) issues.push("total amount cannot be negative");
+
+  let vatPeriodYear: number | null = null;
+  let vatPeriodMonth: number | null = null;
+  if (doc.issueDate) {
+    const period = deriveVatPeriod(doc.issueDate);
+    vatPeriodYear = period.vatPeriodYear;
+    vatPeriodMonth = period.vatPeriodMonth;
+    if (
+      (await isPeriodLocked(orgId, "vat", vatPeriodYear, vatPeriodMonth)) ||
+      (await isPeriodLocked(orgId, "vat_pp30", vatPeriodYear, vatPeriodMonth)) ||
+      (await isPeriodLocked(orgId, "vat_pp36", vatPeriodYear, vatPeriodMonth))
+    ) {
+      issues.push(`VAT period ${vatPeriodMonth}/${vatPeriodYear} is locked`);
+    }
+  }
+
+  if (doc.vendor && vatAmount != null && vatAmount > 0) {
+    if (doc.direction === "expense" && isDomesticVendor(doc.vendor)) {
+      if (!doc.taxInvoiceSubtype) {
+        issues.push("VAT-bearing expense requires tax invoice subtype");
+      }
+      if (isRecoverableTaxInvoiceSubtype(doc.taxInvoiceSubtype)) {
+        if (!doc.vendor.isVatRegistered) {
+          issues.push("recoverable input VAT requires a VAT-registered vendor");
+        }
+        if (!doc.vendor.taxId?.trim()) {
+          issues.push("recoverable input VAT requires vendor tax ID");
+        }
+        if (!doc.vendor.branchNumber?.trim()) {
+          issues.push("recoverable input VAT requires vendor branch number");
+        }
+      }
+    }
+  }
+
+  const isForeignVendor =
+    doc.vendor &&
+    (doc.vendor.entityType === "foreign" || (doc.vendor.country ?? "TH") !== "TH");
+  const isPp36Subject =
+    Boolean(doc.isPp36Subject) ||
+    Boolean(isForeignVendor && isPp36Category(doc.category));
+  if (
+    doc.direction === "expense" &&
+    isForeignVendor &&
+    subtotal != null &&
+    subtotal > 0 &&
+    !isPp36Subject &&
+    !isGoodsImportCategory(doc.category)
+  ) {
+    issues.push(
+      "foreign expense must be marked PP36 service/royalty/professional fee or categorized as goods import"
+    );
+  }
+
+  const whtLineItems = doc.lineItems.filter(
+    (line) => moneyToNumber(line.whtAmount) != null && moneyToNumber(line.whtAmount)! > 0
+  );
+  if (whtLineItems.length > 0) {
+    for (const line of whtLineItems) {
+      if (!line.rdPaymentTypeCode?.trim()) {
+        issues.push("WHT line items require RD payment type code");
+        break;
+      }
+    }
+  }
+
+  if (issues.length > 0 || !doc.vendor || vatAmount == null) {
+    throw new DocumentConfirmationError(issues);
+  }
+
+  return {
+    doc,
+    confirmationPatch: {
+      status: "confirmed" as const,
+      needsReview: false,
+      vatPeriodYear,
+      vatPeriodMonth,
+      taxInvoiceSubtype: vatAmount > 0 ? doc.taxInvoiceSubtype : "not_a_ti",
+      isPp36Subject,
+    },
+  };
+}
 
 export async function getDocumentsByOrg(
   orgId: string,
@@ -35,7 +210,10 @@ export async function getDocumentsByOrg(
       vendorDisplayAlias: vendors.displayAlias,
     })
     .from(documents)
-    .leftJoin(vendors, eq(documents.vendorId, vendors.id))
+    .leftJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
     .where(
       and(
         eq(documents.orgId, orgId),
@@ -93,7 +271,13 @@ export async function getDocumentWithDetails(orgId: string, id: string) {
       ? db
           .select()
           .from(vendors)
-          .where(eq(vendors.id, doc.vendorId))
+          .where(
+            and(
+              eq(vendors.id, doc.vendorId),
+              eq(vendors.orgId, orgId),
+              isNull(vendors.deletedAt)
+            )
+          )
           .limit(1)
           .then((r) => r[0] ?? null)
       : Promise.resolve(null),
@@ -135,15 +319,24 @@ export async function updateDocumentFromExtraction(
     totalAmount?: string | null;
     currency?: string | null;
     category?: string | null;
+    taxInvoiceSubtype?: TaxInvoiceSubtype | null;
+    isPp36Subject?: boolean | null;
     detectedLanguage?: string | null;
     aiConfidence?: string | null;
     needsReview?: boolean;
     reviewNotes?: string | null;
   }
 ) {
+  // Postgres `date` columns reject empty strings — coerce "" → null for date fields.
+  const normalized = {
+    ...data,
+    issueDate: data.issueDate === "" ? null : data.issueDate,
+    dueDate: data.dueDate === "" ? null : data.dueDate,
+  };
+
   const [doc] = await db
     .update(documents)
-    .set(data)
+    .set(normalized)
     .where(and(eq(documents.id, docId), eq(documents.orgId, orgId)))
     .returning();
 
@@ -161,9 +354,11 @@ export async function updateDocumentFromExtraction(
 }
 
 export async function confirmDocument(orgId: string, docId: string) {
+  const { confirmationPatch } = await validateDocumentForConfirmation(orgId, docId);
+
   const [doc] = await db
     .update(documents)
-    .set({ status: "confirmed", needsReview: false })
+    .set(confirmationPatch)
     .where(and(eq(documents.id, docId), eq(documents.orgId, orgId)))
     .returning();
 
@@ -173,7 +368,7 @@ export async function confirmDocument(orgId: string, docId: string) {
       entityType: "document",
       entityId: docId,
       action: "update",
-      newValue: { status: "confirmed", needsReview: false },
+      newValue: confirmationPatch,
     });
   }
 
@@ -246,6 +441,25 @@ export async function bulkSoftDeleteDocuments(
   if (documentIds.length === 0) return { count: 0 };
 
   const now = new Date();
+
+  const blocked = await db
+    .select({ id: documents.id, status: documents.status })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.orgId, orgId),
+        inArray(documents.id, documentIds),
+        isNull(documents.deletedAt),
+        sql`${documents.status} IN ('confirmed', 'partially_paid', 'paid')`
+      )
+    )
+    .limit(1);
+
+  if (blocked[0]) {
+    throw new Error(
+      "Confirmed, partially paid, and paid documents cannot be deleted; use void/amendment workflow"
+    );
+  }
 
   // Soft-delete the documents themselves
   const deleted = await db
@@ -488,6 +702,8 @@ export async function searchDocuments(
       totalAmount: documents.totalAmount,
       currency: documents.currency,
       category: documents.category,
+      taxInvoiceSubtype: documents.taxInvoiceSubtype,
+      isPp36Subject: documents.isPp36Subject,
       status: documents.status,
       needsReview: documents.needsReview,
       aiConfidence: documents.aiConfidence,
@@ -503,7 +719,10 @@ export async function searchDocuments(
       pipelineStatus: pipelineStatusSq,
     })
     .from(documents)
-    .leftJoin(vendors, eq(documents.vendorId, vendors.id))
+    .leftJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
     .where(and(...conditions))
     .orderBy(...orderClauses)
     .limit(limit + 1);
@@ -554,7 +773,13 @@ export async function getDocumentForSidebar(orgId: string, docId: string) {
       ? db
           .select()
           .from(vendors)
-          .where(eq(vendors.id, doc.vendorId))
+          .where(
+            and(
+              eq(vendors.id, doc.vendorId),
+              eq(vendors.orgId, orgId),
+              isNull(vendors.deletedAt)
+            )
+          )
           .limit(1)
           .then((r) => r[0] ?? null)
       : Promise.resolve(null),
@@ -577,11 +802,17 @@ export async function getDocumentForSidebar(orgId: string, docId: string) {
       .from(reconciliationMatches)
       .innerJoin(
         transactions,
-        eq(reconciliationMatches.transactionId, transactions.id)
+        and(
+          eq(reconciliationMatches.transactionId, transactions.id),
+          eq(reconciliationMatches.orgId, transactions.orgId)
+        )
       )
       .innerJoin(
         bankAccounts,
-        eq(transactions.bankAccountId, bankAccounts.id)
+        and(
+          eq(transactions.bankAccountId, bankAccounts.id),
+          eq(transactions.orgId, bankAccounts.orgId)
+        )
       )
       .where(
         and(
@@ -609,7 +840,13 @@ export async function getPendingPipelineCount(
       count: sql<number>`count(DISTINCT documents.id)::int`,
     })
     .from(documents)
-    .innerJoin(documentFiles, eq(documentFiles.documentId, documents.id))
+    .innerJoin(
+      documentFiles,
+      and(
+        eq(documentFiles.documentId, documents.id),
+        eq(documentFiles.orgId, documents.orgId)
+      )
+    )
     .where(
       and(
         eq(documents.orgId, orgId),
@@ -645,7 +882,13 @@ export async function getFilterOptions(
         name: vendors.name,
       })
       .from(documents)
-      .innerJoin(vendors, eq(documents.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(documents.vendorId, vendors.id),
+          eq(documents.orgId, vendors.orgId)
+        )
+      )
       .where(
         and(
           eq(documents.orgId, orgId),

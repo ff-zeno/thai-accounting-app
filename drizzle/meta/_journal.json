@@ -113,6 +113,62 @@
       "when": 1776370188367,
       "tag": "0015_amused_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1777372800000,
+      "tag": "0016_baseline_hardening_period_locks",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777459200000,
+      "tag": "0017_confirmation_numeric_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1777545600000,
+      "tag": "0018_reconciliation_allocation_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1777632000000,
+      "tag": "0019_baseline_hardening_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777718400000,
+      "tag": "0020_validate_baseline_hardening_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777804800000,
+      "tag": "0021_tenant_isolation_residuals",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1777891200000,
+      "tag": "0022_partition_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1777977600000,
+      "tag": "0023_baseline_review_cleanup",
+      "breakpoints": true
     }
   ]
 }

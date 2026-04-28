@@ -14,7 +14,7 @@ async function main() {
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
     console.log(`\n=== page ${i} (${tc.items.length} items) ===`);
-    // @ts-expect-error
+    // @ts-expect-error pdfjs text items expose str on text items only.
     const text = tc.items.map((it) => it.str).join(" | ");
     console.log(text);
   }
@@ -24,7 +24,7 @@ async function main() {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
-    // @ts-expect-error
+    // @ts-expect-error pdfjs text items expose str on text items only.
     const text = tc.items.map((it) => it.str).join(" ");
     all.push(text);
   }

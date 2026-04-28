@@ -22,6 +22,25 @@ import {
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
 
+export class ReconciliationAllocationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReconciliationAllocationError";
+  }
+}
+
+function toCents(value: string | null | undefined): number {
+  return Math.round(Number(value ?? "0") * 100);
+}
+
+function assertPositiveMoney(value: string, label: string) {
+  const cents = toCents(value);
+  if (!Number.isFinite(cents) || cents <= 0) {
+    throw new ReconciliationAllocationError(`${label} must be greater than 0`);
+  }
+  return cents;
+}
+
 // ---------------------------------------------------------------------------
 // Verify entity ownership (org-scoped existence check)
 // ---------------------------------------------------------------------------
@@ -140,6 +159,114 @@ export async function findMatchCandidates(
 // Create reconciliation match
 // ---------------------------------------------------------------------------
 
+async function assertAllocationWithinLimits(
+  data: {
+    orgId: string;
+    transactionId: string;
+    documentId: string;
+    paymentId?: string | null;
+    matchedAmount: string;
+  },
+  conn: DbConnection,
+) {
+  const newAmountCents = assertPositiveMoney(data.matchedAmount, "Matched amount");
+
+  const [txn] = await conn
+    .select({ amount: transactions.amount })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.id, data.transactionId),
+        eq(transactions.orgId, data.orgId),
+        isNull(transactions.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (!txn) throw new ReconciliationAllocationError("Transaction not found");
+
+  const [doc] = await conn
+    .select({ totalAmount: documents.totalAmount })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.id, data.documentId),
+        eq(documents.orgId, data.orgId),
+        isNull(documents.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (!doc) throw new ReconciliationAllocationError("Document not found");
+
+  const [txnMatched] = await conn
+    .select({ total: sum(reconciliationMatches.matchedAmount) })
+    .from(reconciliationMatches)
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, data.orgId),
+        eq(reconciliationMatches.transactionId, data.transactionId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    );
+
+  const txnTotalCents = toCents(txnMatched?.total) + newAmountCents;
+  const txnCapCents = toCents(txn.amount);
+  if (txnTotalCents > txnCapCents) {
+    throw new ReconciliationAllocationError("Matched amount exceeds transaction amount");
+  }
+
+  const [docMatched] = await conn
+    .select({ total: sum(reconciliationMatches.matchedAmount) })
+    .from(reconciliationMatches)
+    .where(
+      and(
+        eq(reconciliationMatches.orgId, data.orgId),
+        eq(reconciliationMatches.documentId, data.documentId),
+        isNull(reconciliationMatches.deletedAt),
+      ),
+    );
+
+  const docTotalCents = toCents(docMatched?.total) + newAmountCents;
+  const docCapCents = toCents(doc.totalAmount);
+  if (docTotalCents > docCapCents) {
+    throw new ReconciliationAllocationError("Matched amount exceeds document total");
+  }
+
+  if (data.paymentId) {
+    const [payment] = await conn
+      .select({ netAmountPaid: payments.netAmountPaid, documentId: payments.documentId })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.id, data.paymentId),
+          eq(payments.orgId, data.orgId),
+          isNull(payments.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!payment) throw new ReconciliationAllocationError("Payment not found");
+    if (payment.documentId !== data.documentId) {
+      throw new ReconciliationAllocationError("Payment does not belong to document");
+    }
+
+    const [paymentMatched] = await conn
+      .select({ total: sum(reconciliationMatches.matchedAmount) })
+      .from(reconciliationMatches)
+      .where(
+        and(
+          eq(reconciliationMatches.orgId, data.orgId),
+          eq(reconciliationMatches.paymentId, data.paymentId),
+          isNull(reconciliationMatches.deletedAt),
+        ),
+      );
+
+    const paymentTotalCents = toCents(paymentMatched?.total) + newAmountCents;
+    const paymentCapCents = toCents(payment.netAmountPaid);
+    if (paymentTotalCents > paymentCapCents) {
+      throw new ReconciliationAllocationError("Matched amount exceeds payment net amount");
+    }
+  }
+}
+
 export async function createMatch(
   data: {
     orgId: string;
@@ -155,6 +282,8 @@ export async function createMatch(
   tx?: DbConnection,
 ): Promise<string> {
   const conn = tx ?? db;
+  await assertAllocationWithinLimits(data, conn);
+
   const [match] = await conn
     .insert(reconciliationMatches)
     .values({
@@ -171,19 +300,22 @@ export async function createMatch(
     })
     .returning({ id: reconciliationMatches.id });
 
-  await auditMutation({
-    orgId: data.orgId,
-    entityType: "reconciliation_match",
-    entityId: match.id,
-    action: "create",
-    newValue: {
-      transactionId: data.transactionId,
-      documentId: data.documentId,
-      matchType: data.matchType,
-      matchedBy: data.matchedBy,
-      confidence: data.confidence,
+  await auditMutation(
+    {
+      orgId: data.orgId,
+      entityType: "reconciliation_match",
+      entityId: match.id,
+      action: "create",
+      newValue: {
+        transactionId: data.transactionId,
+        documentId: data.documentId,
+        matchType: data.matchType,
+        matchedBy: data.matchedBy,
+        confidence: data.confidence,
+      },
     },
-  });
+    conn
+  );
 
   return match.id;
 }
@@ -400,19 +532,22 @@ export async function softDeleteMatch(
     .returning();
 
   if (deleted) {
-    await auditMutation({
-      orgId,
-      entityType: "reconciliation_match",
-      entityId: matchId,
-      action: "delete",
-      oldValue: {
-        transactionId: deleted.transactionId,
-        documentId: deleted.documentId,
-        matchType: deleted.matchType,
-        matchedBy: deleted.matchedBy,
+    await auditMutation(
+      {
+        orgId,
+        entityType: "reconciliation_match",
+        entityId: matchId,
+        action: "delete",
+        oldValue: {
+          transactionId: deleted.transactionId,
+          documentId: deleted.documentId,
+          matchType: deleted.matchType,
+          matchedBy: deleted.matchedBy,
+        },
+        actorId,
       },
-      actorId,
-    });
+      conn
+    );
   }
 
   return deleted ?? null;

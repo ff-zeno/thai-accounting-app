@@ -1,7 +1,6 @@
 "use server";
 
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
-import { getCurrentUser } from "@/lib/utils/auth";
 import {
   confirmDocument,
   getDocumentWithDetails,
@@ -9,129 +8,38 @@ import {
   updateDocumentFromExtraction,
   deleteLineItemsByDocument,
   createLineItems,
+  DocumentConfirmationError,
 } from "@/lib/db/queries/documents";
 import { translateText } from "@/lib/ai/translate";
-import { updateVendor, getVendorById } from "@/lib/db/queries/vendors";
-import {
-  createPayment,
-  getPaymentsByDocument,
-} from "@/lib/db/queries/payments";
-import {
-  createWhtCertificateDraft,
-  getCertificatesByDocument,
-  getFormTypeForEntity,
-} from "@/lib/db/queries/wht-certificates";
-import { isPeriodLocked } from "@/lib/db/queries/wht-filings";
+import { updateVendor } from "@/lib/db/queries/vendors";
 import { inngest } from "@/lib/inngest/client";
 import { revalidatePath } from "next/cache";
-import { getLatestExtractionLog } from "@/lib/db/queries/extraction-log";
-import { upsertExemplar } from "@/lib/db/queries/extraction-exemplars";
-import { insertReviewOutcome } from "@/lib/db/queries/extraction-review-outcome";
-import { normalizeFieldValue, fieldValuesEqual } from "@/lib/ai/field-normalization";
 import {
-  getFieldCriticality,
-  LEARNABLE_INVOICE_FIELDS,
-} from "@/lib/ai/field-criticality";
-import type { FieldCriticality } from "@/lib/ai/field-criticality";
+  writeReviewExemplars,
+  type UserReviewValues,
+} from "@/lib/db/queries/review-exemplars";
 
 export async function confirmDocumentAction(docId: string) {
   const orgId = await getVerifiedOrgId();
   if (!orgId) throw new Error("No organization selected");
 
-  // 0. Check period lock before confirming
-  const preDoc = await getDocumentWithDetails(orgId, docId);
-  if (preDoc?.issueDate) {
-    const issueDate = new Date(preDoc.issueDate);
-    const docYear = issueDate.getFullYear();
-    const docMonth = issueDate.getMonth() + 1;
-    const locked = await isPeriodLocked(orgId, docYear, docMonth);
-    if (locked) {
-      return {
-        success: false,
-        error: `Cannot confirm document — period ${docMonth}/${docYear} is locked (already filed)`,
-      };
+  let doc: Awaited<ReturnType<typeof confirmDocument>>;
+  try {
+    doc = await confirmDocument(orgId, docId);
+  } catch (error) {
+    if (error instanceof DocumentConfirmationError) {
+      return { success: false, error: error.message };
     }
+    throw error;
   }
 
-  // 1. Set status to confirmed
-  await confirmDocument(orgId, docId);
-
-  // 2. Load document with line items and vendor for post-confirm triggers
-  const doc = await getDocumentWithDetails(orgId, docId);
-  if (!doc) throw new Error("Document not found after confirmation");
-
-  const grossAmount = doc.totalAmount ?? "0.00";
-  const paymentDate = doc.issueDate ?? new Date().toISOString().slice(0, 10);
-
-  // Sum WHT from line items using integer arithmetic to avoid float precision issues
-  const whtTotalCents = doc.lineItems.reduce((sum, li) => {
-    return sum + Math.round(parseFloat(li.whtAmount ?? "0") * 100);
-  }, 0);
-  const whtAmountWithheld = (whtTotalCents / 100).toFixed(2);
-  const grossAmountCents = Math.round(parseFloat(grossAmount) * 100);
-  const netAmountPaid = ((grossAmountCents - whtTotalCents) / 100).toFixed(2);
-
-  // 3. Create payment record (idempotent — skip if payment already exists)
-  const existingPayments = await getPaymentsByDocument(orgId, docId);
-  let paymentId: string;
-  if (existingPayments.length > 0) {
-    paymentId = existingPayments[0].id;
-  } else {
-    const result = await createPayment({
-      orgId,
-      documentId: docId,
-      paymentDate,
-      grossAmount,
-      whtAmountWithheld,
-      netAmountPaid,
-      paymentMethod: "bank_transfer",
-    });
-    paymentId = result.paymentId;
-  }
-
-  // 4. Create WHT certificate draft if any line items have WHT > 0
-  //    (idempotent — skip if certificate already exists for this document)
-  const whtLineItems = doc.lineItems.filter(
-    (li) => parseFloat(li.whtAmount ?? "0") > 0
-  );
-
-  if (whtLineItems.length > 0 && doc.vendor) {
-    const existingCerts = await getCertificatesByDocument(orgId, docId);
-    if (existingCerts.length === 0) {
-      const formType = getFormTypeForEntity(doc.vendor.entityType);
-
-      await createWhtCertificateDraft({
-        orgId,
-        vendorId: doc.vendor.id,
-        formType,
-        paymentDate,
-        lineItems: whtLineItems.map((li) => ({
-          documentId: docId,
-          lineItemId: li.id,
-          baseAmount: li.amount ?? "0.00",
-          whtRate: li.whtRate ?? "0.00",
-          whtAmount: li.whtAmount ?? "0.00",
-          rdPaymentTypeCode: li.rdPaymentTypeCode ?? undefined,
-          whtType: li.whtType ?? undefined,
-        })),
-      });
-    }
-  }
-
-  // 5. Emit Inngest event for reconciliation engine (fire-and-forget).
   void inngest
     .send({
       name: "document/confirmed",
       data: {
         documentId: docId,
         orgId,
-        paymentId,
-        netAmountPaid,
-        paymentDate,
         vendorId: doc?.vendorId ?? null,
-        vendorName: doc?.vendor?.name ?? null,
-        vendorNameTh: doc?.vendor?.nameTh ?? null,
-        vendorTaxId: doc?.vendor?.taxId ?? null,
         documentNumber: doc?.documentNumber ?? null,
         direction: doc?.direction ?? "expense",
       },
@@ -164,6 +72,8 @@ export async function updateDocumentAction(
     vatAmount?: string | null;
     totalAmount?: string | null;
     currency?: string | null;
+    taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
+    isPp36Subject?: boolean | null;
   },
   expectedUpdatedAt?: string
 ) {
@@ -185,11 +95,13 @@ export async function updateDocumentAction(
 
   await updateDocumentFromExtraction(orgId, docId, data);
 
-  // --- Phase 8: Extraction learning loop ---
-  // Write exemplars from the diff between AI extraction and user-saved values.
   // Fire-and-forget: errors here don't block the document save.
   try {
-    await writeExtractionExemplars(orgId, docId, data);
+    await writeReviewExemplars({
+      orgId,
+      docId,
+      userValues: docDataToSchemaValues(data),
+    });
   } catch (error) {
     console.error("[updateDocumentAction] exemplar write failed:", error);
   }
@@ -199,112 +111,29 @@ export async function updateDocumentAction(
 }
 
 /**
- * Phase 8: Compare AI extraction output with user-saved values and write
- * exemplars for fields where the user corrected the AI.
+ * Map document-table column edits to extraction schema field names so the
+ * learning loop can diff them against the AI's raw response.
  */
-async function writeExtractionExemplars(
-  orgId: string,
-  docId: string,
-  savedData: Record<string, unknown>
-) {
-  // Load the extraction log to get the AI's raw output and vendor ID
-  const extractionLog = await getLatestExtractionLog(orgId, docId);
-  if (!extractionLog) return; // No extraction log = doc wasn't AI-extracted
-
-  // Load the AI raw response from the document files
-  const doc = await getDocumentWithDetails(orgId, docId);
-  if (!doc) return;
-
-  // Get the AI raw response from the first file that has one
-  const aiRaw = doc.files?.find(
-    (f: { aiRawResponse: unknown }) => f.aiRawResponse
-  )?.aiRawResponse as Record<string, unknown> | null;
-  if (!aiRaw) return;
-
-  const vendorId = extractionLog.vendorId ?? doc.vendorId;
-  if (!vendorId) return; // Can't write exemplars without a vendor
-
-  // Look up vendor's tax ID for cross-org consensus (Phase 8 Phase 2)
-  const vendor = await getVendorById(orgId, vendorId);
-  const vendorTaxId = vendor?.taxId ?? null;
-
-  const user = await getCurrentUser();
-  const userId = user?.id ?? "unknown";
-
-  // Map of document table column names to extraction schema field names
-  const DOC_TO_SCHEMA_MAP: Record<string, string> = {
-    type: "documentType",
-    documentNumber: "documentNumber",
-    issueDate: "issueDate",
-    dueDate: "dueDate",
-    subtotal: "subtotal",
-    vatAmount: "vatAmount",
-    totalAmount: "totalAmount",
-    currency: "currency",
-  };
-
-  let correctionCount = 0;
-
-  for (const field of LEARNABLE_INVOICE_FIELDS) {
-    // Find the user-saved value for this field
-    const docColumnName = Object.entries(DOC_TO_SCHEMA_MAP).find(
-      ([, schema]) => schema === field
-    )?.[0];
-
-    // Get the user's value from what they saved
-    const userValue = docColumnName
-      ? (savedData[docColumnName] as string | null | undefined)
-      : undefined;
-    // Get the AI's value from the raw response
-    const aiValue = aiRaw[field] as string | null | undefined;
-
-    // Skip fields not in the saved data (user didn't edit them)
-    if (userValue === undefined && !docColumnName) continue;
-
-    const userStr = userValue ?? null;
-    const aiStr = aiValue != null ? String(aiValue) : null;
-    const wasCorrected = !fieldValuesEqual(field, aiStr, userStr);
-
-    if (wasCorrected) correctionCount++;
-
-    await upsertExemplar({
-      orgId,
-      vendorId,
-      fieldName: field,
-      fieldCriticality: getFieldCriticality(field) as FieldCriticality,
-      aiValue: aiStr ? normalizeFieldValue(field, aiStr) : null,
-      userValue: userStr ? normalizeFieldValue(field, userStr) : null,
-      wasCorrected,
-      documentId: docId,
-      modelUsed: extractionLog.modelUsed ?? undefined,
-      confidenceAtTime: undefined,
-      vendorTaxId,
-    });
-  }
-
-  // Write review outcome
-  await insertReviewOutcome({
-    extractionLogId: extractionLog.id,
-    documentId: docId,
-    orgId,
-    userCorrected: correctionCount > 0,
-    correctionCount,
-    reviewedByUserId: userId,
-  });
-
-  // Emit learning event for tier promotion/demotion + reputation tracking
-  void inngest.send({
-    name: "learning/review-saved",
-    data: {
-      orgId,
-      documentId: docId,
-      vendorId,
-      vendorTaxId,
-      extractionLogId: extractionLog.id,
-      correctionCount,
-      userCorrected: correctionCount > 0,
-    },
-  });
+function docDataToSchemaValues(data: {
+  type?: string | null;
+  documentNumber?: string | null;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  subtotal?: string | null;
+  vatAmount?: string | null;
+  totalAmount?: string | null;
+  currency?: string | null;
+}): UserReviewValues {
+  const out: UserReviewValues = {};
+  if ("type" in data) out.documentType = data.type ?? null;
+  if ("documentNumber" in data) out.documentNumber = data.documentNumber ?? null;
+  if ("issueDate" in data) out.issueDate = data.issueDate ?? null;
+  if ("dueDate" in data) out.dueDate = data.dueDate ?? null;
+  if ("subtotal" in data) out.subtotal = data.subtotal ?? null;
+  if ("vatAmount" in data) out.vatAmount = data.vatAmount ?? null;
+  if ("totalAmount" in data) out.totalAmount = data.totalAmount ?? null;
+  if ("currency" in data) out.currency = data.currency ?? null;
+  return out;
 }
 
 export async function updateLineItemsAction(

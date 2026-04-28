@@ -9,6 +9,7 @@ import {
   addOrgMembership,
 } from "@/lib/db/queries/organizations";
 import { getCurrentUser } from "@/lib/utils/auth";
+import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 
 export async function createOrgAction(formData: FormData) {
   const user = await getCurrentUser();
@@ -61,12 +62,8 @@ export async function createOrgAction(formData: FormData) {
 }
 
 export async function updateOrgAction(orgId: string, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) return { error: "Not authenticated" };
-
-  // Verify user has access to this org
-  const hasAccess = await isUserMemberOfOrg(user.id, orgId);
-  if (!hasAccess) return { error: "Access denied" };
+  const { orgId: activeOrgId } = await requireOrgAdmin();
+  if (activeOrgId !== orgId) return { error: "Access denied" };
 
   const name = formData.get("name") as string;
   const nameTh = (formData.get("nameTh") as string) || null;

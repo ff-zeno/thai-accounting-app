@@ -59,6 +59,7 @@ export async function generateVatRegister(
         eq(documents.status, "confirmed"),
         eq(documents.vatPeriodYear, year),
         eq(documents.vatPeriodMonth, month),
+        sql`${documents.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
         eq(vendors.isVatRegistered, true),
         sql`${vendors.entityType} != 'foreign'`,
         sql`COALESCE(${vendors.country}, 'TH') = 'TH'`

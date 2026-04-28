@@ -284,7 +284,7 @@ describe("review outcome", () => {
     expect(outcome.reviewedAt).toBeInstanceOf(Date);
   });
 
-  it("insertReviewOutcome duplicate extractionLogId fails", async () => {
+  it("insertReviewOutcome duplicate extractionLogId updates existing outcome", async () => {
     const log = await insertExtractionLog({
       documentId: doc.id,
       orgId: org.id,
@@ -304,17 +304,19 @@ describe("review outcome", () => {
       reviewedByUserId: "user_abc123",
     });
 
-    // Second insert with same extractionLogId should throw (unique constraint)
-    await expect(
-      insertReviewOutcome({
+    const updated = await insertReviewOutcome({
         extractionLogId: log!.id,
         documentId: doc.id,
         orgId: org.id,
         userCorrected: true,
         correctionCount: 2,
         reviewedByUserId: "user_xyz456",
-      })
-    ).rejects.toThrow();
+      });
+
+    expect(updated.extractionLogId).toBe(log!.id);
+    expect(updated.userCorrected).toBe(true);
+    expect(updated.correctionCount).toBe(2);
+    expect(updated.reviewedByUserId).toBe("user_xyz456");
   });
 
   it("getReviewOutcomeByDocument returns outcome", async () => {

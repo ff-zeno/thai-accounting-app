@@ -11,9 +11,19 @@ import {
   confirmDocument,
   getPendingPipelineCount,
   bulkSoftDeleteDocuments,
+  DocumentConfirmationError,
   type DocumentSearchFilters,
 } from "@/lib/db/queries/documents";
-import { createVendor, getVendorsByOrg } from "@/lib/db/queries/vendors";
+import {
+  createVendor,
+  getVendorById,
+  getVendorsByOrg,
+  updateVendor,
+} from "@/lib/db/queries/vendors";
+import {
+  writeReviewExemplars,
+  type UserReviewValues,
+} from "@/lib/db/queries/review-exemplars";
 
 interface SearchFilters {
   search?: string;
@@ -74,18 +84,27 @@ export async function updateDocumentSidebarAction(
     totalAmount?: string | null;
     currency?: string | null;
     category?: string | null;
+    taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
+    isPp36Subject?: boolean | null;
     vendorId?: string | null;
     vendorName?: string | null;
+    /** When true, also mark the doc status=confirmed (merges old Confirm button). */
+    confirm?: boolean;
+    /**
+     * Caller's extraction quality verdict. true = AI got everything right,
+     * false = needed fixes. Purely for telemetry today; the corrections diff
+     * already feeds the learning loop.
+     */
+    extractionAccepted?: boolean;
   }
 ) {
   const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
-  let resolvedVendorId = data.vendorId;
+  let resolvedVendorId = data.vendorId ?? null;
 
-  // Auto-vendor creation: if vendorName is provided without vendorId
-  if (data.vendorName && !data.vendorId) {
-    // Search for existing vendor by exact name match
+  if (data.vendorName && !resolvedVendorId) {
+    // No existing vendor linked — find-or-create by name
     const existing = await getVendorsByOrg(orgId, undefined, 1000, 0);
     const match = existing.find(
       (v) =>
@@ -103,6 +122,17 @@ export async function updateDocumentSidebarAction(
       });
       resolvedVendorId = newVendor.id;
     }
+  } else if (data.vendorName && resolvedVendorId) {
+    // Vendor already linked — rename in place if the user changed the display name.
+    const current = await getVendorById(orgId, resolvedVendorId);
+    const displayName = current?.displayAlias ?? current?.name ?? "";
+    if (displayName.trim() !== data.vendorName.trim()) {
+      // Update displayAlias so the legal DBD-sourced `name` stays authoritative
+      // while the user's preferred label wins in the UI.
+      await updateVendor(orgId, resolvedVendorId, {
+        displayAlias: data.vendorName,
+      });
+    }
   }
 
   await updateDocumentFromExtraction(orgId, docId, {
@@ -115,8 +145,45 @@ export async function updateDocumentSidebarAction(
     totalAmount: data.totalAmount,
     currency: data.currency,
     category: data.category,
+    taxInvoiceSubtype: data.taxInvoiceSubtype,
+    isPp36Subject: data.isPp36Subject,
     vendorId: resolvedVendorId,
   });
+
+  if (data.confirm) {
+    try {
+      await confirmDocument(orgId, docId);
+    } catch (error) {
+      if (error instanceof DocumentConfirmationError) {
+        return { error: error.message };
+      }
+      throw error;
+    }
+  }
+
+  // Feed the learning loop with the same diff payload the full review page uses.
+  try {
+    const userValues: UserReviewValues = {};
+    if ("type" in data) userValues.documentType = data.type ?? null;
+    if ("documentNumber" in data)
+      userValues.documentNumber = data.documentNumber ?? null;
+    if ("issueDate" in data) userValues.issueDate = data.issueDate ?? null;
+    if ("dueDate" in data) userValues.dueDate = data.dueDate ?? null;
+    if ("subtotal" in data) userValues.subtotal = data.subtotal ?? null;
+    if ("vatAmount" in data) userValues.vatAmount = data.vatAmount ?? null;
+    if ("totalAmount" in data)
+      userValues.totalAmount = data.totalAmount ?? null;
+    if ("currency" in data) userValues.currency = data.currency ?? null;
+    if ("vendorName" in data && data.vendorName != null) {
+      userValues.vendorName = data.vendorName;
+    }
+    await writeReviewExemplars({ orgId, docId, userValues });
+  } catch (error) {
+    console.error(
+      "[updateDocumentSidebarAction] exemplar write failed:",
+      error
+    );
+  }
 
   revalidatePath("/documents");
   return { success: true };
@@ -126,7 +193,14 @@ export async function confirmDocumentSidebarAction(docId: string) {
   const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
-  await confirmDocument(orgId, docId);
+  try {
+    await confirmDocument(orgId, docId);
+  } catch (error) {
+    if (error instanceof DocumentConfirmationError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
   revalidatePath("/documents");
   return { success: true };
 }

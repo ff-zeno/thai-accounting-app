@@ -14,6 +14,7 @@ import { buildReconciliationPrompt } from "@/lib/ai/prompts/reconciliation-batch
 import { aiReconciliationBatchResultSchema } from "@/lib/ai/schemas/reconciliation-match";
 import { estimateCost } from "@/lib/ai/cost-tracker";
 import { getModel } from "@/lib/ai/models";
+import { DEFAULT_MODEL_IDS } from "@/lib/ai/models-catalog";
 import { generateObject } from "ai";
 
 const MAX_TRANSACTIONS_PER_BATCH = 10;
@@ -184,7 +185,8 @@ export const aiReconciliationBatch = inngest.createFunction(
           const estimatedOutputTokens = batch.transactions.length * 200;
 
           const settings = await getOrgAiSettings(orgId);
-          const modelId = settings?.reconciliationModel ?? "google/gemini-2.0-flash-001";
+          const modelId =
+            settings?.reconciliationModel ?? DEFAULT_MODEL_IDS.reconciliation;
 
           const estimated = estimateCost(
             modelId,

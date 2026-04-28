@@ -72,6 +72,7 @@ export async function updateVendor(
   data: {
     name?: string;
     nameTh?: string | null;
+    displayAlias?: string | null;
     taxId?: string | null;
     branchNumber?: string | null;
     address?: string | null;

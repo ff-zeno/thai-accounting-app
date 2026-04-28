@@ -21,6 +21,28 @@ const PURPOSE_TO_SETTING_KEY: Record<ModelPurpose, "extractionModel" | "classifi
   reconciliation: "reconciliationModel",
 };
 
+// Hard block: models that must never be resolved from stored ai_settings.
+// If an org has one of these persisted (e.g. from an earlier config), we
+// log a warning and fall through to the default.
+//
+// - anthropic/*            : Anthropic is permanently excluded from this app.
+// - Commercial OpenRouter routes currently returning 403 on our account:
+//   google/gemini-2.0-flash-001, google/gemini-2.5-flash*, openai/gpt-4o*,
+//   openai/gpt-5*. Unblock by removing from this list once OpenRouter
+//   support clears the account-level flag.
+const BLOCKED_MODEL_PREFIXES = [
+  "anthropic/",
+  "google/gemini-2.0-flash",
+  "google/gemini-2.5-flash",
+  "openai/gpt-4o",
+  "openai/gpt-5",
+];
+
+function isBlockedModelId(modelId: string): boolean {
+  const lower = modelId.toLowerCase();
+  return BLOCKED_MODEL_PREFIXES.some((p) => lower.startsWith(p));
+}
+
 export async function getModelId(
   purpose: ModelPurpose,
   orgId?: string
@@ -28,8 +50,14 @@ export async function getModelId(
   if (orgId) {
     const settings = await getOrgAiSettings(orgId);
     const key = PURPOSE_TO_SETTING_KEY[purpose];
-    if (settings?.[key]) {
-      return settings[key];
+    const stored = settings?.[key];
+    if (stored && !isBlockedModelId(stored)) {
+      return stored;
+    }
+    if (stored && isBlockedModelId(stored)) {
+      console.warn(
+        `[ai/models] Blocked Anthropic model "${stored}" stored in ai_settings for org ${orgId} (purpose=${purpose}); falling back to default.`
+      );
     }
   }
   return DEFAULT_MODEL_IDS[purpose];

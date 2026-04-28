@@ -77,20 +77,19 @@ pnpm db:studio    # Drizzle Studio
 | Domain terms | `docs/_ai_context/_glossary.md` |
 | Recon architecture | `docs/_ai_context/reconciliation-architecture.md` |
 
-## gstack Workflow Skills
+## Workflow Skills (scoped to what this project actually uses)
 
 | Phase | Skill | Mode |
 |-------|-------|------|
 | Product thinking | `/plan-ceo-review` | Founder/CEO — find the 10-star product |
 | Engineering design | `/plan-eng-review` | Eng manager — architecture, diagrams, edge cases |
-| Code review | `/review` | Staff engineer — bugs that pass CI but break prod |
-| Ship | `/ship` | Release engineer — sync, test, push, PR |
-| QA | `/qa` | QA lead — diff-aware, full, quick, regression modes |
+| Design plan review | `/plan-design-review` | Designer — UI/UX gaps before implementation |
+| Visual audit | `/design-review` | Designer — post-ship visual QA |
 | Browser testing | `/browse` | QA engineer — headless Chromium for live URLs |
 | Cookie import | `/setup-browser-cookies` | Import real browser sessions for auth testing |
-| Retrospective | `/retro` | Eng manager — weekly metrics and team analysis |
+| Second opinion | `/codex` | Codex CLI wrapper — review / challenge / consult |
 
-Browser skills (`/browse`, `/qa`, `/setup-browser-cookies`) require the compiled binary. Build with: `cd .claude/skills/gstack && ./setup`
+Browser skills (`/browse`, `/setup-browser-cookies`) require the compiled binary. Build with: `cd .claude/skills/gstack && ./setup`
 
 ## Design System
 Always read DESIGN.md before making any visual or UI decisions.
@@ -121,13 +120,10 @@ tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
 The skill has specialized workflows that produce better results than ad-hoc answers.
 
 Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
-- Code review, check my diff → invoke review
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
+- Strategy / scope / "think bigger" / rethink a plan → invoke plan-ceo-review
+- Architecture review / "lock in the plan" / engineering review → invoke plan-eng-review
+- Design plan review / UI plan critique before implementation → invoke plan-design-review
+- Visual audit / design polish / "does it look good" → invoke design-review
+- Browser testing / open URL / live-site QA → invoke browse
+- Import browser cookies / authenticated browser testing → invoke setup-browser-cookies
+- Second opinion / adversarial review / consult outside voice → invoke codex

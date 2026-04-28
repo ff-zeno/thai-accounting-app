@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 import {
   aggregateMonthlyFiling,
   upsertMonthlyFiling,
@@ -48,10 +49,9 @@ export async function refreshFilingAction(
 // ---------------------------------------------------------------------------
 
 export async function markAsFiledAction(filingId: string) {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId, userId } = await requireOrgAdmin();
 
-  await markFilingAsFiled(orgId, filingId);
+  await markFilingAsFiled(orgId, filingId, userId);
 
   revalidatePath("/tax/monthly-filings");
   return { success: true };
@@ -62,8 +62,7 @@ export async function markAsFiledAction(filingId: string) {
 // ---------------------------------------------------------------------------
 
 export async function voidFilingAction(filingId: string) {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId } = await requireOrgAdmin();
 
   await voidFiling(orgId, filingId);
 
@@ -148,4 +147,3 @@ export async function downloadRdCsvAction(
   const { generateRdCsv } = await import("@/lib/tax/rd-csv-export");
   return generateRdCsv(orgId, year, month, formType as FormType);
 }
-

@@ -8,7 +8,7 @@ import {
 } from "../schema";
 import { orgScope, orgScopeAlive } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
-import { isPeriodLocked } from "./wht-filings";
+import { isPeriodLocked } from "./period-locks";
 
 // ---------------------------------------------------------------------------
 // Form type determination
@@ -145,7 +145,14 @@ export async function createWhtCertificateDraft(data: {
   const paymentDateObj = new Date(data.paymentDate);
   const paymentYear = paymentDateObj.getFullYear();
   const paymentMonth = paymentDateObj.getMonth() + 1;
-  const locked = await isPeriodLocked(data.orgId, paymentYear, paymentMonth);
+  const locked =
+    (await isPeriodLocked(data.orgId, "wht", paymentYear, paymentMonth)) ||
+    (await isPeriodLocked(
+      data.orgId,
+      `wht_${data.formType}`,
+      paymentYear,
+      paymentMonth
+    ));
   if (locked) {
     throw new Error(
       `Cannot create WHT certificate — period ${paymentMonth}/${paymentYear} is locked (already filed)`
@@ -298,7 +305,13 @@ export async function getCertificatesWithVendors(
       vendorName: vendors.name,
     })
     .from(whtCertificates)
-    .leftJoin(vendors, eq(whtCertificates.payeeVendorId, vendors.id))
+    .leftJoin(
+      vendors,
+      and(
+        eq(whtCertificates.payeeVendorId, vendors.id),
+        eq(whtCertificates.orgId, vendors.orgId)
+      )
+    )
     .where(and(...conditions))
     .orderBy(sql`${whtCertificates.createdAt} DESC`);
 }

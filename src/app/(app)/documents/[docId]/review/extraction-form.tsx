@@ -25,11 +25,14 @@ interface DocumentData {
   vatAmount: string | null;
   totalAmount: string | null;
   currency: string | null;
+  taxInvoiceSubtype: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
+  isPp36Subject: boolean | null;
   status: string;
   needsReview: boolean | null;
   aiConfidence: string | null;
   reviewNotes: string | null;
   detectedLanguage: string | null;
+  updatedAt: string | null;
 }
 
 interface VendorData {
@@ -81,7 +84,14 @@ export function ExtractionForm({
         subtotal: formData.get("subtotal") as string,
         vatAmount: formData.get("vatAmount") as string,
         totalAmount: formData.get("totalAmount") as string,
-      });
+        taxInvoiceSubtype: (formData.get("taxInvoiceSubtype") as
+          | "full_ti"
+          | "abb"
+          | "e_tax_invoice"
+          | "not_a_ti"
+          | "") || null,
+        isPp36Subject: formData.get("isPp36Subject") === "on",
+      }, doc.updatedAt ?? undefined);
       toast.success("Document updated");
     } catch {
       toast.error("Failed to save");
@@ -93,7 +103,11 @@ export function ExtractionForm({
   const handleConfirm = async () => {
     setConfirming(true);
     try {
-      await confirmDocumentAction(doc.id);
+      const result = await confirmDocumentAction(doc.id);
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to confirm");
+        return;
+      }
       toast.success("Document confirmed");
     } catch {
       toast.error("Failed to confirm");
@@ -252,6 +266,34 @@ export function ExtractionForm({
               className="font-mono"
             />
           </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="taxInvoiceSubtype">Tax invoice type</Label>
+            <select
+              name="taxInvoiceSubtype"
+              id="taxInvoiceSubtype"
+              defaultValue={doc.taxInvoiceSubtype ?? ""}
+              disabled={isConfirmed}
+              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select type</option>
+              <option value="full_ti">Full tax invoice</option>
+              <option value="e_tax_invoice">E-tax invoice</option>
+              <option value="abb">ABB / abbreviated</option>
+              <option value="not_a_ti">Not a tax invoice</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-2 self-end rounded-md border px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              name="isPp36Subject"
+              defaultChecked={doc.isPp36Subject ?? false}
+              disabled={isConfirmed}
+            />
+            PP36 foreign service
+          </label>
         </div>
 
         {/* Line items */}

@@ -15,24 +15,27 @@ const insertChain = {
 
 const mockInsert = vi.fn().mockReturnValue(insertChain);
 
+function makeChain(result: unknown[]) {
+  const chain: Record<string, unknown> = {};
+  const self = new Proxy(chain, {
+    get(_target, prop) {
+      if (prop === "then") {
+        return (resolve: (v: unknown) => void) => resolve(result);
+      }
+      if (prop === Symbol.iterator) {
+        return () => result[Symbol.iterator]();
+      }
+      return vi.fn().mockReturnValue(self);
+    },
+  });
+  return self;
+}
+
 // Each db.select() call creates a fresh chain that resolves to the next result
 const mockSelect = vi.fn().mockImplementation(() => {
   const idx = selectCallCount++;
   const result = selectResults[idx] ?? [];
-  const chain = {
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnValue(result),
-    limit: vi.fn().mockReturnValue(result),
-    orderBy: vi.fn().mockReturnValue(result),
-  };
-  // Make where() also chainable for limit()
-  chain.where.mockReturnValue({
-    ...result,
-    limit: vi.fn().mockReturnValue(result),
-    orderBy: vi.fn().mockReturnValue(result),
-    [Symbol.iterator]: () => result[Symbol.iterator](),
-  });
-  return chain;
+  return makeChain(result);
 });
 
 vi.mock("../index", () => ({

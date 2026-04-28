@@ -11,6 +11,7 @@ import {
   timestamp,
   jsonb,
   index,
+  primaryKey,
   unique,
   uniqueIndex,
   pgEnum,
@@ -37,6 +38,13 @@ export const documentTypeEnum = pgEnum("document_type", [
 export const documentDirectionEnum = pgEnum("document_direction", [
   "expense",
   "income",
+]);
+
+export const taxInvoiceSubtypeEnum = pgEnum("tax_invoice_subtype", [
+  "full_ti",
+  "abb",
+  "e_tax_invoice",
+  "not_a_ti",
 ]);
 
 export const documentStatusEnum = pgEnum("document_status", [
@@ -309,6 +317,8 @@ export const documents = pgTable(
     vendorId: uuid("vendor_id").references(() => vendors.id),
     relatedDocumentId: uuid("related_document_id"),
     type: documentTypeEnum("type").notNull(),
+    taxInvoiceSubtype: taxInvoiceSubtypeEnum("tax_invoice_subtype"),
+    isPp36Subject: boolean("is_pp36_subject").default(false),
     documentNumber: text("document_number"),
     issueDate: date("issue_date"),
     dueDate: date("due_date"),
@@ -601,6 +611,38 @@ export const vatRecords = pgTable(
   (t) => [unique("vat_org_period").on(t.orgId, t.periodYear, t.periodMonth)]
 );
 
+export const periodLocks = pgTable(
+  "period_locks",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    establishmentId: uuid("establishment_id"),
+    domain: text("domain").notNull(),
+    periodYear: integer("period_year").notNull(),
+    periodMonth: integer("period_month"),
+    lockedAt: timestamp("locked_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lockedByUserId: text("locked_by_user_id").notNull(),
+    lockReason: text("lock_reason").notNull(),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true }),
+    unlockedByUserId: text("unlocked_by_user_id"),
+    unlockReason: text("unlock_reason"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("period_locks_lookup").on(
+      t.orgId,
+      t.domain,
+      t.periodYear,
+      t.periodMonth
+    ),
+  ]
+);
+
 // ---------------------------------------------------------------------------
 // System Tables
 // ---------------------------------------------------------------------------
@@ -621,21 +663,34 @@ export const taxConfig = pgTable(
   (t) => [unique("tax_config_key").on(t.key)]
 );
 
-export const auditLog = pgTable("audit_log", {
-  id,
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id),
-  entityType: text("entity_type").notNull(),
-  entityId: uuid("entity_id").notNull(),
-  action: auditActionEnum("action").notNull(),
-  oldValue: jsonb("old_value"),
-  newValue: jsonb("new_value"),
-  actorId: uuid("actor_id").references(() => users.id),
-  createdAt,
-  // NO updatedAt — audit log rows are immutable
-  // NO deletedAt — audit log rows must never be deleted
-});
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").defaultRandom().notNull(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    action: auditActionEnum("action").notNull(),
+    oldValue: jsonb("old_value"),
+    newValue: jsonb("new_value"),
+    actorId: uuid("actor_id").references(() => users.id),
+    createdAt,
+    // NO updatedAt — audit log rows are immutable
+    // NO deletedAt — audit log rows must never be deleted
+  },
+  (t) => [
+    primaryKey({ name: "audit_log_pkey", columns: [t.id, t.createdAt] }),
+    index("audit_log_org_created").on(t.orgId, t.createdAt),
+    index("audit_log_entity_history").on(
+      t.orgId,
+      t.entityType,
+      t.entityId,
+      t.createdAt
+    ),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // AI Settings

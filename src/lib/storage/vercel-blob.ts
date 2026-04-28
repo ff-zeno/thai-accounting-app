@@ -1,4 +1,4 @@
-import { put, del } from "@vercel/blob";
+import { put, del, get } from "@vercel/blob";
 import type { BlobStorage } from "./types";
 
 export class VercelBlobStorage implements BlobStorage {
@@ -15,11 +15,11 @@ export class VercelBlobStorage implements BlobStorage {
   }
 
   async retrieve(url: string): Promise<Buffer> {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to retrieve blob: ${response.status}`);
+    const result = await get(url, { access: "private" });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      throw new Error(`Failed to retrieve blob: ${url}`);
     }
-    const arrayBuffer = await response.arrayBuffer();
+    const arrayBuffer = await new Response(result.stream).arrayBuffer();
     return Buffer.from(arrayBuffer);
   }
 

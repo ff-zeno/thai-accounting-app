@@ -47,6 +47,11 @@ next-env.d.ts
 
 # script output (generated PDFs, etc.)
 scripts/output/
+benchmarks/output/
+benchmarks/dogfood/output/
+
+# real customer/company sample docs — never commit
+_sample_file_types/
 
 # gstack build artifacts
 .claude/skills/gstack/browse/dist/

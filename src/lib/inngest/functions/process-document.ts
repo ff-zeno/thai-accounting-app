@@ -36,6 +36,7 @@ import { getVendorTier } from "@/lib/db/queries/vendor-tier";
 import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
 import { getGlobalExemplars } from "@/lib/db/queries/global-exemplar-pool";
 import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
+import { suggestCategoryForVendor } from "@/lib/db/queries/category-suggest";
 import { getActivePattern } from "@/lib/db/queries/compiled-patterns";
 import { runCompiledPattern } from "@/lib/ai/compiled-patterns/sandbox-runner";
 
@@ -253,6 +254,9 @@ export const processDocument = inngest.createFunction(
         const pageTexts = await extractPdfText(bytes);
         const probeVendorIdentity = await lazyProbeVendorIdentity();
         const result = await probeVendorIdentity(orgId, pageTexts);
+        console.log(
+          `[process-document] probe: taxId=${result.taxIdFound ?? "none"} vendorId=${result.vendorId ?? "unmatched"} confident=${result.confident}`
+        );
         return { vendorId: result.vendorId, taxIdFound: result.taxIdFound };
       } catch (error) {
         // Probe failure is non-fatal — fall back to Tier 0
@@ -268,35 +272,50 @@ export const processDocument = inngest.createFunction(
     const extractionContext = await step.run(
       "resolve-extraction-context",
       async (): Promise<ExtractionContext> => {
+        const log = (ctx: ExtractionContext, reason: string) => {
+          console.log(
+            `[process-document] tier=${ctx.tier} vendorId=${ctx.vendorId ?? "none"} exemplars=${ctx.exemplars.length} (${reason})`
+          );
+          return ctx;
+        };
         if (!probeResult.vendorId) {
           // No vendor identified — check if we have a tax ID for Tier 2
           if (probeResult.taxIdFound) {
             try {
               const globalExemplars = await getGlobalExemplars(probeResult.taxIdFound);
               if (globalExemplars.length > 0) {
-                return {
-                  tier: 2 as const,
-                  vendorId: null,
-                  vendorKey: probeResult.taxIdFound,
-                  exemplarIds: [],
-                  globalExemplarIds: globalExemplars.map((e) => e.id),
-                  exemplars: globalExemplars.map((e) => ({
-                    fieldName: e.fieldName,
-                    aiValue: null,
-                    userValue: e.canonicalValue,
-                  })),
-                };
+                return log(
+                  {
+                    tier: 2 as const,
+                    vendorId: null,
+                    vendorKey: probeResult.taxIdFound,
+                    exemplarIds: [],
+                    globalExemplarIds: globalExemplars.map((e) => e.id),
+                    exemplars: globalExemplars.map((e) => ({
+                      fieldName: e.fieldName,
+                      aiValue: null,
+                      userValue: e.canonicalValue,
+                    })),
+                  },
+                  "no vendorId but global exemplars found"
+                );
               }
             } catch {
               // Tier 2 lookup failure is non-fatal
             }
           }
-          return { tier: 0, vendorId: null, exemplarIds: [], exemplars: [] };
+          return log(
+            { tier: 0, vendorId: null, exemplarIds: [], exemplars: [] },
+            "no vendorId probed"
+          );
         }
 
         try {
           const tierRow = await getVendorTier(orgId, probeResult.vendorId);
           const tier = (tierRow?.tier === 1 ? 1 : 0) as 0 | 1;
+          console.log(
+            `[process-document] vendor_tier row for ${probeResult.vendorId}: tier=${tierRow?.tier ?? "none"} docs=${tierRow?.docsProcessedTotal ?? 0}`
+          );
 
           if (tier === 1) {
             // Tier 1: load top private exemplars for prompt injection
@@ -307,17 +326,23 @@ export const processDocument = inngest.createFunction(
             );
 
             if (exemplars.length > 0) {
-              return {
-                tier: 1 as const,
-                vendorId: probeResult.vendorId,
-                exemplarIds: exemplars.map((e) => e.id),
-                exemplars: exemplars.map((e) => ({
-                  fieldName: e.fieldName,
-                  aiValue: e.aiValue,
-                  userValue: e.userValue,
-                })),
-              };
+              return log(
+                {
+                  tier: 1 as const,
+                  vendorId: probeResult.vendorId,
+                  exemplarIds: exemplars.map((e) => e.id),
+                  exemplars: exemplars.map((e) => ({
+                    fieldName: e.fieldName,
+                    aiValue: e.aiValue,
+                    userValue: e.userValue,
+                  })),
+                },
+                "tier 1 exemplars loaded"
+              );
             }
+            console.log(
+              `[process-document] tier=1 row exists but no corrected exemplars — falling through`
+            );
           }
 
           // Tier 0 or Tier 1 with no exemplars — try Tier 2 fallback
@@ -359,15 +384,21 @@ export const processDocument = inngest.createFunction(
             }
           }
 
-          return {
-            tier: 0 as const,
-            vendorId: probeResult.vendorId,
-            exemplarIds: [],
-            exemplars: [],
-          };
+          return log(
+            {
+              tier: 0 as const,
+              vendorId: probeResult.vendorId,
+              exemplarIds: [],
+              exemplars: [],
+            },
+            "vendor identified but no exemplars/patterns"
+          );
         } catch (error) {
           console.warn("[process-document] resolve-extraction-context failed:", error);
-          return { tier: 0 as const, vendorId: null, exemplarIds: [], exemplars: [] };
+          return log(
+            { tier: 0 as const, vendorId: null, exemplarIds: [], exemplars: [] },
+            "resolve failed"
+          );
         }
       }
     );
@@ -723,6 +754,30 @@ export const processDocument = inngest.createFunction(
       const needsReview =
         validated.needsReview || whtClassification.warnings.length > 0;
 
+      // Category auto-fill: use the dominant prior category for this vendor
+      // when there's enough agreement. Silent — user can always override.
+      let suggestedCategory: string | null = null;
+      if (vendorId) {
+        try {
+          const suggestion = await suggestCategoryForVendor(
+            orgId,
+            vendorId,
+            documentId
+          );
+          if (suggestion) {
+            suggestedCategory = suggestion.category;
+            console.log(
+              `[process-document] category auto-fill: "${suggestion.category}" (${(suggestion.confidence * 100).toFixed(0)}% across ${suggestion.priorCount} prior docs)`
+            );
+          }
+        } catch (error) {
+          console.warn(
+            "[process-document] category auto-fill lookup failed:",
+            error
+          );
+        }
+      }
+
       // Update document
       await updateDocumentFromExtraction(orgId, documentId, {
         vendorId,
@@ -734,6 +789,7 @@ export const processDocument = inngest.createFunction(
         vatAmount: validated.vatAmount,
         totalAmount: validated.totalAmount,
         currency: validated.currency ?? "THB",
+        category: suggestedCategory,
         detectedLanguage: validated.detectedLanguage,
         aiConfidence: validated.confidence.toFixed(2),
         needsReview,

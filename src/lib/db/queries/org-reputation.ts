@@ -65,33 +65,40 @@ export async function upsertOrgReputation(
     eligible: boolean;
   }>
 ): Promise<OrgReputationRow> {
+  const setClause: Record<string, unknown> = {};
+  if (updates?.score != null) setClause.score = updates.score;
+  if (updates?.correctionsTotal != null)
+    setClause.correctionsTotal = updates.correctionsTotal;
+  if (updates?.correctionsAgreed != null)
+    setClause.correctionsAgreed = updates.correctionsAgreed;
+  if (updates?.correctionsDisputed != null)
+    setClause.correctionsDisputed = updates.correctionsDisputed;
+  if (updates?.firstDocAt != null) setClause.firstDocAt = updates.firstDocAt;
+  if (updates?.docsProcessed != null)
+    setClause.docsProcessed = updates.docsProcessed;
+  if (updates?.eligible != null) setClause.eligible = updates.eligible;
+
+  // When no columns need to be updated, insert-or-do-nothing keeps the existing
+  // row intact. Drizzle rejects `.set({})` with "No values to set", so we
+  // branch here rather than passing an empty object to `onConflictDoUpdate`.
+  if (Object.keys(setClause).length === 0) {
+    const inserted = await db
+      .insert(orgReputation)
+      .values({ orgId })
+      .onConflictDoNothing({ target: [orgReputation.orgId] })
+      .returning();
+    if (inserted[0]) return inserted[0];
+    const existing = await getOrgReputation(orgId);
+    if (!existing) throw new Error(`orgReputation row missing for ${orgId}`);
+    return existing;
+  }
+
   const [row] = await db
     .insert(orgReputation)
-    .values({
-      orgId,
-      ...updates,
-    })
+    .values({ orgId, ...updates })
     .onConflictDoUpdate({
       target: [orgReputation.orgId],
-      set: {
-        ...(updates?.score != null ? { score: updates.score } : {}),
-        ...(updates?.correctionsTotal != null
-          ? { correctionsTotal: updates.correctionsTotal }
-          : {}),
-        ...(updates?.correctionsAgreed != null
-          ? { correctionsAgreed: updates.correctionsAgreed }
-          : {}),
-        ...(updates?.correctionsDisputed != null
-          ? { correctionsDisputed: updates.correctionsDisputed }
-          : {}),
-        ...(updates?.firstDocAt != null
-          ? { firstDocAt: updates.firstDocAt }
-          : {}),
-        ...(updates?.docsProcessed != null
-          ? { docsProcessed: updates.docsProcessed }
-          : {}),
-        ...(updates?.eligible != null ? { eligible: updates.eligible } : {}),
-      },
+      set: setClause,
     })
     .returning();
   return row;

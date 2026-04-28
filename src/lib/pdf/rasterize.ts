@@ -56,8 +56,19 @@ export async function extractPdfText(
   const maxPages = options?.maxPages ?? 20;
 
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Register the worker as a side-effect module so pdf.js runs it inline
+  // on the Node server. Without this, pdf.js tries to spawn a worker from
+  // a bundled chunk path that Next.js doesn't expose.
+  // @ts-expect-error — worker module has no .d.ts; imported for its side effects.
+  await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  // pdf.js rejects Node `Buffer` even though it subclasses `Uint8Array`.
+  // Wrap in a fresh Uint8Array view to strip the Buffer brand.
+  const uint8Data =
+    data instanceof Uint8Array && !Buffer.isBuffer(data)
+      ? data
+      : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   const loadingTask = pdfjsLib.getDocument({
-    data: Buffer.from(data),
+    data: uint8Data,
     useSystemFonts: true,
     isEvalSupported: false,
   });

@@ -88,7 +88,7 @@ export function ImageViewer({ files }: { files: FileRecord[] }) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={current.fileUrl}
+            src={`/api/files/${current.id}`}
             alt={current.originalFilename || `Page ${currentPage + 1}`}
             className="max-w-full rounded shadow-sm"
           />

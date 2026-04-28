@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
   getBankAccountsByOrg,
+  getBankAccountById,
   findBankAccountByNumber,
   createBankAccount,
 } from "@/lib/db/queries/bank-accounts";
@@ -260,6 +261,8 @@ export async function confirmImportAction(input: ConfirmImportInput) {
 
   const { bankAccountId, format, result } = input;
   const txnsToImport = input.transactionsToImport ?? result.transactions;
+  const bankAccount = await getBankAccountById(orgId, bankAccountId);
+  if (!bankAccount) return { error: "Bank account not found" };
 
   // Validate running balance (pure computation — no DB, so do it outside the transaction)
   let balanceWarning: string | null = null;
@@ -307,10 +310,11 @@ export async function confirmImportAction(input: ConfirmImportInput) {
   revalidatePath("/bank-accounts");
   revalidatePath(`/bank-accounts/${bankAccountId}`);
 
-  // Emit event for transaction-first matching (non-blocking)
+  // Emit event for transaction-first matching (fire-and-forget).
+  // Do NOT await — Inngest outage must not block the user's import.
   if (importResult.inserted > 0 && importResult.insertedIds?.length) {
-    try {
-      await inngest.send({
+    void inngest
+      .send({
         name: "transactions/imported",
         data: {
           orgId,
@@ -318,10 +322,10 @@ export async function confirmImportAction(input: ConfirmImportInput) {
           transactionIds: importResult.insertedIds,
           statementId: importResult.statementId,
         },
+      })
+      .catch((err) => {
+        console.error("[upload] Failed to emit transactions/imported event:", err);
       });
-    } catch (err) {
-      console.error("[upload] Failed to emit transactions/imported event:", err);
-    }
   }
 
   return {
@@ -380,4 +384,3 @@ export async function getAccountsForMatchAction() {
     accountName: a.accountName,
   }));
 }
-

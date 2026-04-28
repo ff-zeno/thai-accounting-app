@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
   Sheet,
@@ -13,7 +13,30 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Paperclip, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import {
+  DOCUMENT_CATEGORIES,
+  getCategoryLabel,
+} from "@/lib/categories/document-categories";
+import { useLocale } from "next-intl";
+import {
+  Loader2,
+  Paperclip,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { getDocumentDetailsAction } from "./actions";
 
 // ---------------------------------------------------------------------------
@@ -40,11 +63,14 @@ interface Props {
       totalAmount?: string | null;
       currency?: string | null;
       category?: string | null;
+      taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
+      isPp36Subject?: boolean | null;
       vendorId?: string | null;
       vendorName?: string | null;
+      confirm?: boolean;
+      extractionAccepted?: boolean;
     }
   ) => Promise<{ success?: boolean; error?: string }>;
-  onConfirm: (docId: string) => Promise<{ success?: boolean; error?: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +87,8 @@ interface FormState {
   vatAmount: string;
   totalAmount: string;
   currency: string;
+  taxInvoiceSubtype: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | "";
+  isPp36Subject: boolean;
   vendorName: string;
   vendorId: string | null;
 }
@@ -76,6 +104,8 @@ function docToForm(doc: DocumentDetail): FormState {
     vatAmount: doc.vatAmount ?? "",
     totalAmount: doc.totalAmount ?? "",
     currency: doc.currency ?? "THB",
+    taxInvoiceSubtype: doc.taxInvoiceSubtype ?? "",
+    isPp36Subject: doc.isPp36Subject ?? false,
     vendorName:
       doc.vendor?.displayAlias ?? doc.vendor?.name ?? doc.vendor?.nameTh ?? "",
     vendorId: doc.vendorId,
@@ -152,7 +182,6 @@ function ReconMatchRow({
     </div>
   );
 }
-
 // ---------------------------------------------------------------------------
 // Main Sidebar
 // ---------------------------------------------------------------------------
@@ -162,14 +191,42 @@ export function DocumentDetailSidebar({
   open,
   onClose,
   onSave,
-  onConfirm,
 }: Props) {
   const t = useTranslations("documents");
   const tc = useTranslations("common");
+  const locale = useLocale();
+
+  const categoryOptions = useMemo(
+    () =>
+      DOCUMENT_CATEGORIES.map((c) => ({
+        value: c.value,
+        label: getCategoryLabel(c, locale),
+        keywords: [c.labelEn, c.labelTh, ...(c.aliases ?? [])],
+      })),
+    [locale]
+  );
 
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  const [initialForm, setInitialForm] = useState<FormState | null>(null);
+  const [explicitVerdict, setExplicitVerdict] = useState<
+    "accurate" | "needs_fixes" | null
+  >(null);
   const [isSaving, startSaveTransition] = useTransition();
+
+  // Compute dirty state: form differs from what was loaded.
+  const isDirty =
+    form && initialForm
+      ? (Object.keys(form) as (keyof FormState)[]).some(
+          (k) => form[k] !== initialForm[k]
+        )
+      : false;
+
+  // Verdict is derived: user pick wins if "needs_fixes", otherwise dirty
+  // state forces "needs_fixes", otherwise honor explicit "accurate".
+  const extractionVerdict: "accurate" | "needs_fixes" | null = isDirty
+    ? "needs_fixes"
+    : explicitVerdict;
 
   // Derive loading state: open with a docId but no doc loaded yet
   const isLoading = open && docId !== null && doc === null;
@@ -183,7 +240,10 @@ export function DocumentDetailSidebar({
       if (cancelled) return;
       if (result) {
         setDoc(result);
-        setForm(docToForm(result));
+        const formState = docToForm(result);
+        setForm(formState);
+        setInitialForm(formState);
+        setExplicitVerdict(null);
       }
     });
 
@@ -197,6 +257,8 @@ export function DocumentDetailSidebar({
       onClose();
       setDoc(null);
       setForm(null);
+      setInitialForm(null);
+      setExplicitVerdict(null);
     }
   }
 
@@ -206,8 +268,11 @@ export function DocumentDetailSidebar({
 
   function handleSave() {
     if (!docId || !form) return;
+    // Default verdict on save: accurate if untouched, needs_fixes if edited.
+    const verdict =
+      extractionVerdict ?? (isDirty ? "needs_fixes" : "accurate");
     startSaveTransition(async () => {
-      await onSave(docId, {
+      const result = await onSave(docId, {
         type: form.type as "invoice" | "receipt" | "debit_note" | "credit_note",
         documentNumber: form.documentNumber || null,
         issueDate: form.issueDate || null,
@@ -217,27 +282,21 @@ export function DocumentDetailSidebar({
         totalAmount: form.totalAmount || null,
         currency: form.currency || null,
         category: form.category || null,
+        taxInvoiceSubtype: form.taxInvoiceSubtype || null,
+        isPp36Subject: form.isPp36Subject,
         vendorId: form.vendorId,
-        vendorName: !form.vendorId && form.vendorName ? form.vendorName : null,
+        vendorName: form.vendorName.trim() || null,
+        confirm: true,
+        extractionAccepted: verdict === "accurate",
       });
-      // Refetch to get updated state
-      const updated = await getDocumentDetailsAction(docId);
-      if (updated) {
-        setDoc(updated);
-        setForm(docToForm(updated));
+      if (result && "error" in result && result.error) {
+        return;
       }
-    });
-  }
-
-  function handleConfirm() {
-    if (!docId) return;
-    startSaveTransition(async () => {
-      await onConfirm(docId);
-      const updated = await getDocumentDetailsAction(docId);
-      if (updated) {
-        setDoc(updated);
-        setForm(docToForm(updated));
-      }
+      onClose();
+      setDoc(null);
+      setForm(null);
+      setInitialForm(null);
+      setExplicitVerdict(null);
     });
   }
 
@@ -252,21 +311,20 @@ export function DocumentDetailSidebar({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="sm:max-w-2xl overflow-y-auto">
+      <SheetContent className="w-full data-[side=right]:sm:max-w-xl data-[side=right]:lg:max-w-2xl data-[side=right]:xl:max-w-3xl overflow-y-auto">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : doc && form ? (
           <>
-            {/* Header */}
-            <SheetHeader>
-              <SheetTitle className="flex items-center gap-2">
+            {/* Header — reserve right padding so close X doesn't overlap title */}
+            <SheetHeader className="pr-10">
+              <SheetTitle className="flex flex-wrap items-center gap-2">
                 {doc.documentNumber || t("documentDetails")}
                 <Badge variant="outline" className="capitalize text-xs">
                   {doc.type.replace("_", " ")}
                 </Badge>
-                <StatusBadge status={doc.status} needsReview={doc.needsReview} />
               </SheetTitle>
               <SheetDescription>
                 {doc.aiConfidence && (
@@ -295,16 +353,32 @@ export function DocumentDetailSidebar({
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     {t("type")}
                   </label>
-                  <select
+                  <Select
+                    // `items` maps raw values to labels so SelectValue renders
+                    // the pretty label instead of the underscored DB value.
+                    items={{
+                      invoice: t("invoice"),
+                      receipt: t("receipt"),
+                      debit_note: t("debitNote"),
+                      credit_note: t("creditNote"),
+                    }}
                     value={form.type}
-                    onChange={(e) => updateField("type", e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                    onValueChange={(v) => v && updateField("type", v)}
                   >
-                    <option value="invoice">{t("invoice")}</option>
-                    <option value="receipt">{t("receipt")}</option>
-                    <option value="debit_note">{t("debitNote")}</option>
-                    <option value="credit_note">{t("creditNote")}</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invoice">{t("invoice")}</SelectItem>
+                      <SelectItem value="receipt">{t("receipt")}</SelectItem>
+                      <SelectItem value="debit_note">
+                        {t("debitNote")}
+                      </SelectItem>
+                      <SelectItem value="credit_note">
+                        {t("creditNote")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -324,20 +398,18 @@ export function DocumentDetailSidebar({
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     {t("issueDate")}
                   </label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={form.issueDate}
-                    onChange={(e) => updateField("issueDate", e.target.value)}
+                    onChange={(v) => updateField("issueDate", v)}
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     {t("dueDate")}
                   </label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={form.dueDate}
-                    onChange={(e) => updateField("dueDate", e.target.value)}
+                    onChange={(v) => updateField("dueDate", v)}
                   />
                 </div>
               </div>
@@ -346,9 +418,10 @@ export function DocumentDetailSidebar({
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   {t("category")}
                 </label>
-                <Input
+                <Autocomplete
                   value={form.category}
-                  onChange={(e) => updateField("category", e.target.value)}
+                  onChange={(v) => updateField("category", v)}
+                  options={categoryOptions}
                   placeholder={t("category")}
                 />
               </div>
@@ -402,19 +475,51 @@ export function DocumentDetailSidebar({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Tax invoice type
+                  </label>
+                  <select
+                    value={form.taxInvoiceSubtype}
+                    onChange={(e) =>
+                      updateField(
+                        "taxInvoiceSubtype",
+                        e.target.value as FormState["taxInvoiceSubtype"]
+                      )
+                    }
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">Select type</option>
+                    <option value="full_ti">Full tax invoice</option>
+                    <option value="e_tax_invoice">E-tax invoice</option>
+                    <option value="abb">ABB / abbreviated</option>
+                    <option value="not_a_ti">Not a tax invoice</option>
+                  </select>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.isPp36Subject}
+                  onChange={(e) => updateField("isPp36Subject", e.target.checked)}
+                />
+                PP36 foreign service
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     {t("vendorName")}
                   </label>
                   <Input
                     value={form.vendorName}
-                    onChange={(e) => {
-                      updateField("vendorName", e.target.value);
-                      // Clear vendorId when user types a new name
-                      if (form.vendorId) {
-                        updateField("vendorId", null);
-                      }
-                    }}
+                    onChange={(e) => updateField("vendorName", e.target.value)}
                     placeholder={t("vendorName")}
                   />
+                  {form.vendorId && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Editing renames the linked vendor&apos;s display label.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -433,23 +538,48 @@ export function DocumentDetailSidebar({
                     {t("noDocuments")}
                   </p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {doc.files.map((file) => (
-                      <div
-                        key={file.id}
-                        className="rounded border p-2 text-center"
-                      >
-                        <Paperclip className="mx-auto mb-1 size-6 text-muted-foreground" />
-                        <p className="truncate text-xs">
-                          {file.originalFilename || "File"}
-                        </p>
-                        {file.pageNumber && (
-                          <p className="text-xs text-muted-foreground">
-                            p.{file.pageNumber}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    {doc.files.map((file) => {
+                      const isPdf = file.fileType === "application/pdf";
+                      const isImage = file.fileType?.startsWith("image/");
+                      const src = `/api/files/${file.id}`;
+                      return (
+                        <a
+                          key={file.id}
+                          href={src}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group relative flex h-40 flex-col overflow-hidden rounded-md border transition-colors hover:border-primary/50 hover:bg-accent"
+                          title={file.originalFilename || "File"}
+                        >
+                          <div className="relative flex flex-1 items-center justify-center bg-muted/30">
+                            {isImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={src}
+                                alt={file.originalFilename || "File"}
+                                className="absolute inset-0 size-full object-cover"
+                              />
+                            ) : isPdf ? (
+                              <FileText className="size-14 text-muted-foreground/70" />
+                            ) : (
+                              <Paperclip className="size-14 text-muted-foreground/70" />
+                            )}
+                          </div>
+                          <div className="flex items-baseline justify-between gap-2 border-t bg-background px-2 py-1.5">
+                            <p className="truncate text-xs font-medium">
+                              {file.originalFilename || "File"}
+                            </p>
+                            {file.pageNumber && (
+                              <p className="shrink-0 text-xs text-muted-foreground">
+                                p.{file.pageNumber}
+                              </p>
+                            )}
+                          </div>
+                          <ExternalLink className="absolute right-1 top-1 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -479,9 +609,51 @@ export function DocumentDetailSidebar({
                   </div>
                 )}
               </div>
+
+              {/* Extraction quality review — shown only on first review.
+                  Once saved (doc.status === "confirmed"), we never ask again.
+                  Subsequent edits silently flip the signal via isDirty at save. */}
+              {doc.status !== "confirmed" && (
+                <div>
+                  <h3 className="mb-1 text-sm font-medium">
+                    Was the AI extraction accurate?
+                  </h3>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Optional. Helps us learn which documents needed human
+                    corrections.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isDirty}
+                      onClick={() => setExplicitVerdict("accurate")}
+                      className={`flex h-14 items-center justify-center gap-2 rounded-md border-2 text-sm font-medium transition-colors ${
+                        extractionVerdict === "accurate"
+                          ? "border-green-500 bg-green-500/10 text-green-700 dark:text-green-400"
+                          : "border-border bg-background text-muted-foreground hover:border-green-500/40 hover:bg-green-500/5"
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      <CheckCircle2 className="size-5" />
+                      Accurate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExplicitVerdict("needs_fixes")}
+                      className={`flex h-14 items-center justify-center gap-2 rounded-md border-2 text-sm font-medium transition-colors ${
+                        extractionVerdict === "needs_fixes"
+                          ? "border-red-500 bg-red-500/10 text-red-700 dark:text-red-400"
+                          : "border-border bg-background text-muted-foreground hover:border-red-500/40 hover:bg-red-500/5"
+                      }`}
+                    >
+                      <XCircle className="size-5" />
+                      Needs fixes
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Footer Actions */}
+            {/* Footer — single action merges old Save + Confirm */}
             <SheetFooter>
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? (
@@ -490,18 +662,9 @@ export function DocumentDetailSidebar({
                     {tc("loading")}
                   </>
                 ) : (
-                  t("saveChanges")
+                  "Save & Close"
                 )}
               </Button>
-              {doc.status === "draft" && (
-                <Button
-                  variant="outline"
-                  onClick={handleConfirm}
-                  disabled={isSaving}
-                >
-                  {tc("confirm")}
-                </Button>
-              )}
             </SheetFooter>
           </>
         ) : (
@@ -514,29 +677,4 @@ export function DocumentDetailSidebar({
       </SheetContent>
     </Sheet>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Local helper (same as in document-table)
-// ---------------------------------------------------------------------------
-
-function StatusBadge({
-  status,
-  needsReview,
-}: {
-  status: string;
-  needsReview: boolean | null;
-}) {
-  const t = useTranslations("documents");
-
-  if (status === "draft" && needsReview) {
-    return <Badge variant="secondary">{t("needsReview")}</Badge>;
-  }
-  if (status === "confirmed") {
-    return <Badge variant="default">{t("confirmed")}</Badge>;
-  }
-  if (status === "voided") {
-    return <Badge variant="destructive">{t("voided")}</Badge>;
-  }
-  return <Badge variant="outline">{status}</Badge>;
 }

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createInngestHarness, createMockStep, createMockEvent } from "./inngest-harness";
+import {
+  createInngestHarness,
+  createMockStep,
+  createMockEvent,
+  type MockStep,
+} from "./inngest-harness";
 
 describe("createMockStep", () => {
   it("runs step functions and records results", async () => {
@@ -45,7 +50,7 @@ describe("createInngestHarness", () => {
 
     // Simulate what inngest.createFunction returns — object with .fn property
     const mockFn = {
-      fn: async ({ event, step }: { event: { data: { x: number } }; step: { run: typeof createMockStep extends () => infer S ? S["run"] : never } }) => {
+      fn: async ({ event, step }: { event: { data: { x: number } }; step: Pick<MockStep, "run"> }) => {
         const doubled = await step.run("double", () => event.data.x * 2);
         return doubled;
       },

@@ -7,6 +7,7 @@ import { updateDocumentFromExtraction } from "@/lib/db/queries/documents";
 import { createDocumentFile } from "@/lib/db/queries/document-files";
 import { findVendorByTaxId, createVendor } from "@/lib/db/queries/vendors";
 import { createStorage } from "@/lib/storage";
+import { fetchPrivateBlobBytes } from "@/lib/storage/private-blob";
 import { extractIdCard } from "@/lib/ai/extract-id-card";
 import { getServiceCategory } from "@/lib/tax/service-categories";
 import {
@@ -113,8 +114,8 @@ export async function createIndividualPaymentAction(
   // Extract ID card data from the first image
   let extractedData: IndividualPaymentResult["extractedData"];
   try {
-    const firstFileUrl = fileRecords[0].fileUrl;
-    const extraction = await extractIdCard(firstFileUrl, orgId);
+    const firstFile = await fetchPrivateBlobBytes(fileRecords[0].fileUrl);
+    const extraction = await extractIdCard(firstFile, orgId);
     const citizenIdRaw = sanitizeTaxId(extraction.data.citizenId);
 
     // Validate citizen ID checksum

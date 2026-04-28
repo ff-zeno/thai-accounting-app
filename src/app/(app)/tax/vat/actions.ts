@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 import {
   computeVatForPeriod,
   upsertVatRecord,
@@ -73,10 +74,9 @@ export async function loadVatDataAction(year: number, month: number) {
 // ---------------------------------------------------------------------------
 
 export async function markPp30FiledAction(recordId: string) {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId, userId } = await requireOrgAdmin();
 
-  await markPp30Filed(orgId, recordId);
+  await markPp30Filed(orgId, recordId, userId);
   revalidatePath("/tax/vat");
   return { success: true };
 }
@@ -86,10 +86,9 @@ export async function markPp30FiledAction(recordId: string) {
 // ---------------------------------------------------------------------------
 
 export async function markPp36FiledAction(recordId: string) {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId, userId } = await requireOrgAdmin();
 
-  await markPp36Filed(orgId, recordId);
+  await markPp36Filed(orgId, recordId, userId);
   revalidatePath("/tax/vat");
   return { success: true };
 }

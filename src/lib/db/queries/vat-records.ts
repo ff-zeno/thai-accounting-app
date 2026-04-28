@@ -2,12 +2,26 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../index";
 import { vatRecords, documents, vendors } from "../schema";
 import { orgScope } from "../helpers/org-scope";
-import { auditMutation } from "../helpers/audit-log";
+import { auditMutation, isAuditActorId } from "../helpers/audit-log";
 import {
   pp30EfilingDeadline,
   pp36Deadline,
   DEFAULT_TAX_CONFIG,
 } from "@/lib/tax/filing-deadlines";
+import {
+  isPeriodLocked as isCanonicalPeriodLocked,
+  lockPeriod,
+} from "./period-locks";
+
+const THAI_VAT_RATE = "0.07";
+
+async function isVatPeriodLocked(orgId: string, year: number, month: number) {
+  return (
+    (await isCanonicalPeriodLocked(orgId, "vat", year, month)) ||
+    (await isCanonicalPeriodLocked(orgId, "vat_pp30", year, month)) ||
+    (await isCanonicalPeriodLocked(orgId, "vat_pp36", year, month))
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Compute input/output VAT from confirmed documents for a period
@@ -63,7 +77,10 @@ export async function computeVatForPeriod(
       total: sql<string>`COALESCE(SUM(${documents.vatAmount}), 0)::numeric(14,2)::text`,
     })
     .from(documents)
-    .innerJoin(vendors, eq(documents.vendorId, vendors.id))
+    .innerJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
     .where(
       and(
         ...orgScope(documents, orgId),
@@ -71,6 +88,7 @@ export async function computeVatForPeriod(
         eq(documents.status, "confirmed"),
         eq(documents.vatPeriodYear, year),
         eq(documents.vatPeriodMonth, month),
+        sql`${documents.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
         eq(vendors.isVatRegistered, true),
         sql`${documents.type} != 'credit_note'`,
         // Domestic vendors only: not foreign entity type and country is TH
@@ -85,7 +103,10 @@ export async function computeVatForPeriod(
       total: sql<string>`COALESCE(SUM(${documents.vatAmount}), 0)::numeric(14,2)::text`,
     })
     .from(documents)
-    .innerJoin(vendors, eq(documents.vendorId, vendors.id))
+    .innerJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
     .where(
       and(
         ...orgScope(documents, orgId),
@@ -94,19 +115,23 @@ export async function computeVatForPeriod(
         eq(documents.type, "credit_note"),
         eq(documents.vatPeriodYear, year),
         eq(documents.vatPeriodMonth, month),
+        sql`${documents.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
         eq(vendors.isVatRegistered, true),
         sql`${vendors.entityType} != 'foreign'`,
         sql`COALESCE(${vendors.country}, 'TH') = 'TH'`
       )
     );
 
-  // PP 36 reverse charge: confirmed expense documents from foreign vendors (services)
+  // PP 36 reverse charge: Thai VAT on foreign service/royalty/professional fee base.
   const pp36Result = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${documents.vatAmount}), 0)::numeric(14,2)::text`,
+      total: sql<string>`COALESCE(SUM(COALESCE(${documents.totalAmountThb}, ${documents.subtotal}, ${documents.totalAmount}) * ${THAI_VAT_RATE}::numeric), 0)::numeric(14,2)::text`,
     })
     .from(documents)
-    .innerJoin(vendors, eq(documents.vendorId, vendors.id))
+    .innerJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
     .where(
       and(
         ...orgScope(documents, orgId),
@@ -115,6 +140,7 @@ export async function computeVatForPeriod(
         eq(documents.vatPeriodYear, year),
         eq(documents.vatPeriodMonth, month),
         sql`${documents.type} != 'credit_note'`,
+        eq(documents.isPp36Subject, true),
         sql`(${vendors.entityType} = 'foreign' OR COALESCE(${vendors.country}, 'TH') != 'TH')`
       )
     );
@@ -206,6 +232,14 @@ export async function upsertVatRecord(data: {
   pp36Deadline: string;
   nilFilingRequired: boolean;
 }): Promise<string> {
+  if (
+    await isVatPeriodLocked(data.orgId, data.periodYear, data.periodMonth)
+  ) {
+    throw new Error(
+      `Cannot refresh VAT record — period ${data.periodMonth}/${data.periodYear} is locked`
+    );
+  }
+
   const [record] = await db
     .insert(vatRecords)
     .values({
@@ -288,34 +322,66 @@ export async function getVatRecordForPeriod(
 
 export async function markPp30Filed(
   orgId: string,
-  recordId: string
+  recordId: string,
+  lockedByUserId = "system"
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [updated] = await db
-    .update(vatRecords)
-    .set({
-      pp30Status: "filed",
-      periodLocked: true,
-    })
-    .where(
-      and(
-        ...orgScope(vatRecords, orgId),
-        eq(vatRecords.id, recordId)
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(vatRecords)
+      .set({
+        pp30Status: "filed",
+        periodLocked: true,
+      })
+      .where(
+        and(
+          ...orgScope(vatRecords, orgId),
+          eq(vatRecords.id, recordId)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    throw new Error("VAT record not found");
-  }
+    if (!updated) {
+      throw new Error("VAT record not found");
+    }
 
-  await auditMutation({
-    orgId,
-    entityType: "vat_record",
-    entityId: recordId,
-    action: "update",
-    newValue: { pp30Status: "filed", periodLocked: true, filingDate: today },
+    await lockPeriod({
+      orgId,
+      domain: "vat_pp30",
+      periodYear: updated.periodYear,
+      periodMonth: updated.periodMonth,
+      lockedByUserId,
+      lockReason: "pp30_filed",
+      entityType: "vat_record",
+      entityId: recordId,
+      tx,
+    });
+
+    await auditMutation(
+      {
+        orgId,
+        entityType: "vat_record",
+        entityId: recordId,
+        action: "update",
+        actorId: isAuditActorId(lockedByUserId) ? lockedByUserId : undefined,
+        newValue: {
+          pp30Status: "filed",
+          periodLocked: true,
+          filingDate: today,
+          auditContext: {
+            event: "filing_marked_filed",
+            filingType: "pp30",
+            lockDomain: "vat_pp30",
+            periodYear: updated.periodYear,
+            periodMonth: updated.periodMonth,
+            lockReason: "pp30_filed",
+            actorUserId: lockedByUserId,
+          },
+        },
+      },
+      tx
+    );
   });
 }
 
@@ -325,33 +391,64 @@ export async function markPp30Filed(
 
 export async function markPp36Filed(
   orgId: string,
-  recordId: string
+  recordId: string,
+  lockedByUserId = "system"
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [updated] = await db
-    .update(vatRecords)
-    .set({
-      pp36Status: "filed",
-    })
-    .where(
-      and(
-        ...orgScope(vatRecords, orgId),
-        eq(vatRecords.id, recordId)
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(vatRecords)
+      .set({
+        pp36Status: "filed",
+      })
+      .where(
+        and(
+          ...orgScope(vatRecords, orgId),
+          eq(vatRecords.id, recordId)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    throw new Error("VAT record not found");
-  }
+    if (!updated) {
+      throw new Error("VAT record not found");
+    }
 
-  await auditMutation({
-    orgId,
-    entityType: "vat_record",
-    entityId: recordId,
-    action: "update",
-    newValue: { pp36Status: "filed", filingDate: today },
+    await lockPeriod({
+      orgId,
+      domain: "vat_pp36",
+      periodYear: updated.periodYear,
+      periodMonth: updated.periodMonth,
+      lockedByUserId,
+      lockReason: "pp36_filed",
+      entityType: "vat_record",
+      entityId: recordId,
+      tx,
+    });
+
+    await auditMutation(
+      {
+        orgId,
+        entityType: "vat_record",
+        entityId: recordId,
+        action: "update",
+        actorId: isAuditActorId(lockedByUserId) ? lockedByUserId : undefined,
+        newValue: {
+          pp36Status: "filed",
+          filingDate: today,
+          auditContext: {
+            event: "filing_marked_filed",
+            filingType: "pp36",
+            lockDomain: "vat_pp36",
+            periodYear: updated.periodYear,
+            periodMonth: updated.periodMonth,
+            lockReason: "pp36_filed",
+            actorUserId: lockedByUserId,
+          },
+        },
+      },
+      tx
+    );
   });
 }
 
@@ -415,6 +512,7 @@ export async function getPp36Documents(
       subtotal: documents.subtotal,
       vatAmount: documents.vatAmount,
       totalAmount: documents.totalAmount,
+      pp36VatAmount: sql<string>`(COALESCE(${documents.totalAmountThb}, ${documents.subtotal}, ${documents.totalAmount}) * ${THAI_VAT_RATE}::numeric)::numeric(14,2)::text`,
       vendorName: vendors.name,
       vendorNameTh: vendors.nameTh,
       vendorTaxId: vendors.taxId,
@@ -422,7 +520,10 @@ export async function getPp36Documents(
       vendorEntityType: vendors.entityType,
     })
     .from(documents)
-    .innerJoin(vendors, eq(documents.vendorId, vendors.id))
+    .innerJoin(
+      vendors,
+      and(eq(documents.vendorId, vendors.id), eq(documents.orgId, vendors.orgId))
+    )
     .where(
       and(
         ...orgScope(documents, orgId),
@@ -431,6 +532,7 @@ export async function getPp36Documents(
         eq(documents.vatPeriodYear, year),
         eq(documents.vatPeriodMonth, month),
         sql`${documents.type} != 'credit_note'`,
+        eq(documents.isPp36Subject, true),
         sql`(${vendors.entityType} = 'foreign' OR COALESCE(${vendors.country}, 'TH') != 'TH')`
       )
     )

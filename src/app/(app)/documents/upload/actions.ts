@@ -80,14 +80,18 @@ export async function uploadDocument(
       fileRecords.push(fileRecord);
     }
 
-    await inngest.send({
-      name: "document/uploaded",
-      data: {
-        documentId: doc.id,
-        orgId,
-        fileIds: fileRecords.map((f) => f.id),
-      },
-    });
+    void inngest
+      .send({
+        name: "document/uploaded",
+        data: {
+          documentId: doc.id,
+          orgId,
+          fileIds: fileRecords.map((f) => f.id),
+        },
+      })
+      .catch((err) => {
+        console.error("[upload] Failed to emit document/uploaded event:", err);
+      });
 
     revalidatePath(`/documents/${direction === "expense" ? "expenses" : "income"}`);
     return { success: true, documentId: doc.id, documentCount: 1 };
@@ -123,7 +127,9 @@ export async function uploadDocument(
     });
   }
 
-  await inngest.send(events);
+  void inngest.send(events).catch((err) => {
+    console.error("[upload] Failed to emit document/uploaded events:", err);
+  });
 
   revalidatePath(`/documents/${direction === "expense" ? "expenses" : "income"}`);
   return { success: true, documentCount: files.length };

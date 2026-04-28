@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../index";
 import { extractionReviewOutcome } from "../schema";
 import { orgScopeAlive } from "../helpers/org-scope";
@@ -33,9 +33,9 @@ export interface ReviewOutcomeRow {
 // ---------------------------------------------------------------------------
 
 /**
- * Record the outcome of a user reviewing an extraction.
- * One outcome per extraction log — the unique constraint on
- * extraction_log_id prevents duplicates.
+ * Record the outcome of a user reviewing an extraction. Idempotent per
+ * extraction log — re-saves from the sidebar or full review page replace
+ * the existing outcome instead of failing on the unique constraint.
  */
 export async function insertReviewOutcome(
   input: InsertReviewOutcomeInput
@@ -49,6 +49,15 @@ export async function insertReviewOutcome(
       userCorrected: input.userCorrected,
       correctionCount: input.correctionCount,
       reviewedByUserId: input.reviewedByUserId,
+    })
+    .onConflictDoUpdate({
+      target: extractionReviewOutcome.extractionLogId,
+      set: {
+        userCorrected: sql`EXCLUDED.user_corrected`,
+        correctionCount: sql`EXCLUDED.correction_count`,
+        reviewedByUserId: sql`EXCLUDED.reviewed_by_user_id`,
+        reviewedAt: sql`now()`,
+      },
     })
     .returning();
 

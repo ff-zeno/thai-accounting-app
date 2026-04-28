@@ -5,7 +5,7 @@ import { orgMemberships } from "@/lib/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 
 /**
- * Require the current user to be an admin or owner of their active org.
+ * Require the current user to be an admin, owner, or accountant of their active org.
  * Throws if not authorized.
  *
  * Returns { orgId, userId } for convenience in server components/actions.
@@ -35,8 +35,8 @@ export async function requireOrgAdmin(): Promise<{
     )
     .limit(1);
 
-  if (!membership || !["admin", "owner"].includes(membership.role ?? "")) {
-    throw new Error("Admin access required");
+  if (!membership || !["admin", "owner", "accountant"].includes(membership.role ?? "")) {
+    throw new Error("Admin or accountant access required");
   }
 
   return { orgId, userId: user.id };

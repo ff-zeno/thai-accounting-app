@@ -11,7 +11,7 @@
 
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { vendors } from "@/lib/db/schema";
+import { vendors, organizations } from "@/lib/db/schema";
 
 // ---------------------------------------------------------------------------
 // Tax ID extraction from text
@@ -124,7 +124,24 @@ export async function probeVendorIdentity(
     return { vendorId: null, taxIdFound: null, confident: false };
   }
 
-  const candidates = extractTaxIdCandidates(fullText);
+  const rawCandidates = extractTaxIdCandidates(fullText);
+  if (rawCandidates.length === 0) {
+    return { vendorId: null, taxIdFound: null, confident: false };
+  }
+
+  // Exclude the user's own org tax ID: it's always printed on invoices as
+  // the buyer, never as the vendor. Without this, the buyer scores the same
+  // as the vendor and the confidence check rejects every Thai invoice.
+  const [org] = await db
+    .select({ taxId: organizations.taxId })
+    .from(organizations)
+    .where(and(eq(organizations.id, orgId), isNull(organizations.deletedAt)))
+    .limit(1);
+  const ownTaxId = org?.taxId ?? null;
+
+  const candidates = ownTaxId
+    ? rawCandidates.filter((c) => c.normalized !== ownTaxId)
+    : rawCandidates;
   if (candidates.length === 0) {
     return { vendorId: null, taxIdFound: null, confident: false };
   }
@@ -132,13 +149,39 @@ export async function probeVendorIdentity(
   const top = candidates[0];
   const runnerUp = candidates[1];
 
-  // Require margin of ≥3 between top and runner-up to be confident.
-  // If only one candidate, it's confident by default.
+  // DB-match priority: if any candidate resolves to a known vendor, trust
+  // that over the margin heuristic. A tax ID matching a vendor row we
+  // created from a prior doc is much stronger evidence than text-score.
+  // Try top first, then runner-up (in case the top is a noise match).
+  const topCandidates = candidates.slice(0, 3);
+  for (const cand of topCandidates) {
+    const [vendor] = await db
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(
+        and(
+          eq(vendors.orgId, orgId),
+          eq(vendors.taxId, cand.normalized),
+          isNull(vendors.deletedAt)
+        )
+      )
+      .limit(1);
+    if (vendor) {
+      return {
+        vendorId: vendor.id,
+        taxIdFound: cand.normalized,
+        confident: true,
+      };
+    }
+  }
+
+  // No candidate matched a known vendor. Fall back to margin heuristic.
   const confident = !runnerUp || (top.score - runnerUp.score >= 3);
 
   if (!confident) {
-    // Ambiguous — don't risk mis-identifying. Fall back to Tier 0.
-    // But still return the top tax ID for logging purposes.
+    console.log(
+      `[probe-identity] not confident — top=${top.normalized}(score=${top.score}) vs runnerUp=${runnerUp?.normalized}(score=${runnerUp?.score ?? "n/a"}); ownTaxId=${ownTaxId ?? "none"}; no DB match for any top-3 candidate`
+    );
     return {
       vendorId: null,
       taxIdFound: top.normalized,
@@ -146,21 +189,9 @@ export async function probeVendorIdentity(
     };
   }
 
-  // Look up the tax ID in the vendors table
-  const [vendor] = await db
-    .select({ id: vendors.id })
-    .from(vendors)
-    .where(
-      and(
-        eq(vendors.orgId, orgId),
-        eq(vendors.taxId, top.normalized),
-        isNull(vendors.deletedAt)
-      )
-    )
-    .limit(1);
-
+  // Top candidate confident but no vendor in DB yet (first encounter).
   return {
-    vendorId: vendor?.id ?? null,
+    vendorId: null,
     taxIdFound: top.normalized,
     confident: true,
   };

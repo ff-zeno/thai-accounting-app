@@ -17,6 +17,7 @@ import {
   updateMatchConfirmation,
   verifyTransactionOwnership,
   verifyDocumentOwnership,
+  ReconciliationAllocationError,
 } from "@/lib/db/queries/reconciliation";
 import {
   approveSuggestion,
@@ -87,41 +88,48 @@ export async function createManualMatchAction(data: {
   const paymentId = payments.length > 0 ? payments[0].id : null;
 
   // Wrap all match creation in a transaction
-  await db.transaction(async (tx) => {
-    for (const txnId of data.transactionIds) {
-      const matchedAmount = data.amounts[txnId];
-      if (!matchedAmount) continue;
+  try {
+    await db.transaction(async (tx) => {
+      for (const txnId of data.transactionIds) {
+        const matchedAmount = data.amounts[txnId];
+        if (!matchedAmount) continue;
 
-      await createMatch(
-        {
-          orgId,
-          transactionId: txnId,
-          documentId: data.documentId,
-          paymentId,
-          matchedAmount,
-          matchType: "manual",
-          confidence: "1.00",
-          matchedBy: "manual",
-        },
-        tx,
-      );
+        await createMatch(
+          {
+            orgId,
+            transactionId: txnId,
+            documentId: data.documentId,
+            paymentId,
+            matchedAmount,
+            matchType: "manual",
+            confidence: "1.00",
+            matchedBy: "manual",
+          },
+          tx,
+        );
 
-      await recomputeTransactionStatus(orgId, txnId, tx);
+        await recomputeTransactionStatus(orgId, txnId, tx);
+      }
+    });
+  } catch (error) {
+    if (error instanceof ReconciliationAllocationError) {
+      return { error: error.message };
     }
-  });
+    throw error;
+  }
 
   // Non-blocking alias learning (batched)
   await learnAliasFromMatch(orgId, data.transactionIds, data.documentId, "manual_match");
 
-  // Fire Inngest event for auto-rule suggestion (non-blocking)
-  try {
-    await inngest.send({
+  // Fire Inngest event for auto-rule suggestion (truly non-blocking).
+  void inngest
+    .send({
       name: "reconciliation/manual-match-session",
       data: { orgId, userId: actorId ?? "unknown" },
+    })
+    .catch((err) => {
+      console.error("[manual-match] Inngest event failed (non-blocking):", err);
     });
-  } catch (err) {
-    console.error("[manual-match] Inngest event failed (non-blocking):", err);
-  }
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/review");
@@ -164,61 +172,68 @@ export async function rejectAndRematchAction(
   const paymentId = payments.length > 0 ? payments[0].id : null;
 
   // Steps 1-5 inside transaction: soft-delete old, reject AI suggestion, create new match
-  await db.transaction(async (tx) => {
-    // 1. Soft-delete old match
-    await softDeleteMatch(orgId, matchId, tx, actorId);
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Soft-delete old match
+      await softDeleteMatch(orgId, matchId, tx, actorId);
 
-    // 2. If AI suggestion exists for old match, reject it
-    const suggestion = await findSuggestionByPair(
-      orgId,
-      oldMatch.transactionId,
-      oldMatch.documentId,
-      tx,
-    );
-    if (suggestion) {
-      await rejectSuggestion(
+      // 2. If AI suggestion exists for old match, reject it
+      const suggestion = await findSuggestionByPair(
         orgId,
-        suggestion.id,
-        actorId ?? "system",
-        rejectionReason,
+        oldMatch.transactionId,
+        oldMatch.documentId,
         tx,
       );
+      if (suggestion) {
+        await rejectSuggestion(
+          orgId,
+          suggestion.id,
+          actorId ?? "system",
+          rejectionReason,
+          tx,
+        );
+      }
+
+      // 3. Recompute old transaction status from remaining active matches
+      await recomputeTransactionStatus(orgId, oldMatch.transactionId, tx);
+
+      // 4. Create new manual match
+      await createMatch(
+        {
+          orgId,
+          transactionId: newTransactionId,
+          documentId: oldMatch.documentId,
+          paymentId,
+          matchedAmount: newMatchedAmount,
+          matchType: "manual",
+          confidence: "1.00",
+          matchedBy: "manual",
+        },
+        tx,
+      );
+
+      // 5. Recompute new transaction status (split-match safe)
+      await recomputeTransactionStatus(orgId, newTransactionId, tx);
+    });
+  } catch (error) {
+    if (error instanceof ReconciliationAllocationError) {
+      return { error: error.message };
     }
-
-    // 3. Recompute old transaction status from remaining active matches
-    await recomputeTransactionStatus(orgId, oldMatch.transactionId, tx);
-
-    // 4. Create new manual match
-    await createMatch(
-      {
-        orgId,
-        transactionId: newTransactionId,
-        documentId: oldMatch.documentId,
-        paymentId,
-        matchedAmount: newMatchedAmount,
-        matchType: "manual",
-        confidence: "1.00",
-        matchedBy: "manual",
-      },
-      tx,
-    );
-
-    // 5. Recompute new transaction status (split-match safe)
-    await recomputeTransactionStatus(orgId, newTransactionId, tx);
-  });
+    throw error;
+  }
 
   // Non-blocking alias learning (batched)
   await learnAliasFromMatch(orgId, [newTransactionId], oldMatch.documentId, "rejection_correction");
 
-  // Fire Inngest event for auto-rule suggestion (non-blocking)
-  try {
-    await inngest.send({
+  // Fire Inngest event for auto-rule suggestion (truly non-blocking).
+  void inngest
+    .send({
       name: "reconciliation/manual-match-session",
       data: { orgId, userId: actorId ?? "unknown" },
+    })
+    .catch((err) => {
+      console.error("[reject-rematch] Inngest event failed (non-blocking):", err);
     });
-  } catch (err) {
-    console.error("[reject-rematch] Inngest event failed (non-blocking):", err);
-  }
 
   revalidatePath("/reconciliation");
   revalidatePath("/reconciliation/review");
@@ -298,35 +313,42 @@ export async function bulkApproveHighConfidenceAction(
 
   // All-or-nothing: wrap entire bulk operation in one transaction
   const approvedIds: Array<{ transactionId: string; documentId: string }> = [];
-  await db.transaction(async (tx) => {
-    for (const suggestion of eligible) {
-      // Approve the suggestion
-      await approveSuggestion(orgId, suggestion.id, actorId, tx);
+  try {
+    await db.transaction(async (tx) => {
+      for (const suggestion of eligible) {
+        // Approve the suggestion
+        await approveSuggestion(orgId, suggestion.id, actorId, tx);
 
-      // Create the actual reconciliation match
-      await createMatch(
-        {
-          orgId,
+        // Create the actual reconciliation match
+        await createMatch(
+          {
+            orgId,
+            transactionId: suggestion.transactionId,
+            documentId: suggestion.documentId,
+            paymentId: suggestion.paymentId ?? undefined,
+            matchedAmount: suggestion.suggestedAmount ?? "0.00",
+            matchType: "ai_suggested",
+            confidence: suggestion.confidence,
+            matchedBy: "auto",
+          },
+          tx,
+        );
+
+        // Recompute transaction status
+        await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
+
+        approvedIds.push({
           transactionId: suggestion.transactionId,
           documentId: suggestion.documentId,
-          paymentId: suggestion.paymentId ?? undefined,
-          matchedAmount: suggestion.suggestedAmount ?? "0.00",
-          matchType: "ai_suggested",
-          confidence: suggestion.confidence,
-          matchedBy: "auto",
-        },
-        tx,
-      );
-
-      // Recompute transaction status
-      await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
-
-      approvedIds.push({
-        transactionId: suggestion.transactionId,
-        documentId: suggestion.documentId,
-      });
+        });
+      }
+    });
+  } catch (error) {
+    if (error instanceof ReconciliationAllocationError) {
+      return { error: error.message };
     }
-  });
+    throw error;
+  }
 
   // Non-blocking alias learning (outside transaction)
   for (const { transactionId, documentId } of approvedIds) {
@@ -382,28 +404,35 @@ export async function approveSuggestionAction(
   if (!suggestion) return { error: "Suggestion not found" };
   if (suggestion.status !== "pending") return { error: "Suggestion already processed" };
 
-  await db.transaction(async (tx) => {
-    // Approve the suggestion
-    await approveSuggestion(orgId, suggestionId, actorId, tx);
+  try {
+    await db.transaction(async (tx) => {
+      // Approve the suggestion
+      await approveSuggestion(orgId, suggestionId, actorId, tx);
 
-    // Create the actual reconciliation match
-    await createMatch(
-      {
-        orgId,
-        transactionId: suggestion.transactionId,
-        documentId: suggestion.documentId,
-        paymentId: suggestion.paymentId ?? undefined,
-        matchedAmount: suggestion.suggestedAmount ?? "0.00",
-        matchType: "ai_suggested",
-        confidence: suggestion.confidence,
-        matchedBy: "auto",
-      },
-      tx,
-    );
+      // Create the actual reconciliation match
+      await createMatch(
+        {
+          orgId,
+          transactionId: suggestion.transactionId,
+          documentId: suggestion.documentId,
+          paymentId: suggestion.paymentId ?? undefined,
+          matchedAmount: suggestion.suggestedAmount ?? "0.00",
+          matchType: "ai_suggested",
+          confidence: suggestion.confidence,
+          matchedBy: "auto",
+        },
+        tx,
+      );
 
-    // Recompute transaction status
-    await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
-  });
+      // Recompute transaction status
+      await recomputeTransactionStatus(orgId, suggestion.transactionId, tx);
+    });
+  } catch (error) {
+    if (error instanceof ReconciliationAllocationError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
 
   // Non-blocking alias learning
   await learnAliasFromMatch(

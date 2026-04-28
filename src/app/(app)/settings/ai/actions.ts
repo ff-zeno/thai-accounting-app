@@ -1,6 +1,7 @@
 "use server";
 
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 import {
   upsertOrgAiSettings,
   getAiCostSummary,
@@ -14,8 +15,7 @@ import { AVAILABLE_MODELS } from "@/lib/ai/models-catalog";
 const validModelIds = new Set(AVAILABLE_MODELS.map((m) => m.id));
 
 export async function updateAiSettingsAction(formData: FormData) {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId } = await requireOrgAdmin();
 
   const extractionModel = formData.get("extractionModel") as string | null;
   const classificationModel = formData.get("classificationModel") as string | null;

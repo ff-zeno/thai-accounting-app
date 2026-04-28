@@ -32,7 +32,12 @@ vi.mock("./org-scope", () => ({
   ],
 }));
 
-import { auditMutation, getAuditHistory, withAudit } from "./audit-log";
+import {
+  auditMutation,
+  getAuditHistory,
+  isAuditActorId,
+  withAudit,
+} from "./audit-log";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -69,31 +74,45 @@ describe("auditMutation", () => {
     });
   });
 
-  it("passes actorId when provided", async () => {
+  it("passes actorId when provided as a database UUID", async () => {
     await auditMutation({
       orgId: "org-1",
       entityType: "vendor",
       entityId: "v-1",
       action: "update",
-      actorId: "user-42",
+      actorId: "11111111-1111-4111-8111-111111111111",
       oldValue: { name: "Old" },
       newValue: { name: "New" },
     });
 
     expect(mockValues).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorId: "user-42",
+        actorId: "11111111-1111-4111-8111-111111111111",
         oldValue: { name: "Old" },
         newValue: { name: "New" },
       }),
     );
   });
 
-  it("does NOT throw on error (logs instead)", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("drops non-UUID actorId values that cannot satisfy the audit FK", async () => {
+    await auditMutation({
+      orgId: "org-1",
+      entityType: "vendor",
+      entityId: "v-1",
+      action: "update",
+      actorId: "user_abc123",
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: null,
+      }),
+    );
+  });
+
+  it("throws on audit write failure", async () => {
     mockValues.mockRejectedValue(new Error("DB connection failed"));
 
-    // Should not throw
     await expect(
       auditMutation({
         orgId: "org-1",
@@ -101,14 +120,19 @@ describe("auditMutation", () => {
         entityId: "doc-1",
         action: "create",
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow("DB connection failed");
+  });
+});
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "[audit-log] Failed to write audit entry:",
-      expect.any(Error),
-    );
+describe("isAuditActorId", () => {
+  it("accepts UUID database user IDs", () => {
+    expect(isAuditActorId("11111111-1111-4111-8111-111111111111")).toBe(true);
+  });
 
-    consoleSpy.mockRestore();
+  it("rejects system and Clerk-style IDs that cannot satisfy the audit FK", () => {
+    expect(isAuditActorId("system")).toBe(false);
+    expect(isAuditActorId("user_abc123")).toBe(false);
+    expect(isAuditActorId(undefined)).toBe(false);
   });
 });
 
@@ -222,28 +246,26 @@ describe("withAudit", () => {
     );
   });
 
-  it("still runs the mutation even if audit logging fails", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("runs the mutation, then throws if audit logging fails", async () => {
     mockValues.mockRejectedValue(new Error("Audit write failed"));
 
     let mutationCalled = false;
-    const result = await withAudit(
-      {
-        orgId: "org-1",
-        entityType: "document",
-        entityId: "doc-1",
-        action: "update",
-      },
-      async () => null,
-      async () => {
-        mutationCalled = true;
-        return { id: "doc-1" };
-      },
-    );
+    await expect(
+      withAudit(
+        {
+          orgId: "org-1",
+          entityType: "document",
+          entityId: "doc-1",
+          action: "update",
+        },
+        async () => null,
+        async () => {
+          mutationCalled = true;
+          return { id: "doc-1" };
+        },
+      ),
+    ).rejects.toThrow("Audit write failed");
 
     expect(mutationCalled).toBe(true);
-    expect(result).toEqual({ id: "doc-1" });
-
-    consoleSpy.mockRestore();
   });
 });

@@ -59,7 +59,7 @@ vi.mock("../index", () => ({
 }));
 
 // Mock isPeriodLocked to always return false (unlocked) by default
-vi.mock("./wht-filings", () => ({
+vi.mock("./period-locks", () => ({
   isPeriodLocked: vi.fn().mockResolvedValue(false),
 }));
 

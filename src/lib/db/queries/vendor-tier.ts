@@ -10,12 +10,14 @@ import { auditMutation } from "../helpers/audit-log";
 export interface VendorTierRow {
   id: string;
   vendorId: string;
+  scopeKind: "org" | "global";
   orgId: string | null;
   tier: number;
   docsProcessedTotal: number;
   lastDocAt: Date | null;
   lastPromotedAt: Date | null;
   lastDemotedAt: Date | null;
+  updatedAt: Date | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,12 +32,14 @@ export async function getVendorTier(
     .select({
       id: vendorTier.id,
       vendorId: vendorTier.vendorId,
+      scopeKind: vendorTier.scopeKind,
       orgId: vendorTier.orgId,
       tier: vendorTier.tier,
       docsProcessedTotal: vendorTier.docsProcessedTotal,
       lastDocAt: vendorTier.lastDocAt,
       lastPromotedAt: vendorTier.lastPromotedAt,
       lastDemotedAt: vendorTier.lastDemotedAt,
+      updatedAt: vendorTier.updatedAt,
     })
     .from(vendorTier)
     .where(
@@ -95,12 +99,14 @@ export async function upsertVendorTier(
     .returning({
       id: vendorTier.id,
       vendorId: vendorTier.vendorId,
+      scopeKind: vendorTier.scopeKind,
       orgId: vendorTier.orgId,
       tier: vendorTier.tier,
       docsProcessedTotal: vendorTier.docsProcessedTotal,
       lastDocAt: vendorTier.lastDocAt,
       lastPromotedAt: vendorTier.lastPromotedAt,
       lastDemotedAt: vendorTier.lastDemotedAt,
+      updatedAt: vendorTier.updatedAt,
     });
 
   await auditMutation({
@@ -155,12 +161,14 @@ export async function demoteVendorTier(
     .returning({
       id: vendorTier.id,
       vendorId: vendorTier.vendorId,
+      scopeKind: vendorTier.scopeKind,
       orgId: vendorTier.orgId,
       tier: vendorTier.tier,
       docsProcessedTotal: vendorTier.docsProcessedTotal,
       lastDocAt: vendorTier.lastDocAt,
       lastPromotedAt: vendorTier.lastPromotedAt,
       lastDemotedAt: vendorTier.lastDemotedAt,
+      updatedAt: vendorTier.updatedAt,
     });
 
   if (result) {

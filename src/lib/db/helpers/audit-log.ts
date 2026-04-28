@@ -1,5 +1,5 @@
 import { and, eq, desc } from "drizzle-orm";
-import { db } from "../index";
+import { db, type DbConnection } from "../index";
 import { auditLog } from "../schema";
 import { orgScopeAlive } from "./org-scope";
 
@@ -13,25 +13,33 @@ interface AuditEntry {
   actorId?: string;
 }
 
+export function isAuditActorId(value: string | null | undefined): value is string {
+  return Boolean(
+    value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value
+      )
+  );
+}
+
 /**
- * Write an immutable audit log entry.
- * Call this AFTER the mutation succeeds, not before.
- * Failures are logged but never block the main operation.
+ * Write an immutable audit log entry. Regulated callers should pass the same
+ * transaction handle so audit failure rolls back the business mutation.
  */
-export async function auditMutation(entry: AuditEntry): Promise<void> {
-  try {
-    await db.insert(auditLog).values({
-      orgId: entry.orgId,
-      entityType: entry.entityType,
-      entityId: entry.entityId,
-      action: entry.action,
-      oldValue: entry.oldValue ?? null,
-      newValue: entry.newValue ?? null,
-      actorId: entry.actorId ?? null,
-    });
-  } catch (err) {
-    console.error("[audit-log] Failed to write audit entry:", err);
-  }
+export async function auditMutation(
+  entry: AuditEntry,
+  tx?: DbConnection
+): Promise<void> {
+  const conn = tx ?? db;
+  await conn.insert(auditLog).values({
+    orgId: entry.orgId,
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+    action: entry.action,
+    oldValue: entry.oldValue ?? null,
+    newValue: entry.newValue ?? null,
+    actorId: isAuditActorId(entry.actorId) ? entry.actorId : null,
+  });
 }
 
 /**

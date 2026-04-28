@@ -2,8 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getVerifiedOrgId } from "@/lib/utils/org-context";
-import { getCurrentUserId } from "@/lib/utils/auth";
+import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 import {
   createRule,
   updateRule,
@@ -26,9 +25,8 @@ import { isSafeRegex } from "@/lib/reconciliation/rule-engine";
 export async function applyBusinessTemplateAction(
   templateId: string,
 ): Promise<{ success: true; rulesCreated: number; rulesSkipped: number } | { error: string }> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
-  const actorId = (await getCurrentUserId()) ?? undefined;
+  const { orgId, userId } = await requireOrgAdmin();
+  const actorId = userId;
 
   const template = getTemplateById(templateId);
   if (!template) return { error: "Template not found" };
@@ -107,9 +105,8 @@ const ruleFormSchema = z.object({
 export async function createRuleAction(
   input: z.infer<typeof ruleFormSchema>,
 ): Promise<{ success: true; ruleId: string } | { error: string }> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
-  const actorId = (await getCurrentUserId()) ?? undefined;
+  const { orgId, userId } = await requireOrgAdmin();
+  const actorId = userId;
 
   const parsed = ruleFormSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -153,9 +150,8 @@ export async function updateRuleAction(
   ruleId: string,
   input: z.infer<typeof ruleFormSchema>,
 ): Promise<{ success: true } | { error: string }> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
-  const actorId = (await getCurrentUserId()) ?? undefined;
+  const { orgId, userId } = await requireOrgAdmin();
+  const actorId = userId;
 
   const parsed = ruleFormSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -198,8 +194,7 @@ export async function toggleRuleActiveAction(
   ruleId: string,
   isActive: boolean,
 ): Promise<{ success: true } | { error: string }> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId } = await requireOrgAdmin();
 
   await toggleRuleActive(orgId, ruleId, isActive);
   revalidatePath("/settings/reconciliation-rules");
@@ -213,9 +208,8 @@ export async function toggleRuleActiveAction(
 export async function deleteRuleAction(
   ruleId: string,
 ): Promise<{ success: true } | { error: string }> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
-  const actorId = (await getCurrentUserId()) ?? undefined;
+  const { orgId, userId } = await requireOrgAdmin();
+  const actorId = userId;
 
   await deleteRule(orgId, ruleId);
 
@@ -239,8 +233,7 @@ export async function reorderRuleAction(
   ruleId: string,
   direction: "up" | "down",
 ): Promise<{ success: true } | { error: string }> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
+  const { orgId } = await requireOrgAdmin();
 
   const rules = await getAllRules(orgId);
   const idx = rules.findIndex((r) => r.id === ruleId);

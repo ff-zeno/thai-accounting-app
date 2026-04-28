@@ -26,7 +26,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const PROVIDER_COLORS: Record<string, string> = {
-  Anthropic: "bg-amber-600",
   Google: "bg-blue-500",
   OpenAI: "bg-emerald-600",
 };

@@ -59,6 +59,8 @@ export default async function DocumentReviewPage({
           vatAmount: doc.vatAmount,
           totalAmount: doc.totalAmount,
           currency: doc.currency,
+          taxInvoiceSubtype: doc.taxInvoiceSubtype,
+          isPp36Subject: doc.isPp36Subject,
           status: doc.status,
           needsReview: doc.needsReview,
           aiConfidence: doc.aiConfidence,

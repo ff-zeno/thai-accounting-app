@@ -43,8 +43,6 @@ import {
 import {
   searchDocumentsAction,
   updateDocumentSidebarAction,
-  getDocumentDetailsAction,
-  confirmDocumentSidebarAction,
   getPendingPipelineCountAction,
   bulkDeleteDocumentsAction,
 } from "./actions";
@@ -596,19 +594,26 @@ export function DocumentTable({
     {
       id: "select",
       header: () => (
-        <Checkbox
-          checked={allSelected}
-          indeterminate={someSelected}
-          onCheckedChange={toggleSelectAll}
-          aria-label="Select all"
-        />
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected}
+            onCheckedChange={toggleSelectAll}
+            aria-label="Select all"
+          />
+        </div>
       ),
       cell: ({ row }) => (
-        <Checkbox
-          checked={selectedIds.has(row.original.id)}
-          onCheckedChange={() => toggleSelection(row.original.id)}
-          aria-label={`Select document ${row.original.documentNumber ?? row.original.id}`}
-        />
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center"
+        >
+          <Checkbox
+            checked={selectedIds.has(row.original.id)}
+            onCheckedChange={() => toggleSelection(row.original.id)}
+            aria-label={`Select document ${row.original.documentNumber ?? row.original.id}`}
+          />
+        </div>
       ),
     },
     {
@@ -795,9 +800,9 @@ export function DocumentTable({
 
   return (
     <div className="space-y-3">
-      {/* Search & Filter Bar */}
-      <div className="flex items-center gap-2">
-        <div className="relative max-w-sm flex-1">
+      {/* Search & Filter Bar — fixed h-8 row; bulk actions expand inline when selected */}
+      <div className="flex h-8 items-center gap-2">
+        <div className="relative h-8 max-w-sm flex-1">
           <Input
             placeholder={`${t("vendor")}, ${t("documentNumber")}...`}
             value={searchQuery}
@@ -808,10 +813,9 @@ export function DocumentTable({
             <Loader2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
           )}
         </div>
-        <div className="relative">
+        <div className="relative h-8">
           <Button
             variant="outline"
-            size="sm"
             onClick={() => {
               setPendingFilters(appliedFilters);
               setShowFilters(!showFilters);
@@ -836,32 +840,31 @@ export function DocumentTable({
             />
           )}
         </div>
-      </div>
 
-      {/* Floating action bar for selection */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
-          <span className="text-sm font-medium">
-            {selectedIds.size} selected
-          </span>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setConfirmDeleteOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            {tc("delete")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            <X className="size-4" />
-            {tc("clear")}
-          </Button>
-        </div>
-      )}
+        {selectedIds.size > 0 && (
+          <div className="flex h-8 flex-1 items-center gap-2 rounded-md border bg-muted/50 px-2">
+            <span className="text-sm font-medium">
+              {selectedIds.size} selected
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              <Trash2 className="size-3.5" />
+              {tc("delete")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="size-3.5" />
+              {tc("clear")}
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Table */}
       <div className="rounded-md border">
@@ -965,14 +968,6 @@ export function DocumentTable({
         onClose={() => setSelectedDocId(null)}
         onSave={async (docId, data) => {
           const result = await updateDocumentSidebarAction(docId, data);
-          if ("success" in result) {
-            // Refresh the list
-            executeSearch(searchQuery, appliedFilters);
-          }
-          return result;
-        }}
-        onConfirm={async (docId) => {
-          const result = await confirmDocumentSidebarAction(docId);
           if ("success" in result) {
             executeSearch(searchQuery, appliedFilters);
           }

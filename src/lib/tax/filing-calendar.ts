@@ -9,7 +9,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type FilingFormType = "pnd3" | "pnd53" | "pnd54";
+export type FilingFormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
 
 export type FilingStatus = "upcoming" | "due_soon" | "overdue" | "filed" | "paid";
 
@@ -36,7 +36,7 @@ export interface CalendarEntry {
 // Deadline calculation
 // ---------------------------------------------------------------------------
 
-const FORM_TYPES: FilingFormType[] = ["pnd3", "pnd53", "pnd54"];
+const FORM_TYPES: FilingFormType[] = ["pnd2", "pnd3", "pnd53", "pnd54"];
 
 /**
  * Get WHT filing deadline for a given period.
@@ -48,7 +48,7 @@ export function getWhtFilingDeadline(
   isEfiling = true,
   config: TaxConfigValues = DEFAULT_TAX_CONFIG
 ): Date {
-  // All WHT form types (PND 3/53/54) share the same deadline
+  // All WHT form types (PND 2/3/53/54) share the same deadline
   const result = isEfiling
     ? whtEfilingDeadline(year, month, config)
     : whtPaperDeadline(year, month, config);
@@ -129,6 +129,8 @@ export function getMonthName(month: number, locale: "en" | "th" = "en"): string 
 /** Format form type for display */
 export function formatFormType(formType: FilingFormType): string {
   switch (formType) {
+    case "pnd2":
+      return "PND 2";
     case "pnd3":
       return "PND 3";
     case "pnd53":

@@ -13,7 +13,8 @@ import {
   getCertificatesForFiling,
 } from "@/lib/db/queries/wht-filings";
 
-type FormType = "pnd3" | "pnd53" | "pnd54";
+type FormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
+const FORM_TYPES = ["pnd2", "pnd3", "pnd53", "pnd54"] as const;
 
 // ---------------------------------------------------------------------------
 // Refresh/aggregate filing data for a period
@@ -78,7 +79,7 @@ export async function loadFilingDataAction(year: number, month: number) {
   const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
-  const formTypes: FormType[] = ["pnd3", "pnd53", "pnd54"];
+  const formTypes: FormType[] = [...FORM_TYPES];
 
   // Ensure filing records exist for all form types
   for (const formType of formTypes) {
@@ -99,6 +100,7 @@ export async function loadFilingDataAction(year: number, month: number) {
 
   // Load certificates for each form type
   const certificatesByFormType: Record<FormType, Awaited<ReturnType<typeof getCertificatesForFiling>>> = {
+    pnd2: [],
     pnd3: [],
     pnd53: [],
     pnd54: [],
@@ -132,8 +134,7 @@ export async function downloadRdCsvAction(
   const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
-  const validFormTypes = ["pnd3", "pnd53", "pnd54"] as const;
-  if (!validFormTypes.includes(formType as FormType)) {
+  if (!FORM_TYPES.includes(formType as FormType)) {
     return { error: `Invalid form type: ${formType}` };
   }
 

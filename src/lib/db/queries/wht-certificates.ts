@@ -18,7 +18,7 @@ const WHT_ANNUAL_EXEMPTION_THRESHOLD = 1000;
 // Form type determination
 // ---------------------------------------------------------------------------
 
-export type WhtFormType = "pnd3" | "pnd53" | "pnd54";
+export type WhtFormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
 
 export function getFormTypeForEntity(
   entityType: "individual" | "company" | "foreign"

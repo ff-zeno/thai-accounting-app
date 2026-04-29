@@ -10,6 +10,7 @@ import { auditMutation, isAuditActorId } from "../helpers/audit-log";
 import {
   whtEfilingDeadline,
   DEFAULT_TAX_CONFIG,
+  formatBangkokDate,
 } from "@/lib/tax/filing-deadlines";
 import {
   isPeriodLocked as isCanonicalPeriodLocked,
@@ -17,13 +18,15 @@ import {
   type PeriodLockDomain,
 } from "./period-locks";
 
-function whtDomain(formType: "pnd3" | "pnd53" | "pnd54"): PeriodLockDomain {
+type WhtFilingFormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
+
+function whtDomain(formType: WhtFilingFormType): PeriodLockDomain {
   return `wht_${formType}` as PeriodLockDomain;
 }
 
 async function isWhtFilingLocked(
   orgId: string,
-  formType: "pnd3" | "pnd53" | "pnd54",
+  formType: WhtFilingFormType,
   year: number,
   month: number
 ) {
@@ -41,7 +44,7 @@ export async function aggregateMonthlyFiling(
   orgId: string,
   year: number,
   month: number,
-  formType: "pnd3" | "pnd53" | "pnd54"
+  formType: WhtFilingFormType
 ): Promise<{
   totalBaseAmount: string;
   totalWhtAmount: string;
@@ -76,7 +79,7 @@ export async function upsertMonthlyFiling(data: {
   orgId: string;
   periodYear: number;
   periodMonth: number;
-  formType: "pnd3" | "pnd53" | "pnd54";
+  formType: WhtFilingFormType;
   totalBaseAmount: string;
   totalWhtAmount: string;
   deadline: string;
@@ -161,7 +164,7 @@ export async function getCertificatesForFiling(
   orgId: string,
   year: number,
   month: number,
-  formType: "pnd3" | "pnd53" | "pnd54"
+  formType: WhtFilingFormType
 ) {
   return db
     .select({
@@ -205,7 +208,7 @@ export async function markFilingAsFiled(
   filingId: string,
   lockedByUserId = "system"
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatBangkokDate(new Date());
 
   await db.transaction(async (tx) => {
     const [updated] = await tx
@@ -363,5 +366,5 @@ export function computeFilingDeadline(
     periodMonth,
     DEFAULT_TAX_CONFIG
   );
-  return deadline.toISOString().slice(0, 10);
+  return formatBangkokDate(deadline);
 }

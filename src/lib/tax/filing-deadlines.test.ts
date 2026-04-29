@@ -5,21 +5,23 @@ import {
   pp30EfilingDeadline,
   pp36Deadline,
   DEFAULT_TAX_CONFIG,
+  adjustToNextThaiBusinessDay,
+  isThaiBusinessDay,
 } from "./filing-deadlines";
 
 const config = DEFAULT_TAX_CONFIG;
 
 describe("filing deadlines", () => {
-  it("WHT paper filing: period 2026-01 returns 2026-02-07", () => {
+  it("WHT paper filing: period 2026-01 rolls Saturday 2026-02-07 to Monday 2026-02-09", () => {
     const result = whtPaperDeadline(2026, 1, config);
-    expect(result.deadline.toISOString()).toContain("2026-02-06"); // 07 in +07:00 = 06T17:00Z
+    expect(result.deadline.toISOString()).toContain("2026-02-08"); // 09 in +07:00 = 08T17:00Z
     expect(result.isExtended).toBe(false);
     expect(result.extensionDays).toBe(0);
   });
 
-  it("WHT e-filing: period 2026-01 returns 2026-02-15", () => {
+  it("WHT e-filing: period 2026-01 rolls Sunday 2026-02-15 to Monday 2026-02-16", () => {
     const result = whtEfilingDeadline(2026, 1, config);
-    expect(result.deadline.toISOString()).toContain("2026-02-14"); // 15 in +07:00 = 14T17:00Z
+    expect(result.deadline.toISOString()).toContain("2026-02-15"); // 16 in +07:00 = 15T17:00Z
     expect(result.isExtended).toBe(true);
     expect(result.extensionDays).toBe(8);
   });
@@ -30,9 +32,9 @@ describe("filing deadlines", () => {
     expect(result.isExtended).toBe(true);
   });
 
-  it("PP 36: period 2026-01 returns 2026-02-15 (no extension)", () => {
+  it("PP 36: period 2026-01 rolls Sunday 2026-02-15 to Monday 2026-02-16 (no extension)", () => {
     const result = pp36Deadline(2026, 1, config);
-    expect(result.deadline.toISOString()).toContain("2026-02-14");
+    expect(result.deadline.toISOString()).toContain("2026-02-15");
     expect(result.isExtended).toBe(false);
     expect(result.extensionDays).toBe(0);
   });
@@ -47,5 +49,22 @@ describe("filing deadlines", () => {
     const result = whtEfilingDeadline(2026, 1, customConfig);
     expect(result.deadline.toISOString()).toContain("2026-02-19");
     expect(result.extensionDays).toBe(13);
+  });
+
+  it("rolls Thai holidays to the next business day", () => {
+    const result = whtEfilingDeadline(2026, 3, config);
+    expect(result.deadline.toISOString()).toContain("2026-04-15"); // 16 in +07:00 = 15T17:00Z
+  });
+
+  it("detects seeded holidays and regular business days", () => {
+    expect(isThaiBusinessDay(new Date("2026-04-13T00:00:00+07:00"))).toBe(false);
+    expect(isThaiBusinessDay(new Date("2026-04-16T00:00:00+07:00"))).toBe(true);
+  });
+
+  it("adjustToNextThaiBusinessDay handles a long holiday run", () => {
+    const adjusted = adjustToNextThaiBusinessDay(
+      new Date("2026-04-13T00:00:00+07:00")
+    );
+    expect(adjusted.toISOString()).toContain("2026-04-15"); // 16 in +07:00 = 15T17:00Z
   });
 });

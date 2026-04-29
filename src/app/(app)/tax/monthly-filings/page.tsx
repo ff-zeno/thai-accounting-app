@@ -8,7 +8,7 @@ export default function MonthlyFilingsPage() {
           Monthly WHT Filings
         </h1>
         <p className="text-sm text-muted-foreground">
-          Prepare and track PND 3, PND 53, and PND 54 monthly filings.
+          Prepare and track PND 2, PND 3, PND 53, and PND 54 monthly filings.
         </p>
       </div>
       <FilingView />

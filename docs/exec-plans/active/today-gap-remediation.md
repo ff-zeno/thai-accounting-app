@@ -1,6 +1,6 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Active residual — P0 gaps closed; P1/P2 gaps still need implementation or explicit deferral
+**Status:** Active residual — P0 gaps closed; P1-1/P1-2 closed; remaining P1/P2 gaps still need implementation or explicit deferral
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
@@ -19,11 +19,11 @@ Closed by baseline v2:
 - P0-5 suspected foreign vendors mis-tagged as Thai are excluded from PP30 input VAT and queued for country review.
 - P0-6 WHT certificates now snapshot §3.4 payer/payee/payment fields at creation and `filing_id` has a real FK.
 - P0-7 annual cumulative below-1000-baht WHT exemption is tracked per vendor/year with catch-up withholding after threshold crossover.
+- P1-1 filing deadlines now roll weekends and seeded 2026 Thai financial-institution holidays to the next business day.
+- P1-2 PND.2 is now a first-class WHT form type across enum/schema, filing calendar, monthly filing UI, CSV export, period locks, and 50 Tawi rendering.
 
 Still open:
 
-- P1-1 weekend/Thai-holiday filing-calendar adjustment.
-- P1-2 PND.2 form coverage.
 - P1-3 exception queues for silent-drop/review-needed paths.
 - P1-5 foreign WHT below-default override gate.
 - P2-1 WHT certificate reissue workflow.
@@ -161,20 +161,24 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 
 #### P1-1. Filing calendar: weekend + Thai holiday adjustment
 
+**Status:** Implemented 2026-04-29 in migration `0025_today_gap_p1_calendar_pnd2.sql`.
+
 **File:** `src/lib/tax/filing-deadlines.ts`, `src/lib/tax/filing-calendar.ts`
 **Problem:** Deadline engine returns calendar dates without weekend/holiday adjustment. RD practice: when due date falls on weekend or public holiday, deadline shifts to next business day. Surcharge calc is wrong on edge cases.
 
 **Fix:**
 - Add `thai_business_calendar` table: date, holiday_name_th, holiday_name_en, source_announcement.
-- Seed with Thai government public holiday calendar (12-15 days/year).
+- Seed with 2026 Thai financial-institution holidays as published by BOT/notified banks.
 - Update `getFilingDeadline(formType, taxPeriod)` to return next business day when raw deadline is weekend or holiday.
-- Surface holiday calendar admin UI for annual updates.
+- Holiday-calendar admin UI is deferred; annual seed updates remain a maintenance task until settings/admin screens exist.
 
 **Verification:**
 - PP 30 e-file due 2026-08-23 (Sunday) → deadline returns 2026-08-24 (Monday).
 - PP 30 due falling on Songkran (April 13-15) → deadline returns next non-holiday business day.
 
 #### P1-2. PND.2 form coverage
+
+**Status:** Implemented 2026-04-29 in migration `0025_today_gap_p1_calendar_pnd2.sql`.
 
 **File:** `src/lib/db/schema.ts` — `wht_form_type` enum
 **File:** `src/lib/tax/rd-csv-export.ts` — form type union

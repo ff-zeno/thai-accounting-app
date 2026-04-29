@@ -12,6 +12,7 @@ import {
   pp30EfilingDeadline,
   pp36Deadline,
   DEFAULT_TAX_CONFIG,
+  formatBangkokDate,
 } from "@/lib/tax/filing-deadlines";
 
 // ---------------------------------------------------------------------------
@@ -199,7 +200,7 @@ async function getUpcomingDeadlines(
         filingType: filing.formType.toUpperCase(),
         period: formatPeriod(period.year, period.month),
         status: filing.status,
-        deadline: deadlineDate.toISOString().slice(0, 10),
+        deadline: filing.deadline ?? formatBangkokDate(deadlineDate),
         daysRemaining: daysBetween(today, deadlineDate),
       });
     }
@@ -237,7 +238,7 @@ async function getUpcomingDeadlines(
         filingType: "PP 30",
         period: formatPeriod(period.year, period.month),
         status: vat.pp30Status ?? "draft",
-        deadline: pp30DeadlineDate.toISOString().slice(0, 10),
+        deadline: vat.pp30Deadline ?? formatBangkokDate(pp30DeadlineDate),
         daysRemaining: daysBetween(today, pp30DeadlineDate),
       });
 
@@ -252,7 +253,7 @@ async function getUpcomingDeadlines(
           filingType: "PP 36",
           period: formatPeriod(period.year, period.month),
           status: vat.pp36Status ?? "draft",
-          deadline: pp36DeadlineDate.toISOString().slice(0, 10),
+          deadline: vat.pp36Deadline ?? formatBangkokDate(pp36DeadlineDate),
           daysRemaining: daysBetween(today, pp36DeadlineDate),
         });
       }

@@ -249,14 +249,12 @@ describe("checkNilFiling", () => {
 describe("deadline computation", () => {
   it("PP 30 deadline is 23rd of following month", () => {
     const deadline = computePp30Deadline(2026, 1);
-    // 23rd Feb 2026 in +07:00 = Feb 22 17:00 UTC
-    expect(deadline).toContain("2026-02");
+    expect(deadline).toBe("2026-02-23");
   });
 
   it("PP 36 deadline is 15th of following month", () => {
     const deadline = computePp36Deadline(2026, 1);
-    // 15th Feb 2026 in +07:00 = Feb 14 17:00 UTC
-    expect(deadline).toContain("2026-02");
+    expect(deadline).toBe("2026-02-16");
   });
 
   it("PP 30 and PP 36 have different deadlines", () => {

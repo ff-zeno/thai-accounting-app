@@ -76,6 +76,14 @@ describe("generateRdCsv", () => {
     expect(result.filename).toBe("PND53_2569_12.csv");
   });
 
+  it("supports PND 2 exports", async () => {
+    selectResults[0] = [];
+
+    const result = await generateRdCsv("org-1", 2026, 4, "pnd2");
+    expect(result.filename).toBe("PND2_2569_04.csv");
+    expect(result.csv.charCodeAt(0)).toBe(0xfeff);
+  });
+
   it("generates CSV rows with correct fields for certificates", async () => {
     // Certificates query
     selectResults[0] = [

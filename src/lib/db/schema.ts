@@ -102,6 +102,7 @@ export const paymentMethodEnum = pgEnum("payment_method", [
 ]);
 
 export const whtFormTypeEnum = pgEnum("wht_form_type", [
+  "pnd2",
   "pnd3",
   "pnd53",
   "pnd54",
@@ -676,6 +677,18 @@ export const taxConfig = pgTable(
     // NO deletedAt — config managed via effective dates
   },
   (t) => [unique("tax_config_key").on(t.key)]
+);
+
+export const thaiBusinessCalendar = pgTable(
+  "thai_business_calendar",
+  {
+    date: date("date").primaryKey(),
+    holidayNameTh: text("holiday_name_th").notNull(),
+    holidayNameEn: text("holiday_name_en").notNull(),
+    sourceAnnouncement: text("source_announcement").notNull(),
+    createdAt,
+  },
+  (t) => [index("thai_business_calendar_date").on(t.date)]
 );
 
 export const exceptionQueue = pgTable(

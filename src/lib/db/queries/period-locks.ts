@@ -9,6 +9,7 @@ export type PeriodLockDomain =
   | "vat_pp30"
   | "vat_pp36"
   | "wht"
+  | "wht_pnd2"
   | "wht_pnd3"
   | "wht_pnd53"
   | "wht_pnd54"

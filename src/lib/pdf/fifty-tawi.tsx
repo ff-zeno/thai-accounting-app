@@ -72,7 +72,7 @@ export interface FiftyTawiItem {
 
 export interface FiftyTawiData {
   certificateNo: string;
-  formType: "pnd3" | "pnd53" | "pnd54";
+  formType: "pnd2" | "pnd3" | "pnd53" | "pnd54";
   paymentDate: string | null;
   issuedDate: string | null;
   totalBaseAmount: string | null;
@@ -348,6 +348,11 @@ function createFiftyTawiDocument(data: FiftyTawiData) {
       React.createElement(
         View,
         { style: styles.formTypeRow },
+        React.createElement(
+          Text,
+          null,
+          `${formTypeCheckbox(data.formType, "pnd2")} ภ.ง.ด.2`
+        ),
         React.createElement(
           Text,
           null,

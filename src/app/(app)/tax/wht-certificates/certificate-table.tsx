@@ -33,7 +33,7 @@ import {
 export interface CertificateRow {
   id: string;
   certificateNo: string;
-  formType: "pnd3" | "pnd53" | "pnd54";
+  formType: "pnd2" | "pnd3" | "pnd53" | "pnd54";
   paymentDate: string | null;
   issuedDate: string | null;
   totalBaseAmount: string | null;
@@ -48,6 +48,7 @@ export interface CertificateRow {
 // ---------------------------------------------------------------------------
 
 const FORM_TYPE_LABELS: Record<string, string> = {
+  pnd2: "PND 2",
   pnd3: "PND 3",
   pnd53: "PND 53",
   pnd54: "PND 54",
@@ -132,6 +133,7 @@ export function CertificateTable({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All forms</SelectItem>
+            <SelectItem value="pnd2">PND 2</SelectItem>
             <SelectItem value="pnd3">PND 3</SelectItem>
             <SelectItem value="pnd53">PND 53</SelectItem>
             <SelectItem value="pnd54">PND 54</SelectItem>

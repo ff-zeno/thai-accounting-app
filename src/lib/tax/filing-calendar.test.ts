@@ -8,12 +8,12 @@ import {
 } from "./filing-calendar";
 
 describe("getWhtFilingDeadline", () => {
-  it("returns 15th of next month for e-filing (default)", () => {
+  it("returns next Thai business day for e-filing (default)", () => {
     const deadline = getWhtFilingDeadline(2026, 3);
-    // March 2026 period -> deadline April 15, 2026
+    // March 2026 period -> raw deadline April 15, rolls after Songkran
     expect(deadline.getFullYear()).toBe(2026);
     expect(deadline.getMonth()).toBe(3); // April (0-indexed)
-    expect(deadline.getDate()).toBe(15);
+    expect(deadline.getDate()).toBe(16);
   });
 
   it("handles December period rolling to January of next year", () => {
@@ -26,24 +26,25 @@ describe("getWhtFilingDeadline", () => {
 
   it("handles January period", () => {
     const deadline = getWhtFilingDeadline(2026, 1);
-    // January 2026 period -> deadline February 15, 2026
+    // January 2026 period -> raw deadline February 15, rolls from Sunday
     expect(deadline.getFullYear()).toBe(2026);
     expect(deadline.getMonth()).toBe(1); // February
-    expect(deadline.getDate()).toBe(15);
+    expect(deadline.getDate()).toBe(16);
   });
 });
 
 describe("getYearlyDeadlines", () => {
-  it("returns 36 entries (12 months x 3 form types)", () => {
+  it("returns 48 entries (12 months x 4 form types)", () => {
     const deadlines = getYearlyDeadlines(2026);
-    expect(deadlines).toHaveLength(36);
+    expect(deadlines).toHaveLength(48);
   });
 
   it("includes all form types for each month", () => {
     const deadlines = getYearlyDeadlines(2026);
     const marchDeadlines = deadlines.filter((d) => d.month === 3);
-    expect(marchDeadlines).toHaveLength(3);
+    expect(marchDeadlines).toHaveLength(4);
     expect(marchDeadlines.map((d) => d.formType).sort()).toEqual([
+      "pnd2",
       "pnd3",
       "pnd53",
       "pnd54",
@@ -111,6 +112,9 @@ describe("getMonthName", () => {
 });
 
 describe("formatFormType", () => {
+  it("formats pnd2", () => {
+    expect(formatFormType("pnd2")).toBe("PND 2");
+  });
   it("formats pnd3", () => {
     expect(formatFormType("pnd3")).toBe("PND 3");
   });

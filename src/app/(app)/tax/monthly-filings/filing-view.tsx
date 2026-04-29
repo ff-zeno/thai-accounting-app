@@ -38,7 +38,8 @@ import {
   FileText,
 } from "lucide-react";
 
-type FormType = "pnd3" | "pnd53" | "pnd54";
+type FormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
+const FORM_TYPES: FormType[] = ["pnd2", "pnd3", "pnd53", "pnd54"];
 
 interface CertificateRow {
   id: string;
@@ -55,7 +56,7 @@ interface CertificateRow {
 
 interface Filing {
   id: string;
-  formType: "pnd3" | "pnd53" | "pnd54";
+  formType: FormType;
   totalBaseAmount: string | null;
   totalWhtAmount: string | null;
   status: "draft" | "filed" | "paid";
@@ -75,12 +76,14 @@ interface VendorGroup {
 }
 
 const FORM_TYPE_LABELS: Record<FormType, string> = {
+  pnd2: "PND 2",
   pnd3: "PND 3",
   pnd53: "PND 53",
   pnd54: "PND 54",
 };
 
 const FORM_TYPE_DESCRIPTIONS: Record<FormType, string> = {
+  pnd2: "Dividends and interest",
   pnd3: "Individual payees",
   pnd53: "Corporate payees",
   pnd54: "Foreign remittance",
@@ -146,7 +149,7 @@ export function FilingView() {
   const [filings, setFilings] = useState<Filing[]>([]);
   const [certificatesByFormType, setCertificatesByFormType] = useState<
     Record<FormType, CertificateRow[]>
-  >({ pnd3: [], pnd53: [], pnd54: [] });
+  >({ pnd2: [], pnd3: [], pnd53: [], pnd54: [] });
   const [loaded, setLoaded] = useState(false);
 
   function handleLoadData() {
@@ -253,7 +256,7 @@ export function FilingView() {
           onValueChange={(v) => setActiveTab(v as FormType)}
         >
           <TabsList>
-            {(["pnd3", "pnd53", "pnd54"] as FormType[]).map((ft) => {
+            {FORM_TYPES.map((ft) => {
               const filing = filings.find((f) => f.formType === ft);
               const certCount =
                 certificatesByFormType[ft]?.length ?? 0;
@@ -273,7 +276,7 @@ export function FilingView() {
             })}
           </TabsList>
 
-          {(["pnd3", "pnd53", "pnd54"] as FormType[]).map((ft) => (
+          {FORM_TYPES.map((ft) => (
             <TabsContent key={ft} value={ft}>
               <FilingTabContent
                 formType={ft}

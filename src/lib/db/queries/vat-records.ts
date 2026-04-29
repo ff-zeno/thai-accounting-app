@@ -13,6 +13,7 @@ import {
   pp30EfilingDeadline,
   pp36Deadline,
   DEFAULT_TAX_CONFIG,
+  formatBangkokDate,
 } from "@/lib/tax/filing-deadlines";
 import {
   isPeriodLocked as isCanonicalPeriodLocked,
@@ -446,7 +447,7 @@ export async function markPp30Filed(
   recordId: string,
   lockedByUserId = "system"
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatBangkokDate(new Date());
 
   await db.transaction(async (tx) => {
     const [updated] = await tx
@@ -515,7 +516,7 @@ export async function markPp36Filed(
   recordId: string,
   lockedByUserId = "system"
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatBangkokDate(new Date());
 
   await db.transaction(async (tx) => {
     const [updated] = await tx
@@ -601,7 +602,7 @@ export function computePp30Deadline(
     periodMonth,
     DEFAULT_TAX_CONFIG
   );
-  return deadline.toISOString().slice(0, 10);
+  return formatBangkokDate(deadline);
 }
 
 export function computePp36Deadline(
@@ -613,7 +614,7 @@ export function computePp36Deadline(
     periodMonth,
     DEFAULT_TAX_CONFIG
   );
-  return deadline.toISOString().slice(0, 10);
+  return formatBangkokDate(deadline);
 }
 
 // ---------------------------------------------------------------------------

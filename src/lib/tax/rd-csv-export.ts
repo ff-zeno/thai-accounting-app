@@ -12,7 +12,7 @@ import { toBuddhistYear } from "@/lib/utils/thai-date";
 // Types
 // ---------------------------------------------------------------------------
 
-type PndFormType = "pnd3" | "pnd53" | "pnd54";
+type PndFormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
 
 interface CsvRow {
   sequence: number;

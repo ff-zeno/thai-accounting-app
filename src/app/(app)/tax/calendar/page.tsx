@@ -96,9 +96,9 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   }
 
   const now = new Date();
-  const formTypes: FilingFormType[] = ["pnd3", "pnd53", "pnd54"];
+  const formTypes: FilingFormType[] = ["pnd2", "pnd3", "pnd53", "pnd54"];
 
-  // Build a 12-row x 3-column grid
+  // Build a 12-row grid across WHT form types.
   const calendarData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
     const cells = formTypes.map((formType) => {

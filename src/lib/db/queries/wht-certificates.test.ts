@@ -226,6 +226,32 @@ describe("createWhtCertificateDraft", () => {
     expect(result.certificateNo).toBe("PND3/2026/042");
   });
 
+  it("supports explicit PND 2 certificate numbering", async () => {
+    selectResults[0] = [{ id: "counter-1", nextSequence: 7 }];
+    updateResults[0] = [{ nextSequence: 8 }];
+    insertResults[0] = [{ id: "cert-pnd2" }];
+    insertResults[1] = [];
+
+    const result = await createWhtCertificateDraft({
+      orgId: "org-1",
+      vendorId: "vendor-1",
+      formType: "pnd2",
+      paymentDate: "2026-04-20",
+      lineItems: [
+        {
+          documentId: "doc-1",
+          lineItemId: "li-1",
+          baseAmount: "10000.00",
+          whtRate: "0.1000",
+          whtAmount: "1000.00",
+          rdPaymentTypeCode: "40(4)(b)",
+        },
+      ],
+    });
+
+    expect(result.certificateNo).toBe("PND2/2026/007");
+  });
+
   it("calculates correct totals from line items", async () => {
     selectResults[0] = [];
     insertResults[0] = [{ id: "counter-1" }]; // sequence counter

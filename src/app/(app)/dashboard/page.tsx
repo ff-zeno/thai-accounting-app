@@ -5,6 +5,7 @@ import { MetricCards } from "./metric-cards";
 import { PeriodComparison } from "./period-comparison";
 import { FilingStatusTable } from "./filing-status-table";
 import { QuickLinks } from "./quick-links";
+import { ExceptionReviewList } from "./exception-review-list";
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
@@ -47,7 +48,10 @@ export default async function DashboardPage() {
       {/* Row 3: Filing status overview */}
       <FilingStatusTable deadlines={metrics.upcomingDeadlines} />
 
-      {/* Row 4: Quick links */}
+      {/* Row 4: Review queue */}
+      <ExceptionReviewList exceptions={metrics.openExceptions} />
+
+      {/* Row 5: Quick links */}
       <QuickLinks />
     </div>
   );

@@ -1,10 +1,11 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../index";
 import {
   documents,
   whtMonthlyFilings,
   vatRecords,
   documentLineItems,
+  exceptionQueue,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import {
@@ -35,6 +36,17 @@ export interface DashboardMetrics {
   netVatPosition: string;
   outstandingFilings: number;
   upcomingDeadlines: FilingDeadline[];
+  openExceptions: ReviewException[];
+}
+
+export interface ReviewException {
+  id: string;
+  entityType: string;
+  entityId: string;
+  exceptionType: string;
+  severity: string;
+  summary: string;
+  createdAt: Date;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +156,7 @@ export async function getDashboardMetrics(
 
   // Build upcoming deadlines from WHT filings and VAT records
   const upcomingDeadlines = await getUpcomingDeadlines(orgId, year, month);
+  const openExceptions = await getOpenExceptions(orgId);
 
   return {
     totalExpenses,
@@ -153,7 +166,38 @@ export async function getDashboardMetrics(
     netVatPosition,
     outstandingFilings,
     upcomingDeadlines,
+    openExceptions,
   };
+}
+
+async function getOpenExceptions(orgId: string): Promise<ReviewException[]> {
+  return db
+    .select({
+      id: exceptionQueue.id,
+      entityType: exceptionQueue.entityType,
+      entityId: exceptionQueue.entityId,
+      exceptionType: exceptionQueue.exceptionType,
+      severity: exceptionQueue.severity,
+      summary: exceptionQueue.summary,
+      createdAt: exceptionQueue.createdAt,
+    })
+    .from(exceptionQueue)
+    .where(
+      and(
+        eq(exceptionQueue.orgId, orgId),
+        sql`${exceptionQueue.resolvedAt} IS NULL`
+      )
+    )
+    .orderBy(
+      sql`CASE ${exceptionQueue.severity}
+        WHEN 'p0' THEN 0
+        WHEN 'p1' THEN 1
+        WHEN 'p2' THEN 2
+        ELSE 3
+      END`,
+      desc(exceptionQueue.createdAt)
+    )
+    .limit(8);
 }
 
 // ---------------------------------------------------------------------------

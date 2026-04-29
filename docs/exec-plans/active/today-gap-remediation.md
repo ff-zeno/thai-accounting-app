@@ -1,6 +1,6 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Active residual — P0 gaps closed; P1-1/P1-2 closed; remaining P1/P2 gaps still need implementation or explicit deferral
+**Status:** Active residual — P0 gaps closed; P1-1/P1-2/P1-3 closed; remaining P1/P2 gaps still need implementation or explicit deferral
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
@@ -21,10 +21,10 @@ Closed by baseline v2:
 - P0-7 annual cumulative below-1000-baht WHT exemption is tracked per vendor/year with catch-up withholding after threshold crossover.
 - P1-1 filing deadlines now roll weekends and seeded 2026 Thai financial-institution holidays to the next business day.
 - P1-2 PND.2 is now a first-class WHT form type across enum/schema, filing calendar, monthly filing UI, CSV export, period locks, and 50 Tawi rendering.
+- P1-3 silent-drop paths now write idempotent `exception_queue` rows for vendor-country review, duplicate extraction logs, and unmatched imported bank transactions; dashboard surfaces open review items.
 
 Still open:
 
-- P1-3 exception queues for silent-drop/review-needed paths.
 - P1-5 foreign WHT below-default override gate.
 - P2-1 WHT certificate reissue workflow.
 - P2-2 payee-side WHT received tracking.
@@ -191,6 +191,8 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 - Filing calendar entries for PND.2 (same monthly cadence as PND.3).
 
 #### P1-3. Silent-drop exception queues
+
+**Status:** Implemented 2026-04-29 using existing `exception_queue` table.
 
 **Files:**
 - Bank transactions never matched → `unmatched_bank_transactions` review queue

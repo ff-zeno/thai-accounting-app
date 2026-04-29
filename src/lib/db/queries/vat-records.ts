@@ -5,10 +5,10 @@ import {
   documents,
   vendors,
   organizations,
-  exceptionQueue,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation, isAuditActorId } from "../helpers/audit-log";
+import { createOpenException } from "./exception-queue";
 import {
   pp30EfilingDeadline,
   pp36Deadline,
@@ -111,24 +111,21 @@ async function queueForeignVendorInputVatReviews(
     );
 
   for (const doc of candidates) {
-    await db
-      .insert(exceptionQueue)
-      .values({
-        orgId,
-        entityType: "document",
-        entityId: doc.id,
-        exceptionType: "vendor_country_review",
-        severity: "p0",
-        summary: `Possible foreign vendor input VAT blocked pending review: ${doc.vendorName}`,
-        payload: {
-          vendorId: doc.vendorId,
-          vendorName: doc.vendorName,
-          vatAmount: doc.vatAmount,
-          periodYear: year,
-          periodMonth: month,
-        },
-      })
-      .onConflictDoNothing();
+    await createOpenException({
+      orgId,
+      entityType: "document",
+      entityId: doc.id,
+      exceptionType: "vendor_country_review",
+      severity: "p0",
+      summary: `Possible foreign vendor input VAT blocked pending review: ${doc.vendorName}`,
+      payload: {
+        vendorId: doc.vendorId,
+        vendorName: doc.vendorName,
+        vatAmount: doc.vatAmount,
+        periodYear: year,
+        periodMonth: month,
+      },
+    });
   }
 }
 

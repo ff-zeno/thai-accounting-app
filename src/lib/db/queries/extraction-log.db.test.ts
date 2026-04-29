@@ -7,6 +7,7 @@ import {
   beforeEach,
   vi,
 } from "vitest";
+import { eq } from "drizzle-orm";
 import {
   createTestDb,
   migrateTestDb,
@@ -63,6 +64,7 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clean tables in FK order
   await testDb.delete(schema.extractionReviewOutcome);
+  await testDb.delete(schema.exceptionQueue);
   await testDb.delete(schema.extractionLog);
   await testDb.delete(schema.documents);
   await testDb.delete(schema.vendors);
@@ -139,6 +141,13 @@ describe("extraction log", () => {
     const logs = await getRecentExtractionLogs(org.id, vendor.id);
     expect(logs).toHaveLength(1);
     expect(logs[0].tierUsed).toBe(1); // kept the first insert's tier
+
+    const [exception] = await testDb
+      .select()
+      .from(schema.exceptionQueue)
+      .where(eq(schema.exceptionQueue.orgId, org.id));
+    expect(exception.exceptionType).toBe("duplicate_extraction_log");
+    expect(exception.entityId).toBe(doc.id);
   });
 
   it("getLatestExtractionLog returns most recent", async () => {

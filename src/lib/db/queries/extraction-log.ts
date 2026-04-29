@@ -2,6 +2,7 @@ import { and, desc, eq, sql, gte } from "drizzle-orm";
 import { db } from "../index";
 import { extractionLog } from "../schema";
 import { orgScopeAlive } from "../helpers/org-scope";
+import { createOpenException } from "./exception-queue";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,6 +68,23 @@ export async function insertExtractionLog(
       target: [extractionLog.inngestIdempotencyKey],
     })
     .returning({ id: extractionLog.id });
+
+  if (!result) {
+    await createOpenException({
+      orgId: input.orgId,
+      entityType: "document",
+      entityId: input.documentId,
+      exceptionType: "duplicate_extraction_log",
+      severity: "info",
+      summary: "Duplicate extraction log skipped by idempotency key",
+      payload: {
+        vendorId: input.vendorId,
+        tierUsed: input.tierUsed,
+        modelUsed: input.modelUsed,
+        inngestIdempotencyKey: input.inngestIdempotencyKey,
+      },
+    });
+  }
 
   // Returns null if conflict (idempotent skip)
   return result ?? null;

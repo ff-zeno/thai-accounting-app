@@ -9,6 +9,7 @@ import {
   recomputeTransactionStatus,
 } from "@/lib/db/queries/reconciliation";
 import { reconciliationMatches } from "@/lib/db/schema";
+import { createOpenException } from "@/lib/db/queries/exception-queue";
 
 /**
  * Transaction-first matching on bank statement import.
@@ -173,7 +174,16 @@ export const matchImportedTransactions = inngest.createFunction(
     // Step 3: Check if any imported transactions are still unmatched
     const remainingUnmatched = await step.run("check-remaining", async () => {
       const unmatched = await db
-        .select({ id: transactions.id })
+        .select({
+          id: transactions.id,
+          bankAccountId: transactions.bankAccountId,
+          date: transactions.date,
+          amount: transactions.amount,
+          type: transactions.type,
+          description: transactions.description,
+          counterparty: transactions.counterparty,
+          referenceNo: transactions.referenceNo,
+        })
         .from(transactions)
         .where(
           and(
@@ -183,15 +193,39 @@ export const matchImportedTransactions = inngest.createFunction(
             inArray(transactions.id, transactionIds),
           ),
         );
-      return unmatched.length;
+      return unmatched;
     });
 
-    if (remainingUnmatched === 0) {
+    if (remainingUnmatched.length === 0) {
       return {
         status: "all-matched-deterministic",
         deterministicMatches: deterministicResults,
       };
     }
+
+    await step.run("queue-unmatched-exceptions", async () => {
+      for (const txn of remainingUnmatched) {
+        await createOpenException({
+          orgId,
+          entityType: "transaction",
+          entityId: txn.id,
+          exceptionType: "unmatched_bank_transaction",
+          severity: "p1",
+          summary: `Imported bank transaction remains unmatched: ${txn.date} ${txn.amount}`,
+          payload: {
+            bankAccountId: txn.bankAccountId,
+            date: txn.date,
+            amount: txn.amount,
+            type: txn.type,
+            description: txn.description,
+            counterparty: txn.counterparty,
+            referenceNo: txn.referenceNo,
+            trigger: "transactions/imported",
+            deterministicMatches: deterministicResults,
+          },
+        });
+      }
+    });
 
     // Step 4: Trigger AI batch for remaining unmatched
     await step.sendEvent("trigger-ai-batch", {
@@ -202,7 +236,7 @@ export const matchImportedTransactions = inngest.createFunction(
     return {
       status: "ai-batch-triggered",
       deterministicMatches: deterministicResults,
-      remainingUnmatched,
+      remainingUnmatched: remainingUnmatched.length,
     };
   },
 );

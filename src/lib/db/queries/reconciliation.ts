@@ -21,6 +21,7 @@ import {
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
+import { resolveOpenExceptionsForEntity } from "./exception-queue";
 
 export class ReconciliationAllocationError extends Error {
   constructor(message: string) {
@@ -617,6 +618,17 @@ export async function recomputeTransactionStatus(
         isNull(transactions.deletedAt),
       ),
     );
+
+  if (newStatus !== "unmatched") {
+    await resolveOpenExceptionsForEntity(
+      orgId,
+      "transaction",
+      transactionId,
+      "unmatched_bank_transaction",
+      `Transaction marked ${newStatus}`,
+      conn
+    );
+  }
 
   return newStatus;
 }

@@ -1,6 +1,6 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Active residual — P0 gaps closed; P1-1/P1-2/P1-3 closed; remaining P1/P2 gaps still need implementation or explicit deferral
+**Status:** Active residual — P0 gaps closed; P1-1/P1-2/P1-3/P1-5 closed; remaining P2 gaps still need implementation or explicit deferral
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
@@ -22,10 +22,10 @@ Closed by baseline v2:
 - P1-1 filing deadlines now roll weekends and seeded 2026 Thai financial-institution holidays to the next business day.
 - P1-2 PND.2 is now a first-class WHT form type across enum/schema, filing calendar, monthly filing UI, CSV export, period locks, and 50 Tawi rendering.
 - P1-3 silent-drop paths now write idempotent `exception_queue` rows for vendor-country review, duplicate extraction logs, and unmatched imported bank transactions; dashboard surfaces open review items.
+- P1-5 foreign WHT below-default rates now require persisted user acknowledgment, rationale, and accountant note text before a PND.54 certificate can be created.
 
 Still open:
 
-- P1-5 foreign WHT below-default override gate.
 - P2-1 WHT certificate reissue workflow.
 - P2-2 payee-side WHT received tracking.
 
@@ -220,13 +220,15 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 
 #### P1-5. Foreign WHT below-default override gate (Phase 9 hardening)
 
+**Status:** Implemented 2026-04-29 with text-only accountant note.
+
 **File:** Phase 9 plan + early Phase 9 implementation
 **Problem:** Phase 9 no longer encodes treaty rates or TRC validation. That scope cut is correct, but it creates a small-business misuse risk: an owner can type a below-default foreign WHT rate without understanding the §70 exposure.
 
 **Fix:**
 - Keep manual foreign WHT rate override.
-- If selected rate is below the statutory §70 default, require accountant role OR uploaded CPA note.
-- Persist `rate_below_default_acknowledged_by_user_id`, timestamp, default rate, selected rate, and free-text rationale on the WHT certificate/payment.
+- If selected rate is below the statutory §70 default, require explicit user acknowledgment plus accountant-note text.
+- Persist `rate_below_default_acknowledged_by_user_id`, timestamp, default rate, selected rate, free-text rationale, and accountant note on the WHT certificate.
 - UI copy must say: "Below-default foreign WHT can create RD exposure. Use only with accountant advice."
 
 ### P2 — high-leverage but lower-urgency

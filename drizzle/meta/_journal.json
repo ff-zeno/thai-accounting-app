@@ -183,6 +183,13 @@
       "when": 1778150400000,
       "tag": "0025_today_gap_p1_calendar_pnd2",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1778236800000,
+      "tag": "0026_foreign_wht_override_gate",
+      "breakpoints": true
     }
   ]
 }

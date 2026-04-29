@@ -72,3 +72,31 @@ export async function lookupWhtRate(
     rdPaymentTypeCode: row.rdPaymentTypeCode,
   };
 }
+
+export async function lookupForeignWhtDefaultRate(
+  rdPaymentTypeCode: string,
+  date?: string
+): Promise<string | null> {
+  const referenceDate = date ?? new Date().toISOString().slice(0, 10);
+
+  const rows = await db
+    .select({ standardRate: whtRates.standardRate })
+    .from(whtRates)
+    .where(
+      and(
+        eq(whtRates.entityType, "foreign"),
+        eq(whtRates.rdPaymentTypeCode, rdPaymentTypeCode),
+        or(
+          isNull(whtRates.effectiveFrom),
+          lte(whtRates.effectiveFrom, referenceDate)
+        ),
+        or(
+          isNull(whtRates.effectiveTo),
+          sql`${whtRates.effectiveTo} >= ${referenceDate}`
+        )
+      )
+    )
+    .limit(1);
+
+  return rows[0]?.standardRate ?? null;
+}

@@ -11,8 +11,27 @@ import {
 import { orgScope, orgScopeAlive } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
 import { isPeriodLocked } from "./period-locks";
+import { lookupForeignWhtDefaultRate } from "./wht-rates";
 
 const WHT_ANNUAL_EXEMPTION_THRESHOLD = 1000;
+
+export class ForeignWhtBelowDefaultGateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ForeignWhtBelowDefaultGateError";
+  }
+}
+
+interface ForeignWhtBelowDefaultAcknowledgment {
+  acknowledgedByUserId: string;
+  rationale: string;
+  accountantNote: string;
+}
+
+interface ForeignWhtBelowDefaultDecision {
+  statutoryRate: string;
+  selectedRate: string;
+}
 
 // ---------------------------------------------------------------------------
 // Form type determination
@@ -126,6 +145,78 @@ function formatCertificateNo(
   return `${formType.toUpperCase()}/${year}/${String(seq).padStart(3, "0")}`;
 }
 
+async function assertForeignWhtBelowDefaultAllowed(data: {
+  orgId: string;
+  vendorId: string;
+  formType: WhtFormType;
+  paymentDate: string;
+  foreignWhtBelowDefaultAcknowledgment?: ForeignWhtBelowDefaultAcknowledgment;
+  lineItems: Array<{
+    whtRate: string;
+    rdPaymentTypeCode?: string;
+    whtType?: string;
+  }>;
+}): Promise<ForeignWhtBelowDefaultDecision | null> {
+  if (data.formType !== "pnd54") return null;
+
+  const [payee] = await db
+    .select({
+      entityType: vendors.entityType,
+      country: vendors.country,
+    })
+    .from(vendors)
+    .where(and(eq(vendors.id, data.vendorId), eq(vendors.orgId, data.orgId)))
+    .limit(1);
+
+  const isForeign =
+    payee?.entityType === "foreign" || (payee?.country ?? "TH") !== "TH";
+  if (!isForeign) return null;
+
+  let mostSevere: ForeignWhtBelowDefaultDecision | null = null;
+  for (const item of data.lineItems) {
+    const selectedRate = parseFloat(item.whtRate);
+    if (!Number.isFinite(selectedRate)) continue;
+
+    const rdPaymentTypeCode = item.rdPaymentTypeCode ?? item.whtType;
+    if (!rdPaymentTypeCode) continue;
+
+    const statutoryRate = await lookupForeignWhtDefaultRate(
+      rdPaymentTypeCode,
+      data.paymentDate
+    );
+    if (!statutoryRate) continue;
+
+    const statutory = parseFloat(statutoryRate);
+    if (!Number.isFinite(statutory) || selectedRate >= statutory) continue;
+
+    if (
+      !mostSevere ||
+      statutory - selectedRate >
+        parseFloat(mostSevere.statutoryRate) - parseFloat(mostSevere.selectedRate)
+    ) {
+      mostSevere = {
+        statutoryRate,
+        selectedRate: selectedRate.toFixed(4),
+      };
+    }
+  }
+
+  if (!mostSevere) return null;
+
+  const ack = data.foreignWhtBelowDefaultAcknowledgment;
+  if (
+    !ack?.acknowledgedByUserId ||
+    !ack.rationale?.trim() ||
+    !ack.accountantNote?.trim()
+  ) {
+    throw new ForeignWhtBelowDefaultGateError(
+      "Below-default foreign WHT can create RD exposure. Use only with accountant advice."
+    );
+  }
+
+  return mostSevere;
+}
+
 // ---------------------------------------------------------------------------
 // Create WHT certificate draft
 // ---------------------------------------------------------------------------
@@ -137,6 +228,7 @@ export async function createWhtCertificateDraft(data: {
   paymentDate: string;
   paymentId?: string;
   applyAnnualThreshold?: boolean;
+  foreignWhtBelowDefaultAcknowledgment?: ForeignWhtBelowDefaultAcknowledgment;
   lineItems: Array<{
     documentId: string;
     lineItemId: string | null;
@@ -171,6 +263,7 @@ export async function createWhtCertificateDraft(data: {
   }
 
   const year = new Date(data.paymentDate).getFullYear();
+  const belowDefaultDecision = await assertForeignWhtBelowDefaultAllowed(data);
   const thresholdLineItems = data.applyAnnualThreshold
     ? await applyAnnualWhtThreshold({
         orgId: data.orgId,
@@ -245,6 +338,15 @@ export async function createWhtCertificateDraft(data: {
       paymentTypeDescription,
       signatoryNameSnapshot: "",
       signatoryPositionSnapshot: "",
+      rateBelowDefaultAcknowledgedByUserId:
+        belowDefaultDecision ? data.foreignWhtBelowDefaultAcknowledgment?.acknowledgedByUserId : null,
+      rateBelowDefaultAcknowledgedAt: belowDefaultDecision ? new Date() : null,
+      rateBelowDefaultStatutoryRate: belowDefaultDecision?.statutoryRate ?? null,
+      rateBelowDefaultSelectedRate: belowDefaultDecision?.selectedRate ?? null,
+      rateBelowDefaultRationale:
+        data.foreignWhtBelowDefaultAcknowledgment?.rationale ?? null,
+      rateBelowDefaultAccountantNote:
+        data.foreignWhtBelowDefaultAcknowledgment?.accountantNote ?? null,
     })
     .returning({ id: whtCertificates.id });
 

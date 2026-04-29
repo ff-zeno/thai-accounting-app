@@ -499,6 +499,23 @@ export const whtCertificates = pgTable(
     signatoryPositionSnapshot: text("signatory_position_snapshot")
       .notNull()
       .default(""),
+    rateBelowDefaultAcknowledgedByUserId: text(
+      "rate_below_default_acknowledged_by_user_id"
+    ),
+    rateBelowDefaultAcknowledgedAt: timestamp(
+      "rate_below_default_acknowledged_at",
+      { withTimezone: true }
+    ),
+    rateBelowDefaultStatutoryRate: numeric(
+      "rate_below_default_statutory_rate",
+      { precision: 5, scale: 4 }
+    ),
+    rateBelowDefaultSelectedRate: numeric(
+      "rate_below_default_selected_rate",
+      { precision: 5, scale: 4 }
+    ),
+    rateBelowDefaultRationale: text("rate_below_default_rationale"),
+    rateBelowDefaultAccountantNote: text("rate_below_default_accountant_note"),
     pdfUrl: text("pdf_url"),
     status: whtCertStatusEnum("status").notNull().default("draft"),
     voidedAt: timestamp("voided_at", { withTimezone: true }),

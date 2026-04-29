@@ -66,6 +66,7 @@ vi.mock("./period-locks", () => ({
 const {
   allocateSequenceNumber,
   createWhtCertificateDraft,
+  ForeignWhtBelowDefaultGateError,
 } = await import("./wht-certificates");
 
 beforeEach(() => {
@@ -160,6 +161,32 @@ describe("allocateSequenceNumber", () => {
 // ---------------------------------------------------------------------------
 
 describe("createWhtCertificateDraft", () => {
+  it("blocks below-default foreign WHT without accountant note", async () => {
+    selectResults[0] = [{ entityType: "foreign", country: "SG" }];
+    selectResults[1] = [{ standardRate: "0.1500" }];
+
+    await expect(
+      createWhtCertificateDraft({
+        orgId: "org-1",
+        vendorId: "vendor-1",
+        formType: "pnd54",
+        paymentDate: "2026-03-15",
+        lineItems: [
+          {
+            documentId: "doc-1",
+            lineItemId: "li-1",
+            baseAmount: "10000.00",
+            whtRate: "0.0500",
+            whtAmount: "500.00",
+            rdPaymentTypeCode: "40(8)",
+          },
+        ],
+      })
+    ).rejects.toBeInstanceOf(ForeignWhtBelowDefaultGateError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
   it("creates certificate with items and returns id + formatted number", async () => {
     // allocateSequenceNumber: select (empty) + insert (counter)
     selectResults[0] = [];

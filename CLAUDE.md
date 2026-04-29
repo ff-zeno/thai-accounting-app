@@ -87,7 +87,6 @@ pnpm db:studio    # Drizzle Studio
 | Visual audit | `/design-review` | Designer — post-ship visual QA |
 | Browser testing | `/browse` | QA engineer — headless Chromium for live URLs |
 | Cookie import | `/setup-browser-cookies` | Import real browser sessions for auth testing |
-| Second opinion | `/codex` | Codex CLI wrapper — review / challenge / consult |
 
 Browser skills (`/browse`, `/setup-browser-cookies`) require the compiled binary. Build with: `cd .claude/skills/gstack && ./setup`
 
@@ -126,4 +125,3 @@ Key routing rules:
 - Visual audit / design polish / "does it look good" → invoke design-review
 - Browser testing / open URL / live-site QA → invoke browse
 - Import browser cookies / authenticated browser testing → invoke setup-browser-cookies
-- Second opinion / adversarial review / consult outside voice → invoke codex

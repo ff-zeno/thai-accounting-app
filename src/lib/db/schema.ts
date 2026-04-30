@@ -774,6 +774,39 @@ export const whtAnnualThresholdDecisions = pgTable(
   ]
 );
 
+export const whtCreditsReceived = pgTable(
+  "wht_credits_received",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    customerVendorId: uuid("customer_vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    certificateReceivedDocumentId: uuid(
+      "certificate_received_document_id"
+    ).references(() => documents.id),
+    paymentDate: date("payment_date").notNull(),
+    grossAmount: numeric("gross_amount", { precision: 14, scale: 2 }).notNull(),
+    whtAmount: numeric("wht_amount", { precision: 14, scale: 2 }).notNull(),
+    formType: text("form_type").notNull(),
+    taxYear: integer("tax_year").notNull(),
+    certificateNo: text("certificate_no"),
+    notes: text("notes"),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  },
+  (t) => [
+    index("wht_credits_received_org_year").on(t.orgId, t.taxYear),
+    index("wht_credits_received_customer").on(t.orgId, t.customerVendorId),
+    uniqueIndex("wht_credits_received_unique_cert")
+      .on(t.orgId, t.customerVendorId, t.certificateNo, t.taxYear)
+      .where(sql`${t.deletedAt} IS NULL AND ${t.certificateNo} IS NOT NULL`),
+  ]
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

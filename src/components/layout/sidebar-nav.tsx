@@ -82,6 +82,11 @@ const navGroups: NavGroup[] = [
         icon: Receipt,
       },
       {
+        labelKey: "whtCreditsReceived",
+        href: "/tax/wht-credits-received",
+        icon: Receipt,
+      },
+      {
         labelKey: "monthlyFilings",
         href: "/tax/monthly-filings",
         icon: FileText,

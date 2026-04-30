@@ -1,6 +1,6 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Active residual — P0 gaps closed; P1-1/P1-2/P1-3/P1-5/P2-1 closed; remaining P2-2 still needs implementation or explicit deferral
+**Status:** Implementation complete; pending self-review before moving to completed
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
@@ -25,9 +25,9 @@ Closed by baseline v2:
 - P1-5 foreign WHT below-default rates now require persisted user acknowledgment, rationale, and accountant note text before a PND.54 certificate can be created.
 - P2-1 WHT certificate reissue now marks the original as replaced, creates and links a replacement certificate, exposes a reissue action in the WHT certificate table, and prints replacement context on 50 Tawi PDFs.
 
-Still open:
+Pending review:
 
-- P2-2 payee-side WHT received tracking.
+- P2-2 payee-side WHT received tracking is implemented; needs review before this plan moves to completed.
 
 ## Why this exists
 
@@ -246,13 +246,20 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 
 #### P2-2. Payee-side WHT received tracking
 
+**Status:** Implemented 2026-04-30; pending self-review.
+
 **Problem:** When tenant invoices a Thai company that withholds 3%, the tenant receives net + a 50 Tawi cert. This is an asset (WHT credit on PND.50) but not modeled. CIT calc misses the credit.
 
 **Fix:**
 - New table `wht_credits_received`:
-  - id, org_id, customer_vendor_id, certificate_received_document_id, payment_date, gross_amount, wht_amount, form_type, tax_year
-- UI: upload received 50 Tawi → AI extract → review → save.
+  - id, org_id, customer_vendor_id, certificate_received_document_id, payment_date, gross_amount, wht_amount, form_type, tax_year, certificate_no, notes
+- DB constraints:
+  - same-org triggers for customer and received-certificate document references
+  - non-negative gross/WHT amounts
+  - unique non-deleted certificate number per org/customer/year when a certificate number is provided
+- UI: manual received 50 Tawi entry + year total/list.
 - PND.50 prep: aggregate `wht_credits_received` by tax_year as creditable WHT.
+- AI extraction is deferred to the later document-extraction/CIT phase; the table already has a received-document FK for that path.
 - Folds into Phase 12 (annual close + CIT).
 
 ## Sequencing

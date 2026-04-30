@@ -1,10 +1,42 @@
 # Phase 8 — Extraction Learning Loop
 
-**Status:** v2 — revised after Opus + Codex review (2026-04-15)
+**Status:** Active dogfood gate — implementation exists for Tier 1/Tier 2 scaffolding; measurable lift not yet proven
 **Author:** Claude Opus 4.6
 **Date:** 2026-04-15
 **Depends on:** Phase 3 (documents-ai), Phase 4 (reconciliation), Phase 7 (ai-batch-matching)
 **Related:** `docs/_ai_context/reconciliation-architecture.md`
+
+## Current Implementation Snapshot — 2026-04-30
+
+This plan predates a large amount of implementation. Treat the sections below as architecture history; use this snapshot and `docs/_ai_context/phase-8-dogfood-runbook.md` as the current source of truth for next work.
+
+Implemented and verified in code:
+
+- Extraction learning tables: `extraction_exemplars`, `vendor_tier`, `extraction_log`, `extraction_review_outcome`, `org_reputation`, `exemplar_consensus`, `global_exemplar_pool`, `extraction_compiled_patterns`.
+- Tenant-isolation hardening exists for learning tables through baseline migrations.
+- Review save path writes exemplars and review outcomes through `writeReviewExemplars()`.
+- Extraction path probes PDF text-layer vendor identity, resolves private exemplars, injects Tier 1 prompt context, logs extraction tier/usage, and falls back safely.
+- Tier 2 consensus scaffolding exists: org reputation, consensus recompute, global exemplar pool, admin extraction-health dashboard.
+- Compiled-pattern scaffolding exists: schema, AST validator, isolated-vm runner, compiler/shadow validation jobs.
+
+Known gaps before Phase 8 can be called complete:
+
+- **Dogfood lift is not measured.** We need Tier 0 vs Tier 1 comparison on real repeated-vendor docs before further expansion.
+- **Canonical vendor resolver is not the design from this document.** Current path is PDF text-layer `probeVendorIdentity()` plus DB lookup. This is enough for dogfood, but not the full resolver contract.
+- **Tier 3 is not product-active.** Compiled pattern code exists, but the extraction path still calls the vision model and does not execute compiled output as the primary extractor.
+- **Tier 4 remains deferred.** Do not implement Tier 4 until Tier 1/2 dogfood proves lift and Tier 3 has a separate security pass.
+
+## Immediate Decision
+
+Tier 4 stays explicitly deferred. The next task is a dogfood measurement gate:
+
+1. Version the dogfood scripts under `benchmarks/dogfood/`.
+2. Run Tier 0 extraction on the curated repeated-vendor sample set.
+3. Fill/parse ground truth.
+4. Seed one corrected document per repeated vendor as Tier 1 exemplar data.
+5. Re-run Tier 1 on the remaining docs.
+6. Compare weighted accuracy, per-vendor lift, and regressions.
+7. If at least 2 of 3 repeated vendors improve by the target threshold, Phase 8 moves to "dogfood proven; plan Phase 2 hardening." If not, iterate on exemplar prompt format and vendor identity resolution before more infrastructure.
 
 ## Review history
 

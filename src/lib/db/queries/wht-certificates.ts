@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "../index";
+import { db, type DbConnection } from "../index";
 import {
   whtCertificates,
   whtCertificateItems,
@@ -68,11 +68,13 @@ const MAX_SEQUENCE_RETRIES = 5;
 export async function allocateSequenceNumber(
   orgId: string,
   formType: WhtFormType,
-  year: number
+  year: number,
+  tx?: DbConnection
 ): Promise<number> {
+  const conn = tx ?? db;
   for (let attempt = 0; attempt < MAX_SEQUENCE_RETRIES; attempt++) {
     // Try to read existing counter
-    const existing = await db
+    const existing = await conn
       .select({ id: whtSequenceCounters.id, nextSequence: whtSequenceCounters.nextSequence })
       .from(whtSequenceCounters)
       .where(
@@ -87,7 +89,7 @@ export async function allocateSequenceNumber(
     if (existing.length === 0) {
       // First allocation for this org/form/year — insert with seq=1, return 1
       try {
-        await db.insert(whtSequenceCounters).values({
+        await conn.insert(whtSequenceCounters).values({
           orgId,
           formType,
           year,
@@ -105,7 +107,7 @@ export async function allocateSequenceNumber(
     const allocated = nextSequence;
 
     // Optimistic update: increment only if nextSequence hasn't changed
-    const updated = await db
+    const updated = await conn
       .update(whtSequenceCounters)
       .set({ nextSequence: allocated + 1 })
       .where(
@@ -151,6 +153,7 @@ async function assertForeignWhtBelowDefaultAllowed(data: {
   formType: WhtFormType;
   paymentDate: string;
   foreignWhtBelowDefaultAcknowledgment?: ForeignWhtBelowDefaultAcknowledgment;
+  tx?: DbConnection;
   lineItems: Array<{
     whtRate: string;
     rdPaymentTypeCode?: string;
@@ -158,8 +161,9 @@ async function assertForeignWhtBelowDefaultAllowed(data: {
   }>;
 }): Promise<ForeignWhtBelowDefaultDecision | null> {
   if (data.formType !== "pnd54") return null;
+  const conn = data.tx ?? db;
 
-  const [payee] = await db
+  const [payee] = await conn
     .select({
       entityType: vendors.entityType,
       country: vendors.country,
@@ -238,12 +242,14 @@ export async function createWhtCertificateDraft(data: {
     rdPaymentTypeCode?: string;
     whtType?: string;
   }>;
+  tx?: DbConnection;
 }): Promise<{
   certificateId: string;
   certificateNo: string;
   totalBaseAmount: string;
   totalWht: string;
 }> {
+  const conn = data.tx ?? db;
   // Check if the payment date's period is locked
   const paymentDateObj = new Date(data.paymentDate);
   const paymentYear = paymentDateObj.getFullYear();
@@ -271,6 +277,7 @@ export async function createWhtCertificateDraft(data: {
         paymentId: data.paymentId,
         taxYear: year,
         lineItems: data.lineItems,
+        tx: conn,
       })
     : data.lineItems;
 
@@ -283,7 +290,7 @@ export async function createWhtCertificateDraft(data: {
     };
   }
 
-  const seq = await allocateSequenceNumber(data.orgId, data.formType, year);
+  const seq = await allocateSequenceNumber(data.orgId, data.formType, year, conn);
   const certificateNo = formatCertificateNo(data.formType, year, seq);
 
   // Calculate totals from line items using integer arithmetic to avoid float precision
@@ -294,7 +301,7 @@ export async function createWhtCertificateDraft(data: {
     .reduce((sum, li) => sum + Math.round(parseFloat(li.whtAmount) * 100), 0);
   const totalWht = (totalWhtCents / 100).toFixed(2);
 
-  const [org] = await db
+  const [org] = await conn
     .select({
       taxId: organizations.taxId,
       address: organizations.address,
@@ -303,7 +310,7 @@ export async function createWhtCertificateDraft(data: {
     .from(organizations)
     .where(eq(organizations.id, data.orgId))
     .limit(1);
-  const [payee] = await db
+  const [payee] = await conn
     .select({
       taxId: vendors.taxId,
       address: vendors.address,
@@ -320,7 +327,7 @@ export async function createWhtCertificateDraft(data: {
     )
   ).join(", ");
 
-  const [cert] = await db
+  const [cert] = await conn
     .insert(whtCertificates)
     .values({
       orgId: data.orgId,
@@ -352,7 +359,7 @@ export async function createWhtCertificateDraft(data: {
 
   // Create certificate items
   if (thresholdLineItems.length > 0) {
-    await db.insert(whtCertificateItems).values(
+    await conn.insert(whtCertificateItems).values(
       thresholdLineItems.map((li) => ({
         orgId: data.orgId,
         certificateId: cert.id,
@@ -368,7 +375,7 @@ export async function createWhtCertificateDraft(data: {
   }
 
   if (data.applyAnnualThreshold) {
-    await db
+    await conn
       .update(whtAnnualThresholdDecisions)
       .set({ certificateId: cert.id })
       .where(
@@ -390,6 +397,7 @@ async function applyAnnualWhtThreshold(data: {
   vendorId: string;
   paymentId?: string;
   taxYear: number;
+  tx?: DbConnection;
   lineItems: Array<{
     documentId: string;
     lineItemId: string | null;
@@ -400,12 +408,13 @@ async function applyAnnualWhtThreshold(data: {
     whtType?: string;
   }>;
 }) {
+  const conn = data.tx ?? db;
   const eligibleLineItems = data.lineItems.filter(
     (li) => parseFloat(li.baseAmount) > 0 && parseFloat(li.whtRate) > 0
   );
   if (eligibleLineItems.length === 0) return data.lineItems;
 
-  const [ytd] = await db
+  const [ytd] = await conn
     .select({
       total: sql<string>`COALESCE(SUM(${whtAnnualThresholdDecisions.eligibleBaseAmount}), 0)::numeric(14,2)::text`,
     })
@@ -426,7 +435,7 @@ async function applyAnnualWhtThreshold(data: {
   const cumulativeBase = ytdBase + currentBase;
 
   if (cumulativeBase <= WHT_ANNUAL_EXEMPTION_THRESHOLD) {
-    const decisions = await db
+    const decisions = await conn
       .insert(whtAnnualThresholdDecisions)
       .values(
         eligibleLineItems.map((li) => ({
@@ -465,7 +474,7 @@ async function applyAnnualWhtThreshold(data: {
     return [];
   }
 
-  const skipped = await db
+  const skipped = await conn
     .select({
       id: whtAnnualThresholdDecisions.id,
       documentId: whtAnnualThresholdDecisions.documentId,
@@ -499,7 +508,7 @@ async function applyAnnualWhtThreshold(data: {
   });
 
   if (skipped.length > 0) {
-    await db
+    await conn
       .update(whtAnnualThresholdDecisions)
       .set({
         thresholdStatus: "catch_up_withheld",
@@ -525,7 +534,7 @@ async function applyAnnualWhtThreshold(data: {
     };
   });
 
-  await db
+  await conn
     .insert(whtAnnualThresholdDecisions)
     .values(
       currentWithheld.map((li) => ({
@@ -765,13 +774,128 @@ export interface CreateReplacementData {
   paymentDate: string;
   lineItems: Array<{
     documentId: string;
-    lineItemId: string;
+    lineItemId: string | null;
     baseAmount: string;
     whtRate: string;
     whtAmount: string;
     rdPaymentTypeCode?: string;
     whtType?: string;
   }>;
+}
+
+export async function reissueWhtCertificate(
+  orgId: string,
+  originalCertId: string,
+  reason: string
+): Promise<{ certificateId: string; certificateNo: string }> {
+  if (!reason.trim()) {
+    throw new Error("Reissue reason is required");
+  }
+
+  return db.transaction(async (tx) => {
+    const [original] = await tx
+      .select()
+      .from(whtCertificates)
+      .where(
+        and(
+          ...orgScope(whtCertificates, orgId),
+          eq(whtCertificates.id, originalCertId)
+        )
+      )
+      .limit(1);
+
+    if (!original) {
+      throw new Error("Certificate not found");
+    }
+    if (original.status === "voided" || original.status === "replaced") {
+      throw new Error("Certificate has already been voided or replaced");
+    }
+
+    const items = await tx
+      .select()
+      .from(whtCertificateItems)
+      .where(
+        and(
+          ...orgScope(whtCertificateItems, orgId),
+          eq(whtCertificateItems.certificateId, originalCertId)
+        )
+      );
+
+    if (items.length === 0) {
+      throw new Error("Certificate has no line items to reissue");
+    }
+
+    const now = new Date();
+    await tx
+      .update(whtCertificates)
+      .set({
+        status: "replaced",
+        voidedAt: now,
+        voidReason: reason.trim(),
+      })
+      .where(
+        and(
+          ...orgScope(whtCertificates, orgId),
+          eq(whtCertificates.id, originalCertId)
+        )
+      );
+
+    const replacement = await createWhtCertificateDraft({
+      orgId,
+      vendorId: original.payeeVendorId,
+      formType: original.formType,
+      paymentDate: original.paymentDate ?? new Date().toISOString().slice(0, 10),
+      tx,
+      foreignWhtBelowDefaultAcknowledgment:
+        original.rateBelowDefaultAcknowledgedByUserId &&
+        original.rateBelowDefaultRationale &&
+        original.rateBelowDefaultAccountantNote
+          ? {
+              acknowledgedByUserId: original.rateBelowDefaultAcknowledgedByUserId,
+              rationale: original.rateBelowDefaultRationale,
+              accountantNote: original.rateBelowDefaultAccountantNote,
+            }
+          : undefined,
+      lineItems: items.map((item) => ({
+        documentId: item.documentId,
+        lineItemId: item.lineItemId,
+        baseAmount: item.baseAmount ?? "0.00",
+        whtRate: item.whtRate ?? "0.0000",
+        whtAmount: item.whtAmount ?? "0.00",
+        rdPaymentTypeCode: item.rdPaymentTypeCode ?? undefined,
+        whtType: item.whtType ?? undefined,
+      })),
+    });
+
+    await tx
+      .update(whtCertificates)
+      .set({ replacementCertId: replacement.certificateId })
+      .where(
+        and(
+          ...orgScope(whtCertificates, orgId),
+          eq(whtCertificates.id, originalCertId)
+        )
+      );
+
+    await auditMutation(
+      {
+        orgId,
+        entityType: "wht_certificate",
+        entityId: originalCertId,
+        action: "void",
+        oldValue: { status: original.status },
+        newValue: {
+          status: "replaced",
+          voidReason: reason.trim(),
+          replacementCertId: replacement.certificateId,
+          replacementCertificateNo: replacement.certificateNo,
+        },
+      },
+      tx
+    );
+
+    return replacement;
+  });
 }
 
 /**

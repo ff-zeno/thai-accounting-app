@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { AlertTriangle, Download, FileText, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -20,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { generateCertificatePdfAction } from "./actions";
+import { generateCertificatePdfAction, reissueCertificateAction } from "./actions";
 import {
   toBuddhistYear,
   formatThaiDateShort,
@@ -97,6 +107,7 @@ export function CertificateTable({
   const [formTypeFilter, setFormTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [reissuingId, setReissuingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = certificates.filter((cert) => {
@@ -119,6 +130,20 @@ export function CertificateTable({
       } else if (result.url) {
         toast.success("PDF generated successfully");
         window.open(result.url, "_blank");
+      }
+    });
+  }
+
+  function handleReissue(certId: string, reason: string) {
+    setReissuingId(certId);
+    startTransition(async () => {
+      const result = await reissueCertificateAction(certId, reason);
+      setReissuingId(null);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`Replacement certificate ${result.certificateNo} created`);
+        window.location.reload();
       }
     });
   }
@@ -173,7 +198,7 @@ export function CertificateTable({
               <TableHead className="text-right">Base Amount</TableHead>
               <TableHead className="text-right">WHT</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">PDF</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -204,38 +229,47 @@ export function CertificateTable({
                     {cert.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">
-                  {cert.pdfUrl ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(cert.pdfUrl!, "_blank")}
-                    >
-                      <Download className="mr-1 size-3" />
-                      Download
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        isPending && generatingId === cert.id
-                      }
-                      onClick={() => handleGeneratePdf(cert.id)}
-                    >
-                      {isPending && generatingId === cert.id ? (
-                        <>
-                          <Loader2 className="mr-1 size-3 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="mr-1 size-3" />
-                          Generate PDF
-                        </>
-                      )}
-                    </Button>
-                  )}
+                <TableCell>
+                  <div className="flex justify-end gap-2">
+                    {cert.pdfUrl ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(cert.pdfUrl!, "_blank")}
+                      >
+                        <Download className="mr-1 size-3" />
+                        Download
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          isPending && generatingId === cert.id
+                        }
+                        onClick={() => handleGeneratePdf(cert.id)}
+                      >
+                        {isPending && generatingId === cert.id ? (
+                          <>
+                            <Loader2 className="mr-1 size-3 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="mr-1 size-3" />
+                            Generate PDF
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {cert.status !== "voided" && cert.status !== "replaced" && (
+                      <ReissueDialog
+                        certificateNo={cert.certificateNo}
+                        disabled={isPending && reissuingId === cert.id}
+                        onConfirm={(reason) => handleReissue(cert.id, reason)}
+                      />
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -243,5 +277,69 @@ export function CertificateTable({
         </Table>
       )}
     </div>
+  );
+}
+
+function ReissueDialog({
+  certificateNo,
+  disabled,
+  onConfirm,
+}: {
+  certificateNo: string;
+  disabled: boolean;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+
+  return (
+    <Dialog>
+      <DialogTrigger render={<Button variant="outline" size="sm" disabled={disabled} />}>
+        {disabled ? (
+          <Loader2 className="mr-1 size-3 animate-spin" />
+        ) : (
+          <RotateCcw className="mr-1 size-3" />
+        )}
+        Reissue
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="size-5 text-amber-500" />
+            Reissue Certificate
+          </DialogTitle>
+          <DialogDescription>
+            Create a replacement for {formatCertNoDisplay(certificateNo)}. The
+            original certificate will be marked as replaced and retained for audit.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor={`reissue-${certificateNo}`}>
+            Reason
+          </label>
+          <textarea
+            id={`reissue-${certificateNo}`}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            placeholder="Correction requested by payee..."
+          />
+        </div>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>
+            Cancel
+          </DialogClose>
+          <DialogClose
+            render={
+              <Button
+                disabled={disabled || reason.trim().length === 0}
+                onClick={() => onConfirm(reason)}
+              />
+            }
+          >
+            Create Replacement
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

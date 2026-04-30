@@ -73,6 +73,8 @@ export interface FiftyTawiItem {
 export interface FiftyTawiData {
   certificateNo: string;
   formType: "pnd2" | "pnd3" | "pnd53" | "pnd54";
+  replacesCertificateNo?: string | null;
+  replacesIssuedDate?: string | null;
   paymentDate: string | null;
   issuedDate: string | null;
   totalBaseAmount: string | null;
@@ -343,6 +345,22 @@ function createFiftyTawiDocument(data: FiftyTawiData) {
           `เลขที่ (No.): ${certNoDisplay}`
         )
       ),
+
+      data.replacesCertificateNo
+        ? React.createElement(
+            View,
+            { style: { marginBottom: 8, textAlign: "right" } },
+            React.createElement(
+              Text,
+              { style: { fontSize: 8, color: "#555" } },
+              `Replaces certificate ${formatCertNoDisplay(data.replacesCertificateNo)}${
+                data.replacesIssuedDate
+                  ? ` dated ${formatThaiDateShort(data.replacesIssuedDate)}`
+                  : ""
+              }`
+            )
+          )
+        : null,
 
       // Form type checkboxes
       React.createElement(

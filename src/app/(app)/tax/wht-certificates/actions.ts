@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 import { getOrganizationById } from "@/lib/db/queries/organizations";
 import { getVendorById } from "@/lib/db/queries/vendors";
 import {
   getCertificateWithItems,
   getCertificatesByOrg,
+  reissueWhtCertificate,
   type WhtFormType,
 } from "@/lib/db/queries/wht-certificates";
 import { renderFiftyTawiPdf, type FiftyTawiData } from "@/lib/pdf/fifty-tawi";
@@ -35,9 +37,25 @@ export async function generateCertificatePdfAction(
   if (!vendor) return { error: "Vendor not found" };
 
   // Build PDF data
+  const [replacedOriginal] = await db
+    .select({
+      certificateNo: whtCertificates.certificateNo,
+      issuedDate: whtCertificates.issuedDate,
+    })
+    .from(whtCertificates)
+    .where(
+      and(
+        ...orgScope(whtCertificates, orgId),
+        eq(whtCertificates.replacementCertId, certId)
+      )
+    )
+    .limit(1);
+
   const pdfData: FiftyTawiData = {
     certificateNo: cert.certificateNo,
     formType: cert.formType,
+    replacesCertificateNo: replacedOriginal?.certificateNo ?? null,
+    replacesIssuedDate: replacedOriginal?.issuedDate ?? null,
     paymentDate: cert.paymentDate,
     issuedDate: cert.issuedDate,
     totalBaseAmount: cert.totalBaseAmount,
@@ -98,4 +116,21 @@ export async function listCertificatesAction(filters?: {
   if (!orgId) return [];
 
   return getCertificatesByOrg(orgId, filters);
+}
+
+export async function reissueCertificateAction(
+  certId: string,
+  reason: string
+): Promise<{ certificateId?: string; certificateNo?: string; error?: string }> {
+  const { orgId } = await requireOrgAdmin();
+
+  try {
+    const result = await reissueWhtCertificate(orgId, certId, reason);
+    revalidatePath("/tax/wht-certificates");
+    return result;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to reissue certificate",
+    };
+  }
 }

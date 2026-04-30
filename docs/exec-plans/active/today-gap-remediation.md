@@ -1,6 +1,6 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Active residual — P0 gaps closed; P1-1/P1-2/P1-3/P1-5 closed; remaining P2 gaps still need implementation or explicit deferral
+**Status:** Active residual — P0 gaps closed; P1-1/P1-2/P1-3/P1-5/P2-1 closed; remaining P2-2 still needs implementation or explicit deferral
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
@@ -23,10 +23,10 @@ Closed by baseline v2:
 - P1-2 PND.2 is now a first-class WHT form type across enum/schema, filing calendar, monthly filing UI, CSV export, period locks, and 50 Tawi rendering.
 - P1-3 silent-drop paths now write idempotent `exception_queue` rows for vendor-country review, duplicate extraction logs, and unmatched imported bank transactions; dashboard surfaces open review items.
 - P1-5 foreign WHT below-default rates now require persisted user acknowledgment, rationale, and accountant note text before a PND.54 certificate can be created.
+- P2-1 WHT certificate reissue now marks the original as replaced, creates and links a replacement certificate, exposes a reissue action in the WHT certificate table, and prints replacement context on 50 Tawi PDFs.
 
 Still open:
 
-- P2-1 WHT certificate reissue workflow.
 - P2-2 payee-side WHT received tracking.
 
 ## Why this exists
@@ -234,6 +234,8 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 ### P2 — high-leverage but lower-urgency
 
 #### P2-1. Re-issuance flow for WHT certificates
+
+**Status:** Implemented 2026-04-30.
 
 **File:** New action under `src/app/(app)/tax/wht/[id]/reissue/`
 **Problem:** `replacement_cert_id` exists in schema but no API/UI. Payee dispute → "issue corrected cert" requires a defined flow.

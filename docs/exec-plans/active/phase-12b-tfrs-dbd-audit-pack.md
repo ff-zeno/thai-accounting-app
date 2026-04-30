@@ -2,7 +2,7 @@
 
 **Status:** Draft — captured 2026-04-26 (split from original Phase 12)
 **Depends on:** Phase 12a (CIT engine) shipped; Phase 13 (fixed assets) shipped; Phase 14 (analytics + AR/AP aging) shipped; **DBD/TFRS research spike** completed (`dbd-tfrs-research-spike.md`)
-**Authority reference:** TFRS for NPAEs (Revised 2022 + DBD 2024 notification + 2026 amendments confirmed by spike); DBD e-Filing system specifications confirmed by spike
+**Authority reference:** TFRS for NPAEs (Revised 2022 + DBD/TFAC amendments confirmed by spike); DBD e-Filing system specifications confirmed by spike
 
 ## Problem
 
@@ -12,12 +12,12 @@ Every Thai juristic person must file:
 
 Phase 12a produces the CIT calculation. This phase produces the financial statements + DBD package + auditor exchange package.
 
-**Critical: this phase cannot start until the DBD/TFRS research spike completes.** Phase 12a referenced TFRS NPAEs and DBD format with hand-waving; round-3 review found the actual format is XBRL-in-Excel V.2.0 + Java Builder + ZIP, with annual changes. The spike confirms current spec; this phase implements against confirmed spec.
+**Critical: this phase cannot start until the DBD/TFRS research spike completes.** Phase 12a referenced TFRS NPAEs and DBD format with hand-waving; round-3 review found the actual format is XBRL-in-Excel V.2.0 + Java Builder + ZIP, with annual changes. The spike confirms current spec; this phase implements against CPA/Builder-validated schema files, not the placeholders currently in `docs/_ai_context/`.
 
 ## Goals
 
 1. **TFRS NPAEs financial statements** — Balance Sheet, Income Statement, Statement of Changes in Equity, Cash Flow Statement (indirect method), Notes to Financial Statements.
-2. **Versioned COA → DBD taxonomy mapping** — seeded GL account codes are owner-friendly; statutory financial statement lines come from `dbd_template_schema.json`, not from COA prefixes alone.
+2. **Versioned COA → DBD taxonomy mapping** — seeded GL account codes are owner-friendly; statutory financial statement lines come from `docs/_ai_context/dbd-template-schema.json`, not from COA prefixes alone.
 3. **Comparative period rules** — current year + prior year columns; restatement when accounting policy changes.
 4. **DBD e-Filing package** — Excel template populated per current taxonomy + auditor-signed PDF + ZIP for upload to DBD portal.
 5. **Auditor exchange package** — single ZIP for the external CPA firm with everything they need.
@@ -44,7 +44,7 @@ Phase 12a produces the CIT calculation. This phase produces the financial statem
   - `prior_year_start date NOT NULL`
   - `prior_year_end date NOT NULL`
   - `tfrs_taxonomy_version text NOT NULL` — DBD's current taxonomy version (varies annually)
-  - `coa_mapping_payload jsonb` — versioned map from `gl_accounts.account_code` / subledger dimensions to DBD/TFRS line items, generated from `dbd_template_schema.json` and reviewed by CPA
+  - `coa_mapping_payload jsonb` — versioned map from `gl_accounts.account_code` / subledger dimensions to DBD/TFRS line items, generated from `docs/_ai_context/dbd-template-schema.json` and reviewed by CPA
   - `accounting_policy_payload jsonb` — explicit policy elections (revenue recognition, depreciation method, inventory cost flow, FX policy, lease treatment under Section 14)
   - `prior_year_restated boolean DEFAULT false` — true when accounting policy change retrospectively applied
   - `restatement_reason text`
@@ -52,7 +52,7 @@ Phase 12a produces the CIT calculation. This phase produces the financial statem
   - `is_payload jsonb` — Income Statement
   - `equity_payload jsonb` — Statement of Changes in Equity
   - `cf_payload jsonb` — Cash Flow Statement
-  - `notes_payload jsonb` — full note set per `notes_taxonomy.json` (output of spike)
+  - `notes_payload jsonb` — full note set per `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` (output of spike)
   - `prior_year_payload jsonb` — comparative period
   - `prior_year_source text` — `gl_generated`, `manual_import`, `auditor_adjusted_import`, `not_required_first_year`
   - `prior_year_import_document_id uuid` — uploaded prior-year audited FS/DBD Excel/PDF used when the app does not contain the comparative year
@@ -79,10 +79,10 @@ Phase 12a produces the CIT calculation. This phase produces the financial statem
 
 #### Generators (per spike output)
 
-The spike produces `notes_taxonomy.json` and `dbd_template_schema.json`. Generators read these.
+The spike produces `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` and `docs/_ai_context/dbd-template-schema.json`. Generators read these only after `source_status` is no longer `pending_cpa_validation`.
 
 - [ ] `src/lib/cit/financial-statements/balance-sheet-tfrs.ts`:
-  - Reads `dbd_template_schema.json` for line-item mapping per current taxonomy.
+  - Reads `docs/_ai_context/dbd-template-schema.json` for line-item mapping per current taxonomy.
   - Pulls account balances from Phase 10.5 GL trial balance at fiscal_year_end.
   - Maps GL accounts + control-account dimensions → TFRS line items through `coa_mapping_payload`; refuses generation if any non-zero account is unmapped.
   - Comparative column from prior year `financial_statements.bs_payload`.
@@ -93,7 +93,7 @@ The spike produces `notes_taxonomy.json` and `dbd_template_schema.json`. Generat
 - [ ] `src/lib/cit/financial-statements/cash-flow-indirect-tfrs.ts`:
   - Operating activities (indirect from net profit + non-cash adjustments + working-capital changes), investing, financing.
 - [ ] `src/lib/cit/financial-statements/notes-tfrs.ts`:
-  - Iterates `notes_taxonomy.json`. Each note has:
+  - Iterates `docs/_ai_context/tfrs-npaes-notes-taxonomy.json`. Each note has:
     - Source data path (GL query, sub-ledger query, or tenant-input field)
     - Default text template (Thai canonical)
     - Required tenant inputs (e.g. accounting policy elections)
@@ -104,7 +104,7 @@ The spike produces `notes_taxonomy.json` and `dbd_template_schema.json`. Generat
 #### COA mapping review gate
 
 - [ ] `src/lib/cit/financial-statements/coa-dbd-mapping.ts`:
-  - Builds candidate mappings from seeded `dbd_taxonomy_hint`, account type, account subtype, and `dbd_template_schema.json`.
+  - Builds candidate mappings from seeded `dbd_taxonomy_hint`, account type, account subtype, and `docs/_ai_context/dbd-template-schema.json`.
   - Requires CPA/accountant review before the first financial-statement generation for a tax year.
   - Blocks DBD Excel generation when:
     - any posted `gl_accounts` row has no mapping,
@@ -124,7 +124,7 @@ The spike produces `notes_taxonomy.json` and `dbd_template_schema.json`. Generat
 #### Template population
 
 - [ ] `src/lib/cit/dbd-excel-builder.ts`:
-  - Reads `dbd_template_schema.json`.
+  - Reads `docs/_ai_context/dbd-template-schema.json`.
   - Loads the current-version DBD Excel template from object storage (versioned).
   - Populates per the schema mapping.
   - Output: filled Excel file stored as `documents` row.
@@ -196,12 +196,12 @@ External auditors require a standard set of artifacts. Generate as a single ZIP.
 3. Comparative-period support.
 
 **Week 2 — Notes engine**
-1. Notes generator iterating `notes_taxonomy.json`.
+1. Notes generator iterating `docs/_ai_context/tfrs-npaes-notes-taxonomy.json`.
 2. Auto-populate per data sources; tenant/auditor input fields surfaced.
 3. Draft state with explicit "DRAFT" watermark.
 
 **Week 3 — DBD package**
-1. DBD Excel builder using ExcelJS + `dbd_template_schema.json`.
+1. DBD Excel builder using ExcelJS + `docs/_ai_context/dbd-template-schema.json`.
 2. Validation rules matching DBD Builder.
 3. UI walkthrough for manual conversion + upload.
 
@@ -212,7 +212,7 @@ External auditors require a standard set of artifacts. Generate as a single ZIP.
 
 ### Dependencies
 
-- **DBD/TFRS research spike** — HARD prerequisite. Cannot start without `notes_taxonomy.json` and `dbd_template_schema.json`.
+- **DBD/TFRS research spike** — HARD prerequisite. Cannot start while `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` or `docs/_ai_context/dbd-template-schema.json` has `source_status = "pending_cpa_validation"`.
 - **Phase 12a (CIT engine)** — CIT accrual + book-tax adjustments feed financial statements.
 - **Phase 13, 14, 10.5, 10.6** — all data sources for the financial statements + audit pack.
 

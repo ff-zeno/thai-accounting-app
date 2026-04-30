@@ -1,0 +1,61 @@
+{
+  "source_status": "pending_cpa_validation",
+  "prepared_at": "2026-04-30",
+  "official_sources": [
+    "https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf",
+    "https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf"
+  ],
+  "assumptions": [
+    "DBD e-Filing uses DBD XBRL in Excel V.2.0 before Builder validation/conversion.",
+    "Normal Thai company NPAE cases likely use NPAE_COM-OTH, subject to CPA confirmation.",
+    "Normal Thai partnership NPAE cases likely use NPAE_PRT-OTH, subject to CPA confirmation."
+  ],
+  "taxonomy_options_seen_in_public_manual": [
+    {
+      "legal_form": "partnership",
+      "business_group": "other/general",
+      "accounting_standard": "TFRS for NPAEs",
+      "taxonomy_code": "NPAE_PRT-OTH",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "legal_form": "company",
+      "business_group": "other/general",
+      "accounting_standard": "TFRS for NPAEs",
+      "taxonomy_code": "NPAE_COM-OTH",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "legal_form": "foreign_legal_entity",
+      "business_group": "other/general",
+      "accounting_standard": "TFRS for NPAEs",
+      "taxonomy_code": "NPAE_FLE-OTH",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "legal_form": "joint_venture",
+      "business_group": "other/general",
+      "accounting_standard": "TFRS for NPAEs",
+      "taxonomy_code": "NPAE_JV-OTH",
+      "status": "needs_cpa_confirmation"
+    }
+  ],
+  "template": {
+    "version": null,
+    "downloaded_from_dbd_at": null,
+    "validated_by": null,
+    "validated_at": null,
+    "builder_version": null,
+    "java_requirement": "Public DBD manual references Java Runtime Environment 8 or higher.",
+    "template_file_hash": null
+  },
+  "worksheets": [],
+  "validation_rules": [],
+  "open_questions": [
+    "Exact FY2026 workbook version and file hash",
+    "Full worksheet list",
+    "Row/cell mapping for financial statement lines",
+    "Builder-enforced validation rules and errors",
+    "Attachment/package requirements for signed PDF and ZIP upload"
+  ]
+}

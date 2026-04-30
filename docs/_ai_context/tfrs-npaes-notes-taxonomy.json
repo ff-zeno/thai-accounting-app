@@ -1,0 +1,110 @@
+{
+  "source_status": "pending_cpa_validation",
+  "prepared_at": "2026-04-30",
+  "official_sources": [
+    "https://acpro-std.tfac.or.th/standard/2/-NPAEs",
+    "https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA"
+  ],
+  "standard_reference": "TFRS for NPAEs revised 2565, plus TFAC Q&A and any 2026 CPA-confirmed amendments",
+  "note_groups": [
+    {
+      "id": "accounting_policies",
+      "title_en": "Significant accounting policies",
+      "source_type": "tenant_and_auditor_input",
+      "status": "needs_cpa_confirmation",
+      "topics": [
+        "revenue recognition",
+        "depreciation method",
+        "inventory cost flow",
+        "foreign exchange policy",
+        "lease accounting",
+        "income tax accounting"
+      ]
+    },
+    {
+      "id": "cash_and_bank",
+      "title_en": "Cash and cash equivalents",
+      "source_type": "gl_and_bank_subledger",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "trade_receivables",
+      "title_en": "Trade and other receivables",
+      "source_type": "gl_and_ar_aging",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "inventories",
+      "title_en": "Inventories",
+      "source_type": "inventory_subledger_and_tenant_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "property_plant_equipment",
+      "title_en": "Property, plant and equipment",
+      "source_type": "fixed_asset_register",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "trade_payables",
+      "title_en": "Trade and other payables",
+      "source_type": "gl_and_ap_aging",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "employee_benefits",
+      "title_en": "Employee benefits",
+      "source_type": "payroll_and_auditor_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "share_capital_and_equity",
+      "title_en": "Share capital and equity",
+      "source_type": "gl_and_company_registry_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "revenue",
+      "title_en": "Revenue",
+      "source_type": "gl_and_sales_subledger",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "income_tax",
+      "title_en": "Income tax",
+      "source_type": "cit_engine_and_auditor_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "related_parties",
+      "title_en": "Related party transactions",
+      "source_type": "tenant_and_auditor_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "commitments_and_contingencies",
+      "title_en": "Commitments and contingencies",
+      "source_type": "tenant_and_auditor_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "events_after_reporting_period",
+      "title_en": "Events after the reporting period",
+      "source_type": "tenant_and_auditor_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "financial_risk_management",
+      "title_en": "Financial risk management",
+      "source_type": "gl_subledgers_and_auditor_input",
+      "status": "needs_cpa_confirmation"
+    }
+  ],
+  "open_questions": [
+    "Which note groups are mandatory for a normal small Thai company under TFRS for NPAEs?",
+    "Which notes are conditional by balance, transaction type, or business activity?",
+    "Which default Thai wording is acceptable as a system-generated draft?",
+    "Which fields must be tenant input vs auditor input?",
+    "How should prior-period restatements be disclosed?"
+  ]
+}

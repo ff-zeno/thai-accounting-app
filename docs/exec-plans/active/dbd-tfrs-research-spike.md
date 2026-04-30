@@ -1,9 +1,10 @@
 # Research Spike: DBD e-Filing Format + TFRS for NPAEs Note Coverage
 
-**Status:** Active — runs in parallel with today-gap remediation; blocks Phase 12b start
+**Status:** Active — next non-coding spike; blocks Phase 12b start
 **Owner:** Founder + paid Thai-licensed CPA engagement
 **Estimated effort:** 3 weeks minimum calendar (1 week DBD format extraction, 1 week TFRS notes coverage, 1 week Builder/integration validation). Risk: CPA onboarding and async review can consume 6-8 calendar weeks.
 **Created:** 2026-04-26 after round-3 review found Phase 12 was hand-waving DBD/TFRS
+**Desk-check updated:** 2026-04-30 from official DBD/TFAC public docs
 
 ## Why this exists
 
@@ -25,6 +26,46 @@ The Department of Business Development requires juristic persons to file financi
 - TFRS for NPAEs filers use a different Excel template than full-TFRS filers (most of our tenants are NPAEs).
 
 **Implication for the platform:** v1 of Phase 12b is NOT direct push to DBD. It is "fill the Excel template + generate PDF + walk user through Builder." Direct integration is harder than it looks.
+
+## 2026 Desk-Check Baseline
+
+Official public docs still support the plan's core assumptions:
+
+- DBD's e-Filing preparation flow uses **DBD XBRL in Excel V.2.0**, downloaded from DBD e-Filing and filled in Excel before validation/conversion.
+- The DBD manual lists taxonomy choices for legal form and accounting standard. For ordinary partnerships/companies, the NPAE taxonomy codes shown include `NPAE_PRT-OTH` and `NPAE_COM-OTH`; the manual notes most non-public-interest juristic persons use the NPAE "OTH" code for their legal form.
+- The Excel workflow still depends on workbook/macros and worksheet-specific entry. The manual shows users enable macros, then work through XBRL-in-Excel worksheets with prior/current period columns and controlled row/sub-item behavior.
+- The DBD manual still references Java Runtime Environment 8+ for the DBD XBRL-in-Excel tooling/validation flow.
+- TFAC's standards site lists **TFRS for NPAEs (ปรับปรุง 2565)** and a March 17, 2025 Q&A for practical implementation issues.
+
+Sources to pin for the CPA package:
+
+- DBD Excel/XBRL manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf`
+- DBD filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf`
+- TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs`
+- TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA`
+
+## Owner Split
+
+Codex/platform can do now:
+
+- Build a CPA handoff checklist from the official DBD/TFAC sources.
+- Create placeholder machine-readable schema files with explicit `source_status: "pending_cpa_validation"` so Phase 12b has paths and shape without pretending we have validated mappings.
+- Update Phase 12b to depend on the validated files, not vague "DBD export" language.
+
+CPA/Founder must do externally:
+
+- Download the current template from an authenticated DBD e-Filing session.
+- Run DBD e-Filing Builder on Windows/Java and validate at least one sample filled template.
+- Confirm TFRS for NPAEs note taxonomy and any 2026 amendments/practice guidance.
+- Provide anonymized accepted sample workbooks/Builder errors for engineering fixtures.
+
+## Immediate Codex Slice
+
+- [x] Create `docs/_ai_context/dbd-tfrs-cpa-handoff.md` with source links, exact CPA questions, requested artifacts, and acceptance criteria.
+- [x] Create placeholder `docs/_ai_context/dbd-template-schema.json` with legal-form/accounting-standard taxonomy options discovered so far and TODO sections for sheets/rows/validation rules.
+- [x] Create placeholder `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` with the note groups from this spike and TODO fields for source data, tenant input, and auditor input.
+- [x] Patch `phase-12b-tfrs-dbd-audit-pack.md` so implementation cannot start until CPA-validated schema files replace placeholders.
+- [ ] Commit this desk-check and handoff package.
 
 ## Spike deliverables
 
@@ -56,20 +97,20 @@ The Department of Business Development requires juristic persons to file financi
   - Post-balance-sheet events
   - Risk-management notes (liquidity, credit, FX exposure)
 - [ ] Per-note: which information comes from GL automatically, which requires tenant input, which requires auditor input.
-- [ ] Output: a `notes_taxonomy.json` describing each note, source data path, default text templates (Thai canonical, English secondary), tenant-input fields, auditor-input fields.
+- [ ] Output: a CPA-validated `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` describing each note, source data path, default text templates (Thai canonical, English secondary), tenant-input fields, auditor-input fields.
 
 ### Week 3: Builder validation + integration design
 
 - [ ] How does the platform wire the Excel template population? Likely: server-side .xlsx generation using a library like ExcelJS, populated from the JSON schema + GL queries.
 - [ ] How are auditor signatures handled? Auditor uploads signed PDF; platform attaches.
 - [ ] How is the Java Builder bridged? v1: download Excel + signed PDF, walk user through manual Builder run + ZIP upload. v2 (much later): if DBD opens an API, direct push.
-- [ ] Hard gate: generated `dbd_template_schema.json` must successfully populate a sample Excel file that passes DBD e-Filing Builder validation before Phase 12b is schedulable.
+- [ ] Hard gate: generated `docs/_ai_context/dbd-template-schema.json` must successfully populate a sample Excel file that passes DBD e-Filing Builder validation before Phase 12b is schedulable.
 
 ## Output of this spike
 
 - `docs/_ai_context/dbd-template-spec.md` — the extracted DBD template structure with field-level mapping.
 - `docs/_ai_context/tfrs-npaes-notes-spec.md` — the note set with source/input fields per note.
-- `notes_taxonomy.json` and `dbd_template_schema.json` checked into the repo (data files).
+- `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` and `docs/_ai_context/dbd-template-schema.json` checked into the repo (data files).
 - Updated `phase-12-annual-close-dbd-cit.md` (which we'll split into 12a + 12b) — Phase 12b plan refined with concrete tasks based on actual template structure, not assumed.
 
 ## Risk

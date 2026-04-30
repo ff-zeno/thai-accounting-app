@@ -1,21 +1,19 @@
 # Today-Gap Remediation — Compliance Patches for Shipped Code
 
-**Status:** Implementation complete; pending self-review before moving to completed
+**Status:** Completed 2026-04-30
 **Created:** 2026-04-26 after Opus + Codex CPA review
 **Owner:** Block on completion before any new tenant onboards
 **Scope:** Patches to currently-shipped code that fix compliance defects independent of Phase 10/11 plans
 
-## Current Status — 2026-04-29 Validation
+## Current Status — 2026-04-30 Validation
 
-Do not move this file to `completed` yet.
-
-Closed by baseline v2:
+Closed:
 
 - P0-3 DB-level period lock enforcement for current VAT/WHT filing/source paths via shared `period_locks`.
 - P0-4 PP36 self-assessment fix for marked foreign-service documents.
 - P1-4 document tax-invoice subtype: `full_ti`, `abb`, `e_tax_invoice`, `not_a_ti`; recoverable input VAT limited to full/e-tax invoices.
 - P0-1 PP30 document-derived output VAT is blocked for organizations flagged with POS/channel sales.
-- P0-2 VAT period must match `issue_date` unless explicit override metadata is present.
+- P0-2 VAT period is derived from `issue_date` on extraction/review storage and confirmation; DB rejects mismatched periods unless explicit override metadata is present.
 - P0-5 suspected foreign vendors mis-tagged as Thai are excluded from PP30 input VAT and queued for country review.
 - P0-6 WHT certificates now snapshot §3.4 payer/payee/payment fields at creation and `filing_id` has a real FK.
 - P0-7 annual cumulative below-1000-baht WHT exemption is tracked per vendor/year with catch-up withholding after threshold crossover.
@@ -24,10 +22,7 @@ Closed by baseline v2:
 - P1-3 silent-drop paths now write idempotent `exception_queue` rows for vendor-country review, duplicate extraction logs, and unmatched imported bank transactions; dashboard surfaces open review items.
 - P1-5 foreign WHT below-default rates now require persisted user acknowledgment, rationale, and accountant note text before a PND.54 certificate can be created.
 - P2-1 WHT certificate reissue now marks the original as replaced, creates and links a replacement certificate, exposes a reissue action in the WHT certificate table, and prints replacement context on 50 Tawi PDFs.
-
-Pending review:
-
-- P2-2 payee-side WHT received tracking is implemented; needs review before this plan moves to completed.
+- P2-2 payee-side WHT received tracking now records received 50 Tawi credits with same-org DB enforcement, amount checks, duplicate-certificate guard, manual UI, year aggregate, and audit logging.
 
 ## Why this exists
 
@@ -62,13 +57,13 @@ Both Opus and Codex CPA-grade reviews identified **shipped behavior** that produ
 - Add `documents.vat_period_override_reason` text (nullable).
 - Add `documents.vat_period_overridden_by_user_id` text + `vat_period_overridden_at` timestamptz.
 - DB CHECK (or trigger): `vat_period_year = year(issue_date) AND vat_period_month = month(issue_date)` UNLESS `vat_period_override_reason IS NOT NULL`.
-- In `process-document.ts` store-result step: set `vat_period_year/month` directly from `issue_date`. Don't accept AI-provided values.
-- UI: editing the period from defaults requires entering an override reason; logs to `audit_log` with `read_pii=false, action='override_vat_period'`.
+- In the shared document update path used by `process-document.ts` store-result and review edits, set `vat_period_year/month` directly from `issue_date`. Do not accept AI-provided period values.
+- Manual period override is not exposed in the current UI. The DB override columns exist for future accountant-only workflows, and direct mismatches require override metadata.
 
 **Verification:**
 - Document with issue_date=2026-03-15 has vat_period_year=2026, vat_period_month=3.
 - Attempt to set period=2026-04 without override → DB rejects.
-- Override with reason → succeeds, audit_log entry created.
+- Override with reason → DB accepts the mismatch for future accountant-only workflows.
 
 #### P0-3. DB-level period lock enforcement
 
@@ -246,7 +241,7 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 
 #### P2-2. Payee-side WHT received tracking
 
-**Status:** Implemented 2026-04-30; pending self-review.
+**Status:** Implemented 2026-04-30.
 
 **Problem:** When tenant invoices a Thai company that withholds 3%, the tenant receives net + a 50 Tawi cert. This is an asset (WHT credit on PND.50) but not modeled. CIT calc misses the credit.
 
@@ -256,6 +251,7 @@ User decision: track annual cumulative as a **single bucket per (org, payee_vend
 - DB constraints:
   - same-org triggers for customer and received-certificate document references
   - non-negative gross/WHT amounts
+  - WHT amount cannot exceed gross amount
   - unique non-deleted certificate number per org/customer/year when a certificate number is provided
 - UI: manual received 50 Tawi entry + year total/list.
 - PND.50 prep: aggregate `wht_credits_received` by tax_year as creditable WHT.

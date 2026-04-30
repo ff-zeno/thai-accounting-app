@@ -72,6 +72,8 @@ export async function updateDocumentAction(
     vatAmount?: string | null;
     totalAmount?: string | null;
     currency?: string | null;
+    vatPeriodYear?: number | null;
+    vatPeriodMonth?: number | null;
     taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
     isPp36Subject?: boolean | null;
   },

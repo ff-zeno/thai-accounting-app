@@ -15,6 +15,7 @@ import {
   unique,
   uniqueIndex,
   pgEnum,
+  check,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -804,6 +805,10 @@ export const whtCreditsReceived = pgTable(
     uniqueIndex("wht_credits_received_unique_cert")
       .on(t.orgId, t.customerVendorId, t.certificateNo, t.taxYear)
       .where(sql`${t.deletedAt} IS NULL AND ${t.certificateNo} IS NOT NULL`),
+    check(
+      "wht_credits_received_wht_not_above_gross_check",
+      sql`${t.whtAmount} <= ${t.grossAmount}`
+    ),
   ]
 );
 

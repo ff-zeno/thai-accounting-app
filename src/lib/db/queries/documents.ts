@@ -28,13 +28,34 @@ function deriveVatPeriod(issueDate: string | Date): {
   vatPeriodYear: number;
   vatPeriodMonth: number;
 } {
-  const date = issueDate instanceof Date ? issueDate : new Date(issueDate);
-  if (Number.isNaN(date.getTime())) {
+  if (issueDate instanceof Date) {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Bangkok",
+      year: "numeric",
+      month: "2-digit",
+    });
+    const parts = formatter.formatToParts(issueDate);
+    const year = Number(parts.find((part) => part.type === "year")?.value);
+    const month = Number(parts.find((part) => part.type === "month")?.value);
+    if (!Number.isInteger(year) || !Number.isInteger(month)) {
+      throw new Error("Cannot confirm document: issue date is invalid");
+    }
+    return { vatPeriodYear: year, vatPeriodMonth: month };
+  }
+
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(issueDate);
+  if (!match) {
     throw new Error("Cannot confirm document: issue date is invalid");
   }
+  const vatPeriodYear = Number(match[1]);
+  const vatPeriodMonth = Number(match[2]);
+  if (vatPeriodMonth < 1 || vatPeriodMonth > 12) {
+    throw new Error("Cannot confirm document: issue date is invalid");
+  }
+
   return {
-    vatPeriodYear: date.getFullYear(),
-    vatPeriodMonth: date.getMonth() + 1,
+    vatPeriodYear,
+    vatPeriodMonth,
   };
 }
 
@@ -319,6 +340,8 @@ export async function updateDocumentFromExtraction(
     totalAmount?: string | null;
     currency?: string | null;
     category?: string | null;
+    vatPeriodYear?: number | null;
+    vatPeriodMonth?: number | null;
     taxInvoiceSubtype?: TaxInvoiceSubtype | null;
     isPp36Subject?: boolean | null;
     detectedLanguage?: string | null;
@@ -333,6 +356,12 @@ export async function updateDocumentFromExtraction(
     issueDate: data.issueDate === "" ? null : data.issueDate,
     dueDate: data.dueDate === "" ? null : data.dueDate,
   };
+  if (Object.hasOwn(data, "issueDate")) {
+    const issueDate = normalized.issueDate;
+    const period = issueDate ? deriveVatPeriod(issueDate) : null;
+    normalized.vatPeriodYear = period?.vatPeriodYear ?? null;
+    normalized.vatPeriodMonth = period?.vatPeriodMonth ?? null;
+  }
 
   const [doc] = await db
     .update(documents)

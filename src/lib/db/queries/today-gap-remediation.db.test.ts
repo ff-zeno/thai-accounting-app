@@ -11,6 +11,7 @@ const { db: testDb, pool } = createTestDb();
 let computeVatForPeriod: typeof import("./vat-records").computeVatForPeriod;
 let OutputVatPathDisabledError: typeof import("./vat-records").OutputVatPathDisabledError;
 let createPayment: typeof import("./payments").createPayment;
+let updateDocumentFromExtraction: typeof import("./documents").updateDocumentFromExtraction;
 
 beforeAll(async () => {
   await resetTestDb(pool);
@@ -18,6 +19,7 @@ beforeAll(async () => {
   vi.doMock("../index", () => ({ db: testDb }));
   ({ computeVatForPeriod, OutputVatPathDisabledError } = await import("./vat-records"));
   ({ createPayment } = await import("./payments"));
+  ({ updateDocumentFromExtraction } = await import("./documents"));
 });
 
 afterAll(async () => {
@@ -134,6 +136,27 @@ describe("today-gap remediation P0 invariants", () => {
         vatPeriodOverriddenAt: new Date(),
       })
     ).resolves.toBeDefined();
+  });
+
+  it("derives VAT period from issue date during extraction/update storage", async () => {
+    const org = await createOrg();
+    const [doc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        direction: "income",
+        type: "invoice",
+        status: "draft",
+      })
+      .returning();
+
+    const updated = await updateDocumentFromExtraction(org.id, doc.id, {
+      issueDate: "2026-01-01",
+      documentNumber: "INV-UTC7",
+    });
+
+    expect(updated?.vatPeriodYear).toBe(2026);
+    expect(updated?.vatPeriodMonth).toBe(1);
   });
 
   it("snapshots WHT certificate payer/payee fields and enforces filing FK", async () => {

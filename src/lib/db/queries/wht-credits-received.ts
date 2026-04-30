@@ -18,8 +18,11 @@ export interface CreateWhtCreditReceivedInput {
 }
 
 function taxYearFromDate(paymentDate: string): number {
-  const parsed = new Date(`${paymentDate}T00:00:00+07:00`);
-  return parsed.getFullYear();
+  const year = Number(paymentDate.slice(0, 4));
+  if (!Number.isInteger(year)) {
+    throw new Error("Payment date must be a valid Bangkok civil date");
+  }
+  return year;
 }
 
 function parseMoney(value: string, label: string): number {

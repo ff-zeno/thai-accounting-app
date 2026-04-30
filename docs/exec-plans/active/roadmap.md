@@ -1,7 +1,7 @@
 # Thai Accounting Platform — Roadmap & Exec-Plan Index
 
 **Status:** Active source of truth
-**Last updated:** 2026-04-29
+**Last updated:** 2026-04-30
 **Purpose:** Keep the exec-plan table of contents, status, dependency order, and active residuals clear before Phase 9+ expansion work resumes.
 
 ## Vision
@@ -17,11 +17,9 @@ This means:
 
 ## Current State
 
-Phases 0-7 are completed and archived. Phase 8 is active/dogfood. Baseline hardening v2 and the residual baseline-hardening pass are completed and archived. One shipped-code compliance residual plan remains active:
+Phases 0-7 are completed and archived. Phase 8 is active/dogfood. Baseline hardening v2, the residual baseline-hardening pass, and today-gap remediation are completed and archived.
 
-- `today-gap-remediation.md` remains active because several compliance patches are still open.
-
-No Phase 9+ implementation should start until the active residuals are either implemented or explicitly deferred with owner/accountant sign-off.
+Phase 9+ implementation can start from the current hardened baseline, with Phase 8 dogfood and DBD/TFRS research still tracked as active planning inputs.
 
 ## Completed Exec Plans
 
@@ -45,6 +43,7 @@ Completed plans live in `docs/exec-plans/completed/`.
 | `phase-7-ui-reconciliation.md` | Completed |
 | `baseline-hardening-v2-task.md` | Completed 2026-04-28; implementation source for the hardening v2 slice |
 | `baseline-hardening.md` | Completed 2026-04-29; residual tenant-isolation sweep, audit-log partitioning, audit metadata assignment, and final baseline gate |
+| `today-gap-remediation.md` | Completed 2026-04-30; shipped-code VAT/WHT compliance patches |
 
 ## Active Exec Plans
 
@@ -52,7 +51,6 @@ All active plans live in `docs/exec-plans/active/`.
 
 | Status | Document | Role | Move-to-completed condition |
 |---|---|---|---|
-| Active residual | `today-gap-remediation.md` | Shipped-code compliance gaps | Open P0/P1/P2 gaps implemented or explicitly folded into later phases |
 | Active/dogfood | `phase-8-extraction-learning-loop.md` | AI extraction learning loop | Dogfood complete; Tier 4 either planned separately or deferred |
 | Active reference | `chart-of-accounts.md` | Thai COA design | Keep active until Phase 10.5 GL account implementation is done |
 | Research spike | `dbd-tfrs-research-spike.md` | DBD/TFRS validation | CPA/DBD Builder-validated schema and notes taxonomy produced |
@@ -77,21 +75,19 @@ All active plans live in `docs/exec-plans/active/`.
 
 ## Immediate Work Order
 
-1. Close or explicitly defer active residuals.
-   - `today-gap-remediation.md`: finish Thai holiday calendar, PND.2, broader exception queues, below-default foreign WHT gate, and WHT reissue/received tracking.
-2. Run the DBD/TFRS research spike early.
+1. Run the DBD/TFRS research spike early.
    - This is the highest calendar-risk dependency because CPA/DBD Builder validation can take weeks even if engineering effort is small.
-3. Finish Phase 8 dogfood decisions.
+2. Finish Phase 8 dogfood decisions.
    - Decide whether Tier 4 becomes its own plan or stays deferred.
-4. Ship Phase 15 before deep Phase 10+ UX work.
+3. Ship Phase 15 before deep Phase 10+ UX work.
    - The nav model should be stable before adding POS, GL, inventory, payroll, CIT, and audit-pack screens.
-5. Start expansion in dependency order.
+4. Start expansion in dependency order.
    - Phase 9, then Phase 10, then Phase 10.5, then Phase 10.6a/10.6b, then Phase 11/13/14, then Phase 12a/12b.
 
 ## Dependency Order
 
 ```text
-Today-gap residuals
+Hardened shipped-code baseline
   -> Phase 9 foreign-vendor tax
   -> Phase 10 POS + cash flow + §87 reports
   -> Phase 10.5 GL primitives
@@ -119,7 +115,7 @@ Before starting complex expansion, confirm:
 - VAT/WHT/document confirmation paths share the hardened baseline workflow.
 - Reconciliation cannot over-allocate.
 - Current app checks are green.
-- Remaining residuals in `today-gap-remediation.md` are either done or consciously deferred.
+- Today-gap remediation is completed and archived.
 
 ## Deferred, Not Scheduled
 

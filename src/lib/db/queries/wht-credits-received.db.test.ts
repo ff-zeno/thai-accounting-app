@@ -75,6 +75,23 @@ describe("WHT credits received", () => {
     expect(auditRows).toHaveLength(1);
   });
 
+  it("derives tax year from the Bangkok civil payment date", async () => {
+    const org = await createTestOrg(testDb);
+    const customer = await createTestVendor(testDb, org.id);
+
+    await createWhtCreditReceived({
+      orgId: org.id,
+      customerVendorId: customer.id,
+      paymentDate: "2026-01-01",
+      grossAmount: "1000.00",
+      whtAmount: "30.00",
+      formType: "50_tawi",
+    });
+
+    expect(await getWhtCreditsReceivedTotal(org.id, 2026)).toBe("30.00");
+    expect(await getWhtCreditsReceivedTotal(org.id, 2025)).toBe("0.00");
+  });
+
   it("rejects customer and document references outside the org", async () => {
     const org = await createTestOrg(testDb);
     const otherOrg = await createTestOrg(testDb);
@@ -163,5 +180,17 @@ describe("WHT credits received", () => {
         formType: "50_tawi",
       })
     ).rejects.toThrow("WHT amount cannot exceed gross amount");
+
+    await expect(
+      testDb.insert(schema.whtCreditsReceived).values({
+        orgId: org.id,
+        customerVendorId: customer.id,
+        paymentDate: "2026-04-15",
+        grossAmount: "100.00",
+        whtAmount: "101.00",
+        formType: "50_tawi",
+        taxYear: 2026,
+      })
+    ).rejects.toThrow(/Failed query/);
   });
 });

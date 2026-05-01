@@ -1,10 +1,36 @@
-# Phase 8 — Extraction Learning Loop
+# Phase 8 — Corrective Extraction Learning Loop
 
-**Status:** Active dogfood gate — implementation exists for Tier 1/Tier 2 scaffolding; measurable lift not yet proven
+**Status:** Active redesign — Tier 1/Tier 2 scaffolding exists, but dogfood showed naive exemplar prompting is insufficient
 **Author:** Claude Opus 4.6
 **Date:** 2026-04-15
 **Depends on:** Phase 3 (documents-ai), Phase 4 (reconciliation), Phase 7 (ai-batch-matching)
 **Related:** `docs/_ai_context/reconciliation-architecture.md`
+
+## Current Source of Truth — 2026-05-01
+
+Phase 8 is no longer framed as "prompt improvement." The product contract is **corrective learning from confirmed review**:
+
+1. AI extracts a document into typed accounting fields.
+2. The user corrects fields directly or explains the issue in natural language.
+3. AI may help interpret the explanation, but it produces a **structured correction proposal**, not raw prompt text.
+4. The user confirms the document is now correct. This confirmation is the trust boundary.
+5. The system stores a learning candidate with provenance: original extraction, final confirmed values, optional user explanation, vendor identity, document family hints, affected fields, and extraction log linkage.
+6. Candidate learning artifacts are promoted only after scoped validation. They can be private vendor rules, document-family field rules, exemplars, global consensus candidates, or compiled deterministic extractors.
+7. Every future extraction records which learned artifacts influenced it, and every artifact can be demoted or retired when corrections show drift.
+
+Natural language is useful because small-business users can say what is wrong without understanding schemas or prompts. It is supporting evidence, not an automatic instruction channel. We do not blindly append user text to prompts, ingest one correction globally, or mutate extraction behavior without confirmation and validation.
+
+## Dogfood Result — 2026-04-30
+
+The first dogfood cycle proved the current Tier 1 mechanism is wired but not robust enough:
+
+- Tier 0 weighted score: **87.5%** across 10 docs.
+- Tier 1 held-out comparison: **87.0% → 87.5%** weighted, but raw score regressed **90.2% → 86.3%**.
+- Private exemplars fixed Ksher Thai vendor name.
+- Private exemplars did **not** teach the important semantic rule: for Ksher settlement receipt/tax invoice docs, `totalAmount` should be gross `Trans. Amount / GrandTotal`, not net `Credit Amount`.
+- Tier 1 also caused low/medium regressions (`vendorAddress`, `subtotal`, `buyerTaxId`, `vatRate`, `detectedLanguage`).
+
+Conclusion: before building more tiers, Phase 8 must add a correction-confirmation product loop and structured, scoped learning artifacts. Prompt-only exemplar injection is too weak as the primary abstraction.
 
 ## Current Implementation Snapshot — 2026-04-30
 
@@ -14,29 +40,30 @@ Implemented and verified in code:
 
 - Extraction learning tables: `extraction_exemplars`, `vendor_tier`, `extraction_log`, `extraction_review_outcome`, `org_reputation`, `exemplar_consensus`, `global_exemplar_pool`, `extraction_compiled_patterns`.
 - Tenant-isolation hardening exists for learning tables through baseline migrations.
-- Review save path writes exemplars and review outcomes through `writeReviewExemplars()`.
-- Extraction path probes PDF text-layer vendor identity, resolves private exemplars, injects Tier 1 prompt context, logs extraction tier/usage, and falls back safely.
+- Review save path writes exemplars and review outcomes through `writeReviewExemplars()`. This captures confirmed field values but does not yet capture natural-language correction rationale or structured rule candidates.
+- Extraction path probes PDF text-layer vendor identity, resolves private exemplars, injects Tier 1 prompt context, logs extraction tier/usage, and falls back safely. Dogfood shows this mechanism works technically but is semantically underpowered.
 - Tier 2 consensus scaffolding exists: org reputation, consensus recompute, global exemplar pool, admin extraction-health dashboard.
 - Compiled-pattern scaffolding exists: schema, AST validator, isolated-vm runner, compiler/shadow validation jobs.
 
 Known gaps before Phase 8 can be called complete:
 
-- **Dogfood lift is not measured.** We need Tier 0 vs Tier 1 comparison on real repeated-vendor docs before further expansion.
+- **Naive Tier 1 lift is not proven.** The 2026-04-30 dogfood cycle produced only +0.5pp weighted improvement and raw-score regression. Treat this as a stop-and-redesign signal, not a ship-forward signal.
+- **No correction conversation exists.** Users can save corrected fields, but cannot explain "why" in natural language and cannot confirm AI-proposed structured rules.
+- **No structured learning artifact exists beyond field exemplars.** We need vendor/document-family correction rules with scoped applicability and provenance.
 - **Canonical vendor resolver is not the design from this document.** Current path is PDF text-layer `probeVendorIdentity()` plus DB lookup. This is enough for dogfood, but not the full resolver contract.
 - **Tier 3 is not product-active.** Compiled pattern code exists, but the extraction path still calls the vision model and does not execute compiled output as the primary extractor.
-- **Tier 4 remains deferred.** Do not implement Tier 4 until Tier 1/2 dogfood proves lift and Tier 3 has a separate security pass.
+- **Tier 4 remains deferred.** Do not implement Tier 4 until corrective learning proves lift and Tier 3 has a separate security pass.
 
 ## Immediate Decision
 
-Tier 4 stays explicitly deferred. The next task is a dogfood measurement gate:
+Tier 4 stays explicitly deferred. The next task is not more prompt tuning; it is a corrective-learning slice:
 
-1. Version the dogfood scripts under `benchmarks/dogfood/`.
-2. Run Tier 0 extraction on the curated repeated-vendor sample set.
-3. Fill/parse ground truth.
-4. Seed one corrected document per repeated vendor as Tier 1 exemplar data.
-5. Re-run Tier 1 on the remaining docs.
-6. Compare weighted accuracy, per-vendor lift, and regressions.
-7. If at least 2 of 3 repeated vendors improve by the target threshold, Phase 8 moves to "dogfood proven; plan Phase 2 hardening." If not, iterate on exemplar prompt format and vendor identity resolution before more infrastructure.
+1. Add a correction-review model that distinguishes **field value corrections**, **natural-language explanations**, **AI-proposed rules**, and **user-confirmed final document correctness**.
+2. Add structured learning candidates scoped by org, vendor, document family, field, and confidence/provenance.
+3. Add a review-chat affordance or equivalent correction assistant: the user can say what is wrong, AI proposes field/rule updates, and the user confirms.
+4. Promote only confirmed candidates into extraction context after validation. Use private scoped rules before global consensus.
+5. Rerun dogfood with Ksher/FedEx/TikTok, measuring whether confirmed correction rules reduce subsequent corrections without causing high-criticality regressions.
+6. If corrective learning improves at least 2 of 3 repeated vendors and no high-criticality field repeatedly regresses, Phase 8 can move to Phase 2 hardening. If not, fix correction artifact design before more infrastructure.
 
 ## Review history
 
@@ -59,15 +86,18 @@ Our 2026-04-15 extraction benchmark (12 vision models × 4 real Thai documents, 
 - Correcting the same vendor's extraction manually over and over is a terrible user experience and throws away the signal.
 - Generic global SaaS (Mindee, Nanonets) has zero training on Thai-specific vendors like Ksher, KBank, ShopeePay, LINE MAN. This is our competitive moat — *if* we actually build the learning loop.
 
-**This phase builds that loop.** A self-tuning cost/accuracy curve per vendor, driven entirely by user corrections on the existing document review screen. No new UI, no extraction rules language, no user configuration. The system climbs a ladder of increasingly cheap and accurate extraction strategies as evidence accumulates, and automatically falls back when drift is detected.
+The 2026-04-30 dogfood run added an important correction: field exemplars alone are not a rich enough learning signal. They can teach exact values or spelling corrections, but they do not reliably teach document semantics such as "gross transaction amount is the accounting total; net credit is settlement cash."
+
+**This phase builds a corrective learning loop.** The user corrects a document and confirms final correctness. Natural-language explanation can help the AI understand why the old extraction was wrong, but the system converts that into structured, scoped learning artifacts before reuse. No user writes regex, edits prompts, or defines templates. The system climbs a ladder of increasingly cheap and accurate extraction strategies as confirmed evidence accumulates, and automatically falls back when drift is detected.
 
 ## 2. Goals
 
-1. **Accuracy**: for any vendor a user has corrected once, subsequent docs from that vendor reach ≥95% weighted field accuracy.
+1. **Accuracy**: for any vendor/document family a user has corrected and confirmed, subsequent similar docs reach ≥95% weighted field accuracy.
 2. **Cost**: for high-volume vendors (≥100 docs processed), extraction cost per document trends toward zero (target: 20× cost reduction vs Tier 0 LLM-only).
 3. **Network effect**: new orgs joining the platform benefit from validated extraction patterns learned by earlier orgs, without ever seeing another org's raw documents or corrections.
 4. **Resilience**: when a vendor changes their PDF format, the system detects drift within days (not months) and falls back to a higher-cost but more accurate tier until the new format is re-learned.
-5. **Auditability**: every extraction logs which tier it used, which exemplars influenced it, and (for compiled patterns) which version of which extractor ran. Any output can be traced back to its inputs.
+5. **Auditability**: every extraction logs which tier it used, which learning artifacts influenced it, and (for compiled patterns) which version of which extractor ran. Any output can be traced back to confirmed corrections.
+6. **Approachability**: small-business users can explain mistakes in plain language. The product translates that explanation into structured proposals and confirmation gates.
 
 ## 3. Non-goals
 
@@ -76,27 +106,28 @@ Our 2026-04-15 extraction benchmark (12 vision models × 4 real Thai documents, 
 - **No external training data.** All exemplars come from real user corrections on real documents. We don't crawl, we don't seed, we don't bootstrap from synthetic data.
 - **No cross-tenant data leakage**, ever. An org's private corrections are never visible to any other org, even in aggregate form. Global exemplars are derived from corrections but stripped of document-identifying content before promotion.
 - **Not replacing human review.** Even at Tier 4, low-confidence extractions still surface to the user. The loop reduces the rate of needed corrections, it doesn't eliminate review.
+- **No blind prompt mutation.** User explanations are never appended directly to future prompts. They must become structured, scoped, confirmed learning candidates first.
 
-## 4. Architecture — the extraction tier ladder
+## 4. Architecture — the corrective learning ladder
 
-Five tiers. Each vendor lives at one tier per scope (org-local or global). Documents route to the highest tier the vendor has unlocked for the current org. Promotion and demotion are automatic.
+Five tiers. Each vendor/document-family scope lives at one tier per scope (org-local or global). Documents route to the highest tier unlocked for the current org and matching document family. Promotion and demotion are automatic, but only confirmed corrections create promotion evidence.
 
 ### Tier definitions
 
 | Tier | Strategy | Expected cost/doc | Expected accuracy | When a vendor lives here |
 |---|---|---|---|---|
-| **0** | Raw vision LLM, no memory | ~$0.0010 | 60–80% | First encounter, no exemplars, no fingerprint match |
-| **1** | Vision LLM + private exemplars injected as few-shot examples | ~$0.0012 | 85–95% | Same org has corrected this vendor before |
-| **2** | Vision LLM + global (consensus-validated) exemplars as few-shot | ~$0.0012 | 85–95% | Cross-org consensus reached on this vendor |
-| **3** | Compiled deterministic extractor + small LLM sanity check | ~$0.0003 | 98–99% | ≥20 docs at Tier 2 with stable pattern, compiled extractor passes shadow validation |
+| **0** | Raw vision LLM, no memory | ~$0.0010 | 60–80% | First encounter, no confirmed learning artifact, no fingerprint match |
+| **1** | Vision LLM + private corrective context: confirmed values, correction rationales, and scoped field rules | ~$0.0012 | 85–95% | Same org has confirmed corrections for this vendor/document family |
+| **2** | Vision LLM + consensus-validated corrective context | ~$0.0012 | 85–95% | Cross-org consensus reached on this vendor/document family without exposing raw docs |
+| **3** | Compiled deterministic extractor + small LLM sanity check | ~$0.0003 | 98–99% | ≥20 docs at Tier 2 with stable confirmed patterns, compiled extractor passes shadow validation |
 | **4** | Pure deterministic, LLM only as fallback | ~$0.00005 | 99.5%+ | ≥100 docs at Tier 3 with zero regressions |
 
 ### Cost trajectory, single vendor
 
 ```
 docs   1– 10:   Tier 0/1    ~$0.0010/doc    (100% LLM)
-docs  11– 50:   Tier 1      ~$0.0012/doc    (LLM + private exemplars)
-docs  51–100:   Tier 2      ~$0.0012/doc    (LLM + global exemplars)
+docs  11– 50:   Tier 1      ~$0.0012/doc    (LLM + private corrective rules)
+docs  51–100:   Tier 2      ~$0.0012/doc    (LLM + consensus corrective rules)
 docs 101–500:   Tier 3      ~$0.0003/doc    (compiled + LLM verify)
 docs 500+:      Tier 4      ~$0.00005/doc   (pure compiled)
 ```
@@ -109,8 +140,8 @@ Thresholds scale with **field criticality** (see Section 5.8). The base threshol
 
 | From → To | Trigger (base / low criticality) | Trigger (high criticality) |
 |---|---|---|
-| **0 → 1** | Any single user correction on a doc from this vendor (org-scoped) | Same |
-| **1 → 2** | ≥3 independent orgs with reputation-weighted score ≥3 have corrected the same `(vendor_key, field_name)` to semantically equivalent values, AND no contradicting corrections in the last 30 days | ≥5 independent orgs with reputation-weighted score ≥4, AND one admin confirmation in the extraction-health dashboard, AND no contradicting corrections in the last 30 days |
+| **0 → 1** | User confirms a corrected document and at least one field/rule candidate is saved for this vendor/document family (org-scoped) | Same, but high-criticality rule candidates start in "shadow guidance" until one held-out similar doc passes |
+| **1 → 2** | ≥3 independent orgs with reputation-weighted score ≥3 have confirmed semantically equivalent correction candidates for the same `(vendor_key, document_family, field_name)`, AND no contradicting corrections in the last 30 days | ≥5 independent orgs with reputation-weighted score ≥4, AND one admin confirmation in the extraction-health dashboard, AND no contradicting corrections in the last 30 days |
 | **2 → 3** | ≥20 docs processed at Tier 2 with correction rate <5%, AND compiled extractor passes shadow validation at ≥95% field agreement | ≥50 docs at Tier 2, ≥98% shadow agreement, admin confirmation |
 | **3 → 4** | ≥100 docs at Tier 3 with zero user corrections over 30 days | ≥500 docs, ≥60-day clean window |
 
@@ -118,7 +149,7 @@ Thresholds scale with **field criticality** (see Section 5.8). The base threshol
 
 1. Org must be ≥30 days old (account creation date)
 2. Org must have processed ≥50 documents across its history
-3. Org reputation score ≥1.0 (i.e., no net-disputed corrections on record)
+3. Org reputation score ≥1.0 (i.e., no net-disputed confirmed corrections on record)
 
 These three gates block trivial account-farming attacks on global consensus.
 
@@ -130,16 +161,74 @@ Demotion matters more than promotion. Eager promotion + slow demotion is how you
 |---|---|
 | **4 → 3** | Any single user correction on a deterministically-extracted field. `vendor_tier.demotion_trigger_id` records the triggering `extraction_log_id`. |
 | **3 → 2** | Shadow LLM disagrees with deterministic extractor on >1% of sampled docs over a rolling 30-day window (minimum sample size 30 — otherwise hold current tier). |
-| **2 → 1** | 3+ orgs contradict a global exemplar within a rolling 30-day window |
-| **1 → 0** | Org explicitly "forgets" a vendor, OR exemplars older than 12 months with no recent usage |
+| **2 → 1** | 3+ orgs contradict a global correction artifact within a rolling 30-day window |
+| **1 → 0** | Org explicitly "forgets" a vendor, OR private learning artifacts are older than 12 months with no recent usage |
 
 ## 5. Data model
 
-Eight tables. All org-scoped where applicable. All monetary and numeric fields follow the existing CLAUDE.md rules (`NUMERIC(14,2)` for amounts, `NUMERIC(5,4)` for rates). All mutations route through the existing `auditMutation` helper in `src/lib/db/helpers/audit-log.ts` — see Section 6.1.
+The original design named eight learning tables. Corrective learning adds correction sessions and learning candidates before those tables are enough for production use. All org-scoped tables must carry tenant isolation. All monetary and numeric fields follow the existing CLAUDE.md rules (`NUMERIC(14,2)` for amounts, `NUMERIC(5,4)` for rates). All mutations route through the existing `auditMutation` helper in `src/lib/db/helpers/audit-log.ts` — see Section 6.1.
+
+**Current correction-learning update:** the original schema below already has useful primitives (`extraction_exemplars`, `extraction_review_outcome`, `extraction_log`), but it is missing the product-level correction loop. Add these concepts before expanding Tier 2+:
+
+### 5.0A `extraction_correction_sessions`
+
+One row per user review/correction conversation. This is the audit container for direct field edits and natural-language clarification.
+
+Required fields:
+
+- `org_id`, `document_id`, `extraction_log_id`
+- `started_by_user_id`, `confirmed_by_user_id`
+- `status`: `draft`, `confirmed`, `abandoned`
+- `user_explanation`: optional natural-language explanation
+- `ai_interpretation`: structured JSON summary of what AI thinks the user meant
+- `confirmed_at`
+- timestamps + soft delete
+
+The important event is not "user typed a message." The important event is **user confirmed the document is now correct**.
+
+### 5.0B `extraction_learning_candidates`
+
+One row per proposed learning artifact derived from a confirmed correction session.
+
+Required fields:
+
+- `org_id`
+- `document_id`
+- `correction_session_id`
+- `vendor_id` / `vendor_key`
+- `document_family`: e.g. `payment_processor_settlement_receipt`, `foreign_ad_invoice`, `customs_duty_invoice`
+- `field_name`
+- `candidate_type`: `field_exemplar`, `field_rule`, `document_family_rule`, `vendor_rule`
+- `ai_value`, `confirmed_value`
+- `rationale`: short structured explanation
+- `selector_hint`: e.g. `Trans. Amount / GrandTotal`
+- `reject_hint`: e.g. `Credit Amount / net settlement`
+- `applies_when`: JSON array of observable conditions
+- `scope`: `document`, `vendor`, `vendor_document_family`, `global_candidate`
+- `status`: `candidate`, `shadow`, `active`, `retired`, `rejected`
+- `promotion_evidence`, `retirement_reason`
+
+Example Ksher candidate:
+
+```json
+{
+  "vendorTaxId": "0105560199507",
+  "documentFamily": "payment_processor_settlement_receipt",
+  "fieldName": "totalAmount",
+  "candidateType": "field_rule",
+  "selectorHint": "Trans. Amount / GrandTotal",
+  "rejectHint": "Credit Amount / net settlement",
+  "appliesWhen": ["contains Commission", "contains Credit Amount", "contains Withholding tax"]
+}
+```
+
+These candidates can still materialize into `extraction_exemplars` for current Tier 1 code, but the long-term abstraction is a confirmed, scoped correction artifact.
 
 ### 5.1 `extraction_exemplars`
 
 One row per `(org, vendor, field)` correction or confirmation. Both user-corrected and AI-correct fields are stored — positive signal is as valuable as negative.
+
+Post-dogfood constraint: exemplars are evidence, not the whole learning model. For semantic document-family behavior, prefer an `extraction_learning_candidates` row that can describe selector/reject hints and applicability conditions.
 
 ```sql
 CREATE TYPE extraction_field_criticality AS ENUM ('low', 'medium', 'high');
@@ -466,21 +555,26 @@ File: `src/app/(app)/documents/[docId]/review/actions.ts`
 
 The existing `updateDocumentExtraction` server action is extended, not replaced. All new writes go through `auditMutation` per the existing project convention.
 
+Post-dogfood update: the write path must capture **confirmation**, not merely "field changed." Field diffs are necessary but insufficient; the product needs a place for user explanation and AI-proposed structured learning.
+
 On save:
 
 1. **Optimistic concurrency check.** The server action accepts a `documents.updated_at` timestamp from the client (set when the review page was loaded). If the current row's `updated_at` differs, reject with a 409 — "the document was modified elsewhere, reload and try again." Prevents a retrying Inngest extraction from clobbering user edits.
 2. **Load the most recent extraction log row for this document** via `SELECT ... FROM extraction_log WHERE document_id = ? ORDER BY created_at DESC LIMIT 1`.
-3. **Compute the field diff** between the extraction output (captured at extraction time in a new `document_extraction_snapshots` JSONB column, or recovered from the existing `ai_extracted_data` column) and the user's saved values. Normalize both sides using `normalizeFieldValue(field_name, value)` — see the new `src/lib/ai/field-normalization.ts` module.
-4. **For each field**, wrapped in a single transaction and routed through `auditMutation`:
+3. **Capture the correction session.** If the user used chat/clarification, store the natural-language explanation and the AI interpretation. If the user only edited fields, create a session with no explanation.
+4. **Confirm final correctness.** The review save action must represent that the user is confirming the saved extraction is now correct enough for the document workflow. This is the trust boundary for learning.
+5. **Compute the field diff** between the extraction output (captured at extraction time in a new `document_extraction_snapshots` JSONB column, or recovered from the existing `ai_extracted_data` column) and the user's saved values. Normalize both sides using `normalizeFieldValue(field_name, value)` — see the new `src/lib/ai/field-normalization.ts` module.
+6. **For each field**, wrapped in a single transaction and routed through `auditMutation`:
    - If unchanged → insert `extraction_exemplars` row with `was_corrected = false`, `ai_value = user_value`
    - If changed → insert `extraction_exemplars` row with `was_corrected = true`, frozen `org_reputation_at_time`
-5. **Insert exactly one `extraction_review_outcome` row** linked to the extraction log, with `user_corrected` and `correction_count`.
-6. **Queue a demotion check** as a fire-and-forget Inngest event `learning/review-saved` with `{org_id, vendor_key, correction_count}`. The handler evaluates the rolling correction rate from `extraction_log` + `extraction_review_outcome` (not from a stored column) and emits tier-demotion events if thresholds are crossed.
-7. **Update `org_reputation` asynchronously** — also in the Inngest handler, not in the hot save path. The reputation update requires comparing this correction against existing global consensus, which is a read-heavy operation.
+7. **Generate learning candidates** for corrected fields where the system can infer a reusable rule. Natural-language explanations help here, but candidates are structured and scoped. Do not activate them directly.
+8. **Insert exactly one `extraction_review_outcome` row** linked to the extraction log, with `user_corrected`, `correction_count`, and `correction_session_id`.
+9. **Queue a demotion/promotion check** as a fire-and-forget Inngest event `learning/review-confirmed` with `{org_id, vendor_key, correction_session_id, correction_count}`. The handler evaluates rolling correction rate, candidate consistency, and existing global consensus.
+10. **Update `org_reputation` asynchronously** — also in the Inngest handler, not in the hot save path. The reputation update requires comparing this confirmed correction against existing consensus, which is a read-heavy operation.
 
-The hot-path save completes in a single transaction, writes at most N exemplars (where N = number of schema fields in the invoice schema, ~15) plus one outcome row, and emits one event. Everything else is async.
+The hot-path save completes in a single transaction, writes at most N exemplars (where N = number of schema fields in the invoice schema, ~15), one correction session, candidate rows when applicable, plus one outcome row, and emits one event. Everything else is async.
 
-### 6.2 Read path — canonical vendor resolver + exemplar lookup
+### 6.2 Read path — canonical vendor resolver + corrective context lookup
 
 File: `src/lib/inngest/functions/process-document.ts`
 
@@ -503,12 +597,19 @@ const context = await step.run("resolve-extraction-context", async () => {
   const tier = await getVendorTier(resolved.vendorKey, event.data.orgId);
   if (tier.tier < 1) return { tier: 0 as const };
 
-  // 4. Fetch top 3 most recent exemplars (private first, global fallback)
+  // 4. Fetch private corrective context.
+  //    Phase 1 returns confirmed exemplars plus active/shadow learning candidates.
   const exemplars = await getTopExemplars({
     vendorKey: resolved.vendorKey,
     orgId: event.data.orgId,
     fieldsOfInterest: INVOICE_FIELD_NAMES,
     limit: 3,
+  });
+  const learningCandidates = await getActiveLearningCandidates({
+    vendorKey: resolved.vendorKey,
+    orgId: event.data.orgId,
+    documentFamily: resolved.documentFamily,
+    fieldsOfInterest: INVOICE_FIELD_NAMES,
   });
 
   // 5. If tier ≥ 3, run the compiled extractor in the subprocess sandbox
@@ -518,7 +619,7 @@ const context = await step.run("resolve-extraction-context", async () => {
     compiledResult = await runCompiledPatternSandboxed(tier.compiledPatternId, docText);
   }
 
-  return { tier: tier.tier, exemplars, compiledResult };
+  return { tier: tier.tier, exemplars, learningCandidates, compiledResult };
 });
 ```
 
@@ -543,6 +644,16 @@ export interface ExtractionContext {
     fields: Record<string, { aiValue: string | null; userValue: string }>;
     correctedAt: Date;
   }>;
+  learningCandidates?: Array<{
+    vendorKey: string;
+    documentFamily: string | null;
+    fieldName: string;
+    candidateType: "field_exemplar" | "field_rule" | "document_family_rule" | "vendor_rule";
+    selectorHint?: string;
+    rejectHint?: string;
+    rationale?: string;
+    status: "shadow" | "active";
+  }>;
   compiledResult?: Record<string, unknown>;
 }
 
@@ -553,21 +664,24 @@ export async function extractDocument(
 ): Promise<ExtractionResult>
 ```
 
-When `context.exemplars` is present, the system prompt gains a few-shot block:
+When corrective context is present, the system prompt gains scoped, structured guidance:
 
 ```
-Previous correctly-extracted documents from this vendor (user-confirmed):
+Previous confirmed corrections for this vendor/document family:
 Example 1: {"totalAmount": "5350.00", "documentNumber": "IW011-01-05123", ...}
 Example 2: {"totalAmount": "4280.00", "documentNumber": "IW011-01-05201", ...}
 Example 3: {"totalAmount": "7948.00", "documentNumber": "IW011-01-05298", ...}
 
-Note from previous corrections: on this vendor's documents, "totalAmount" is the
-value labeled "Trans. Amount", not "Credit Amount" or "Commission".
+Confirmed field rule:
+- Scope: Ksher / payment_processor_settlement_receipt
+- Field: totalAmount
+- Use the value labeled "Trans. Amount" or "GrandTotal".
+- Do not use "Credit Amount"; that is net settlement cash after commission/VAT.
 
 Extract the new document using the same field semantics.
 ```
 
-The natural-language hint is generated deterministically from the exemplar diff pattern: for each field where the user previously corrected AI output, the most common user-vs-ai pattern becomes a one-line rule appended to the prompt.
+The natural-language hint is generated from confirmed structured learning candidates, not raw user chat. If no candidate has enough confidence, use the confirmed examples only and keep the candidate in shadow.
 
 ### 6.4 Tier 3 compilation + sandbox — REWRITTEN POST-REVIEW
 
@@ -634,9 +748,9 @@ Cost is trivial: at the top end (~$0.0006/call × 30 canaries/day × 30 days = $
 
 Canary results are logged but never shown to the user. Aggregated in `extraction_log` by `shadow_run=true`. A nightly Inngest job computes rolling 30-day agreement and triggers demotion if Tier 3 drops below 98% or Tier 4 drops below 99%.
 
-## 7. Phase 1 — Private exemplars only (MVP)
+## 7. Phase 1 — Private Corrective Learning (MVP)
 
-Phase 1 scope is the minimum slice that produces the measurable lift we need. Two items are prerequisites before feature work can start.
+Phase 1 scope is the minimum slice that produces the measurable lift we need. The original "private exemplars only" slice is no longer enough after dogfood. Phase 1 must include confirmed correction sessions and private structured learning candidates.
 
 ### 7.0 Prerequisites (must ship before any Phase 1 feature code)
 
@@ -672,12 +786,17 @@ Without this, the Phase 1 success metric cannot be verified programmatically.
 ### 7.1 Phase 1 feature scope
 
 **What ships:**
-- Tiers 0 and 1 only, private exemplars only
+- Tiers 0 and 1 only, private org-scoped corrective learning only
+- Correction sessions: direct edits and optional natural-language explanation
+- AI interpretation of correction explanations into structured proposals
+- User confirmation that final extracted data is correct
+- Private learning candidates for field exemplars and scoped field rules
+- Tier 1 context injection from confirmed examples and active/shadow field rules
 - No cross-org logic (no Tier 2)
 - No compiled patterns (no Tier 3)
 - No layout fingerprints (vendor resolver uses tax ID + alias + fuzzy name only)
 - No shadow canary runs
-- No UI indicator (cut from v1 scope — Phase 1 is a measurement phase, not a UX phase; ship the "learning from your corrections" indicator in Phase 2 alongside the admin dashboard)
+- No broad app copilot. Extraction correction chat belongs here; general AI chat/MCP actions belong to Phase 16.
 
 **Files touched:**
 
@@ -689,43 +808,49 @@ Without this, the Phase 1 success metric cannot be verified programmatically.
 6. `src/lib/db/schema.ts` — extend with new tables + relations
 7. `drizzle/XXXX_extraction_learning_loop.sql` — new migration
 8. `drizzle/meta/_journal.json` + `drizzle/meta/XXXX_snapshot.json` — regenerated
-9. `src/lib/db/queries/extraction-exemplars.ts` — new — CRUD + top-N lookup, routed through `auditMutation`
-10. `src/lib/db/queries/vendor-tier.ts` — new — read/upsert, tier transition events, routed through `auditMutation`
-11. `src/lib/db/queries/extraction-log.ts` — new — idempotent insert with Inngest key
-12. `src/lib/db/queries/extraction-review-outcome.ts` — new — one-row-per-log insert
-13. `src/lib/db/queries/org-reputation.ts` — new — transactional update helper
-14. `src/lib/inngest/functions/process-document.ts` — add `resolve-extraction-context` step, integrate vendor resolver
-15. `src/lib/inngest/functions/review-saved-handler.ts` — new Inngest function, handles the `learning/review-saved` event (reputation update, demotion check)
-16. `src/lib/inngest/events.ts` (or existing events file) — add `learning/review-saved` event type
-17. `src/lib/ai/extract-document.ts` — accept `context: ExtractionContext`, inject exemplars as few-shot
-18. `src/app/(app)/documents/[docId]/review/actions.ts` — on save, compute normalized diff, write exemplars + outcome, emit event. Accept and check `updated_at` for optimistic concurrency.
-19. `src/tests/lib/db/queries/extraction-exemplars.test.ts` — new
-20. `src/tests/lib/db/queries/vendor-tier.test.ts` — new
-21. `src/tests/lib/inngest/functions/process-document-exemplars.test.ts` — new — integration test: extract, correct, re-extract, assert lift
-22. `src/tests/lib/inngest/functions/review-saved-idempotency.test.ts` — new — retries must upsert, not duplicate
-23. `src/tests/lib/inngest/functions/multi-tenant-leakage.test.ts` — new — org A's exemplars must never appear in org B's extraction context
+9. `src/lib/db/queries/extraction-correction-sessions.ts` — new — create/update/confirm sessions, routed through `auditMutation`
+10. `src/lib/db/queries/extraction-learning-candidates.ts` — new — candidate CRUD + promotion/demotion, routed through `auditMutation`
+11. `src/lib/db/queries/extraction-exemplars.ts` — existing/new — CRUD + top-N lookup, routed through `auditMutation`
+12. `src/lib/db/queries/vendor-tier.ts` — new — read/upsert, tier transition events, routed through `auditMutation`
+13. `src/lib/db/queries/extraction-log.ts` — new — idempotent insert with Inngest key
+14. `src/lib/db/queries/extraction-review-outcome.ts` — new — one-row-per-log insert
+15. `src/lib/db/queries/org-reputation.ts` — new — transactional update helper
+16. `src/lib/inngest/functions/process-document.ts` — add `resolve-extraction-context` step, integrate vendor resolver
+17. `src/lib/inngest/functions/review-confirmed-handler.ts` — new Inngest function, handles the `learning/review-confirmed` event (candidate checks, reputation update, demotion check)
+18. `src/lib/inngest/events.ts` (or existing events file) — add `learning/review-confirmed` event type
+19. `src/lib/ai/extract-document.ts` — accept `context: ExtractionContext`, inject confirmed corrective context
+20. `src/lib/ai/correction-interpreter.ts` — new — turns user explanation + field diffs into structured learning candidates
+21. `src/app/(app)/documents/[docId]/review/actions.ts` — on save, compute normalized diff, write correction session + exemplars + candidates + outcome, emit event. Accept and check `updated_at` for optimistic concurrency.
+22. `src/app/(app)/documents/[docId]/review/correction-chat.tsx` — new or equivalent inline assistant for extraction correction only
+23. `src/tests/lib/db/queries/extraction-correction-sessions.test.ts` — new
+24. `src/tests/lib/db/queries/extraction-learning-candidates.test.ts` — new
+25. `src/tests/lib/db/queries/extraction-exemplars.test.ts` — new
+26. `src/tests/lib/db/queries/vendor-tier.test.ts` — new
+27. `src/tests/lib/inngest/functions/process-document-corrective-context.test.ts` — new — integration test: extract, correct, confirm, re-extract, assert lift
+28. `src/tests/lib/inngest/functions/review-confirmed-idempotency.test.ts` — new — retries must upsert, not duplicate
+29. `src/tests/lib/inngest/functions/multi-tenant-leakage.test.ts` — new — org A's candidates/exemplars must never appear in org B's extraction context
 
 **Success metric for Phase 1:**
 
-> For any org that re-encounters a vendor they've corrected before, the field correction rate on subsequent docs from that vendor drops by ≥50% within 10 documents.
+> For any org that re-encounters a vendor/document family they've corrected and confirmed before, the field correction rate on subsequent similar docs drops by ≥50% within 10 documents, with no repeated high-criticality regression.
 
-Measured on a staging org with real Thai docs: 10 Ksher + 10 Fedex + 10 TikTok processed through extraction → user review → save. Correction rate comparison: docs 1–5 vs docs 6–10, per vendor. Target: correction rate drops from ~50% on doc 1 to <25% on doc 10 for at least 2 of 3 vendors.
+Measured on a staging org with real Thai docs: 10 Ksher + 10 Fedex + 10 TikTok processed through extraction → user correction/explanation → confirmation → re-extraction. Correction rate comparison: docs 1–5 vs docs 6–10, per vendor/document family. Target: correction rate drops from ~50% on doc 1 to <25% on doc 10 for at least 2 of 3 vendors.
 
-If this lift doesn't materialize: Phase 2 is dead. Iterate on exemplar selection heuristic, few-shot prompt format, or model choice before building further.
+If this lift doesn't materialize: Phase 2 is dead. Iterate on correction artifact design, scoping, candidate interpretation, or model choice before building further.
 
 **Estimated effort:** **2–3 weeks** for a single engineer.
 
 - Prerequisites (P0.1 + P0.2 + P0.3): 1 week
-- Core feature (write path + read path + diff logic + exemplar queries): 1 week
+- Core feature (write path + correction sessions + candidates + read path + diff logic + exemplar queries): 1 week
 - Integration tests + staging dogfood + measurement: 3–5 days
 
 The 1-week estimate in v1 was unrealistic for a production-quality ship on this codebase. Codex review flagged this explicitly; accepting the revised estimate.
 
-## 8. Phase 2 — Global exemplars with consensus (sketch)
+## 8. Phase 2 — Consensus corrective artifacts (sketch)
 
 Builds on Phase 1. Unlocks the network effect.
 
-- Add `exemplar_consensus` and `global_exemplar_pool` tables (Section 5.6, 5.7)
+- Add or adapt `exemplar_consensus` and `global_exemplar_pool` into consensus artifacts for confirmed exemplars and scoped correction rules (Section 5.6, 5.7)
 - Nightly Inngest cron recomputes consensus
 - Reputation score tracking (`org_reputation` table from Phase 1, with cross-org update logic added)
 - Promotion pipeline: private → candidate → shadow validation → global
@@ -756,14 +881,14 @@ Triggered organically once Tier 3 is proven. Mainly automation of the shadow can
 
 ## 11. Invariants (must hold at all times)
 
-1. **Private always wins.** An org's own exemplars override global consensus for that org. No exceptions.
+1. **Private always wins.** An org's own confirmed correction artifacts override global consensus for that org. No exceptions.
 2. **All mutations route through `auditMutation`.** Matches existing project pattern. Non-negotiable per CLAUDE.md rule.
 3. **`extraction_log` is append-only.** Never updated after write. Review outcomes live in `extraction_review_outcome`, one row per log row.
 4. **Inngest idempotency.** Every insert from an Inngest step uses a deterministic idempotency key (event.id + step_id). Retries upsert, never duplicate.
 5. **Optimistic concurrency on user save.** Server action requires the client's `documents.updated_at` and rejects stale saves. A retrying extraction cannot overwrite user edits.
 6. **Compiled code runs in a subprocess sandbox**, not `node:vm`, not a Worker thread. OS-level isolation is the security boundary; `isolated-vm` inside is defense-in-depth.
-7. **Every extraction logs its tier, exemplars, and compiled pattern ID (if any).** `extraction_log` is the single source of truth for audit. A `demotion_trigger_id` FK from `vendor_tier` to the specific triggering log row is the forensic chain.
-8. **Global exemplars are stripped of document content.** `global_exemplar_pool` contains canonical field values only — no doc IDs, no bbox, no source org IDs. A pool leak exposes vendor-field patterns, not customer documents.
+7. **Every extraction logs its tier, corrective artifacts, and compiled pattern ID (if any).** `extraction_log` is the single source of truth for audit. A `demotion_trigger_id` FK from `vendor_tier` to the specific triggering log row is the forensic chain.
+8. **Global artifacts are stripped of document content.** Global pools contain canonical field values and scoped rule hints only — no doc IDs, no bbox, no source org IDs. A pool leak exposes vendor-field patterns, not customer documents.
 9. **Reputation is earned, not granted.** New orgs start at reputation 1.0. Reputation only moves based on consensus agreement/disagreement on the org's own past corrections. No admin toggles.
 10. **Velocity gates for global consensus.** Org must be ≥30 days old AND have processed ≥50 docs AND hold reputation ≥1.0 before its corrections count toward promotion.
 11. **Field criticality drives consensus thresholds.** High-criticality fields (`totalAmount`, `vendorTaxId`, `vatAmount`) require stricter consensus (5 orgs + admin confirmation). Low-criticality fields (`currency`, `documentType`) use the base threshold.
@@ -834,16 +959,17 @@ All surfaced in an admin dashboard at `src/app/(app)/admin/extraction-health/`. 
 
 **Week 2 — Core feature:**
 4. Drizzle migration + schema.ts extensions + meta snapshot
-5. Query layer (exemplars, vendor-tier, extraction-log, review-outcome, org-reputation) with `auditMutation` wiring
-6. Write path in `review/actions.ts` with optimistic concurrency
-7. Read path: `resolve-extraction-context` step in `process-document.ts`
-8. Few-shot injection in `extract-document.ts`
-9. `review-saved-handler` Inngest function
+5. Query layer (correction sessions, learning candidates, exemplars, vendor-tier, extraction-log, review-outcome, org-reputation) with `auditMutation` wiring
+6. Write path in `review/actions.ts` with optimistic concurrency and confirmation semantics
+7. Correction interpreter for natural-language explanations
+8. Read path: `resolve-extraction-context` step in `process-document.ts`
+9. Corrective context injection in `extract-document.ts`
+10. `review-confirmed-handler` Inngest function
 
 **Week 3 — Tests + staging:**
-10. Integration tests (retry idempotency, multi-tenant leakage, lift verification)
-11. Staging dogfood with 10 Ksher + 10 Fedex + 10 TikTok documents
-12. Measure Phase 1 success metric
-13. If lift confirmed → Phase 2 planning. If not → iterate on exemplar selection / prompt format / model choice.
+11. Integration tests (retry idempotency, multi-tenant leakage, lift verification)
+12. Staging dogfood with 10 Ksher + 10 Fedex + 10 TikTok documents
+13. Measure Phase 1 success metric
+14. If lift confirmed → Phase 2 planning. If not → iterate on correction artifact design / scoping / model choice.
 
 No production ship of Phase 1 until the staging lift is proven.

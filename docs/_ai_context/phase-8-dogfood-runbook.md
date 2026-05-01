@@ -1,17 +1,30 @@
-# Phase 8 Dogfood Runbook
+# Phase 8 Corrective Learning Dogfood Runbook
 
-**Status:** Ready to run; requires OpenRouter key, sample PDFs, and a target org in Postgres
+**Status:** Dogfood v1 completed; redesign needed before next run
 **Prepared:** 2026-04-30
+**Updated:** 2026-05-01
 
 ## Goal
 
-Measure whether private exemplars improve extraction accuracy on repeated vendors before building more Phase 8 infrastructure.
+Measure whether confirmed corrective learning improves extraction accuracy on repeated vendor/document-family docs before building more Phase 8 infrastructure.
 
 Success threshold:
 
-- Tier 1 weighted accuracy improves over Tier 0 for at least 2 of 3 repeated-vendor groups.
+- Tier 1 weighted accuracy improves over Tier 0 for at least 2 of 3 repeated vendor/document-family groups.
 - No high-criticality field regresses repeatedly across a vendor group.
-- If results fail, iterate on exemplar prompt format and vendor identity resolution before Tier 3/Tier 4 work.
+- If results fail, iterate on correction artifact design, scoping, candidate interpretation, and vendor identity resolution before Tier 3/Tier 4 work.
+
+## 2026-04-30 Result
+
+Naive private exemplar prompting did not prove the gate:
+
+- Tier 0 weighted: `87.5%`
+- Held-out comparison: `87.0% -> 87.5%` weighted, but raw `90.2% -> 86.3%`
+- Ksher vendor name improved.
+- Ksher `totalAmount` semantics did not improve; model still used net `Credit Amount` instead of gross `Trans. Amount / GrandTotal`.
+- Some low/medium fields regressed.
+
+Conclusion: do not continue by micro-tuning prompt text. Add confirmed correction sessions and structured learning candidates first.
 
 ## Inputs
 
@@ -49,7 +62,7 @@ pnpm tsx benchmarks/dogfood/seed-tier1.ts benchmarks/dogfood/output/<run-id> --o
 
 ## Outputs
 
-- `ground-truth.json` — parsed human review truth.
+- `ground-truth.json` — parsed human-confirmed review truth.
 - `tier0-report.md/json` — baseline score.
 - `tier1/` — Tier 1 extraction JSONs.
 - `tier1-report.md/json` — exemplar-assisted score.
@@ -63,11 +76,24 @@ Ship-forward signal:
 
 - Repeated vendor improves on weighted score.
 - `totalAmount`, `vatAmount`, `vendorTaxId`, and `documentNumber` do not regress.
+- Corrective context teaches field semantics, not only exact prior values.
 - Prompt token cost remains acceptable.
 
 Stop-and-fix signal:
 
 - Tier 1 regresses on high-criticality fields.
 - Vendor lookup misses most target docs.
-- Exemplar prompt repeats exact values but does not teach field semantics.
+- Exemplar/corrective context repeats exact values but does not teach field semantics.
 - Ground truth parsing shows too many manual review ambiguities.
+
+## Next Dogfood Shape
+
+Before rerunning, update the dogfood harness to model the real product loop:
+
+1. Tier 0 extraction.
+2. Human correction + optional natural-language explanation.
+3. AI interpretation into structured correction candidates.
+4. Human confirmation that the document is now correct.
+5. Seed private corrective context from confirmed candidates.
+6. Re-extract held-out docs.
+7. Compare weighted accuracy, high-criticality regressions, and per-field semantic lift.

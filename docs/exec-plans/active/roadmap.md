@@ -1,7 +1,7 @@
 # Thai Accounting Platform — Roadmap & Exec-Plan Index
 
 **Status:** Active source of truth
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-01
 **Purpose:** Keep the exec-plan table of contents, status, dependency order, and active residuals clear before Phase 9+ expansion work resumes.
 
 ## Vision
@@ -13,13 +13,14 @@ This means:
 - Real accounting spine: chart of accounts, double-entry GL, journal entries, trial balance, P&L, balance sheet, cash flow, period close, and audit trail.
 - Thai compliance coverage: PP30, PP36, PND.1/2/3/53/54, SSO, PND.51/50, DBD financial statements, TFRS for NPAEs audit pack, and §87 reports.
 - Owner-usable UX: workflows explain business facts in plain language, but accounting and tax invariants are enforced in the database and reviewed by accountant-role gates.
+- AI as an operating surface: users can ask questions, correct extraction, draft bulk actions, and eventually connect external AI clients through a safe tool/MCP layer.
 - Every filed number must trace back to source evidence.
 
 ## Current State
 
-Phases 0-7 are completed and archived. Phase 8 is active/dogfood. Baseline hardening v2, the residual baseline-hardening pass, and today-gap remediation are completed and archived.
+Phases 0-7 are completed and archived. Phase 8 is active/redesign after dogfood showed naive prompt exemplars are insufficient. Baseline hardening v2, the residual baseline-hardening pass, and today-gap remediation are completed and archived.
 
-Phase 9+ implementation can start from the current hardened baseline, with Phase 8 dogfood and DBD/TFRS research still tracked as active planning inputs.
+Phase 9+ implementation can start from the current hardened baseline, with Phase 8 corrective learning, DBD/TFRS research, and the future AI copilot/tool layer still tracked as active planning inputs.
 
 ## Completed Exec Plans
 
@@ -51,7 +52,7 @@ All active plans live in `docs/exec-plans/active/`.
 
 | Status | Document | Role | Move-to-completed condition |
 |---|---|---|---|
-| Active/dogfood | `phase-8-extraction-learning-loop.md` | AI extraction learning loop | Dogfood complete; Tier 4 either planned separately or deferred |
+| Active/redesign | `phase-8-extraction-learning-loop.md` | Corrective extraction learning loop | Confirmed-correction dogfood proves lift; Tier 4 either planned separately or deferred |
 | Active reference | `chart-of-accounts.md` | Thai COA design | Keep active until Phase 10.5 GL account implementation is done |
 | Research spike | `dbd-tfrs-research-spike.md` | DBD/TFRS validation | CPA/DBD Builder-validated schema and notes taxonomy produced |
 | Draft | `phase-9-foreign-vendor-tax.md` | Foreign-vendor VAT/WHT | Implemented and verified |
@@ -65,6 +66,7 @@ All active plans live in `docs/exec-plans/active/`.
 | Draft | `phase-13-fixed-assets-depreciation.md` | Fixed assets | Implemented and depreciation posts to GL |
 | Draft | `phase-14-analytics-audit-pack.md` | Analytics, FX, cost centers | Implemented; FX engine feeds CIT/year-end |
 | Draft | `phase-15-ui-nav-refactor.md` | Navigation reset | Implemented before deep Phase 10+ UX expansion |
+| Draft | `phase-16-ai-copilot-tool-layer.md` | AI chat, safe tool registry, MCP action layer | Read/preview copilot shipped; write tools gated by audit, RBAC, period locks, and confirmation |
 
 ## Cross-Cutting Specs
 
@@ -77,8 +79,8 @@ All active plans live in `docs/exec-plans/active/`.
 
 1. Run the DBD/TFRS research spike early.
    - This is the highest calendar-risk dependency because CPA/DBD Builder validation can take weeks even if engineering effort is small.
-2. Finish Phase 8 dogfood decisions.
-   - Decide whether Tier 4 becomes its own plan or stays deferred.
+2. Redesign Phase 8 around confirmed corrective learning.
+   - Dogfood showed naive exemplar prompting is not enough. Add correction explanation, structured rule candidates, confirmation gates, and scoped promotion before deeper tiers.
 3. Ship Phase 15 before deep Phase 10+ UX work.
    - The nav model should be stable before adding POS, GL, inventory, payroll, CIT, and audit-pack screens.
 4. Start expansion in dependency order.
@@ -98,12 +100,17 @@ Hardened shipped-code baseline
   -> Phase 14 analytics + FX + cost centers
   -> Phase 12a CIT engine
   -> Phase 12b TFRS/DBD/audit pack
+  -> Phase 16 AI copilot + tool/MCP action layer
 
 DBD/TFRS research spike
   -> blocks Phase 12b
 
 Phase 15 UI nav refactor
   -> should happen before Phase 10+ screen proliferation
+
+Phase 8 corrective learning
+  -> provides the first narrow AI correction-chat pattern
+  -> informs Phase 16 copilot/tool confirmation model
 ```
 
 ## Baseline Gate
@@ -120,6 +127,8 @@ Before starting complex expansion, confirm:
 ## Deferred, Not Scheduled
 
 - Phase 8 Tier 4 autonomous drift detection.
+- Public MCP write tools before app-side confirmation protocol exists.
+- Autonomous AI agents that mutate accounting data without user confirmation.
 - Multi-entity consolidation.
 - Direct RD e-Submission.
 - e-Tax Invoice / e-Receipt issuance.

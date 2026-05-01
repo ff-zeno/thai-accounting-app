@@ -1033,6 +1033,26 @@ export const compiledPatternStatusEnum = pgEnum("compiled_pattern_status", [
   "retired",
 ]);
 
+export const extractionCorrectionSessionStatusEnum = pgEnum(
+  "extraction_correction_session_status",
+  ["draft", "confirmed", "abandoned"]
+);
+
+export const extractionLearningCandidateTypeEnum = pgEnum(
+  "extraction_learning_candidate_type",
+  ["field_exemplar", "field_rule", "document_family_rule", "vendor_rule"]
+);
+
+export const extractionLearningCandidateScopeEnum = pgEnum(
+  "extraction_learning_candidate_scope",
+  ["document", "vendor", "vendor_document_family", "global_candidate"]
+);
+
+export const extractionLearningCandidateStatusEnum = pgEnum(
+  "extraction_learning_candidate_status",
+  ["candidate", "shadow", "active", "retired", "rejected"]
+);
+
 // NOTE: The migration for this table includes a hand-edited CHECK constraint:
 //   (was_corrected = true AND ai_value IS DISTINCT FROM user_value)
 //   OR (was_corrected = false AND ai_value IS NOT DISTINCT FROM user_value)
@@ -1055,6 +1075,9 @@ export const extractionExemplars = pgTable(
     documentId: uuid("document_id")
       .notNull()
       .references(() => documents.id),
+    correctionSessionId: uuid("correction_session_id").references(
+      () => extractionCorrectionSessions.id
+    ),
     sourceRegion: jsonb("source_region"),
     modelUsed: text("model_used"),
     confidenceAtTime: numeric("confidence_at_time", { precision: 5, scale: 4 }),
@@ -1129,6 +1152,44 @@ export const extractionLog = pgTable(
   ]
 );
 
+export const extractionCorrectionSessions = pgTable(
+  "extraction_correction_sessions",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    extractionLogId: uuid("extraction_log_id")
+      .notNull()
+      .references(() => extractionLog.id),
+    startedByUserId: text("started_by_user_id").notNull(),
+    confirmedByUserId: text("confirmed_by_user_id"),
+    status: extractionCorrectionSessionStatusEnum("status")
+      .notNull()
+      .default("draft"),
+    userExplanation: text("user_explanation"),
+    aiInterpretation: jsonb("ai_interpretation"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  },
+  (t) => [
+    uniqueIndex("idx_correction_sessions_active_log")
+      .on(t.extractionLogId)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index("idx_correction_sessions_org_document")
+      .on(t.orgId, t.documentId, t.createdAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index("idx_correction_sessions_org_status")
+      .on(t.orgId, t.status, t.createdAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ]
+);
+
 export const extractionReviewOutcome = pgTable(
   "extraction_review_outcome",
   {
@@ -1143,6 +1204,9 @@ export const extractionReviewOutcome = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id),
+    correctionSessionId: uuid("correction_session_id").references(
+      () => extractionCorrectionSessions.id
+    ),
     userCorrected: boolean("user_corrected").notNull(),
     correctionCount: integer("correction_count").notNull().default(0),
     reviewedByUserId: text("reviewed_by_user_id").notNull(),
@@ -1150,6 +1214,55 @@ export const extractionReviewOutcome = pgTable(
       .defaultNow()
       .notNull(),
   }
+);
+
+export const extractionLearningCandidates = pgTable(
+  "extraction_learning_candidates",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    correctionSessionId: uuid("correction_session_id")
+      .notNull()
+      .references(() => extractionCorrectionSessions.id),
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    vendorKey: text("vendor_key"),
+    documentFamily: text("document_family"),
+    fieldName: text("field_name").notNull(),
+    fieldCriticality: fieldCriticalityEnum("field_criticality").notNull(),
+    candidateType: extractionLearningCandidateTypeEnum("candidate_type").notNull(),
+    aiValue: text("ai_value"),
+    confirmedValue: text("confirmed_value"),
+    rationale: text("rationale"),
+    selectorHint: text("selector_hint"),
+    rejectHint: text("reject_hint"),
+    appliesWhen: jsonb("applies_when").notNull().default(sql`'[]'::jsonb`),
+    scope: extractionLearningCandidateScopeEnum("scope").notNull(),
+    status: extractionLearningCandidateStatusEnum("status")
+      .notNull()
+      .default("candidate"),
+    confidence: numeric("confidence", { precision: 5, scale: 4 }),
+    promotionEvidence: jsonb("promotion_evidence"),
+    retirementReason: text("retirement_reason"),
+    createdAt,
+    updatedAt,
+    deletedAt,
+  },
+  (t) => [
+    uniqueIndex("idx_learning_candidates_unique_active")
+      .on(t.correctionSessionId, t.fieldName, t.candidateType)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index("idx_learning_candidates_org_vendor_field")
+      .on(t.orgId, t.vendorId, t.documentFamily, t.fieldName, t.status)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index("idx_learning_candidates_session")
+      .on(t.correctionSessionId)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ]
 );
 
 // ---------------------------------------------------------------------------
@@ -1628,6 +1741,10 @@ export const extractionExemplarsRelations = relations(
       fields: [extractionExemplars.documentId],
       references: [documents.id],
     }),
+    correctionSession: one(extractionCorrectionSessions, {
+      fields: [extractionExemplars.correctionSessionId],
+      references: [extractionCorrectionSessions.id],
+    }),
   })
 );
 
@@ -1658,6 +1775,26 @@ export const extractionLogRelations = relations(
       references: [vendors.id],
     }),
     reviewOutcome: one(extractionReviewOutcome),
+    correctionSession: one(extractionCorrectionSessions),
+  })
+);
+
+export const extractionCorrectionSessionsRelations = relations(
+  extractionCorrectionSessions,
+  ({ one, many }) => ({
+    organization: one(organizations, {
+      fields: [extractionCorrectionSessions.orgId],
+      references: [organizations.id],
+    }),
+    document: one(documents, {
+      fields: [extractionCorrectionSessions.documentId],
+      references: [documents.id],
+    }),
+    extractionLog: one(extractionLog, {
+      fields: [extractionCorrectionSessions.extractionLogId],
+      references: [extractionLog.id],
+    }),
+    candidates: many(extractionLearningCandidates),
   })
 );
 
@@ -1675,6 +1812,32 @@ export const extractionReviewOutcomeRelations = relations(
     organization: one(organizations, {
       fields: [extractionReviewOutcome.orgId],
       references: [organizations.id],
+    }),
+    correctionSession: one(extractionCorrectionSessions, {
+      fields: [extractionReviewOutcome.correctionSessionId],
+      references: [extractionCorrectionSessions.id],
+    }),
+  })
+);
+
+export const extractionLearningCandidatesRelations = relations(
+  extractionLearningCandidates,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [extractionLearningCandidates.orgId],
+      references: [organizations.id],
+    }),
+    document: one(documents, {
+      fields: [extractionLearningCandidates.documentId],
+      references: [documents.id],
+    }),
+    correctionSession: one(extractionCorrectionSessions, {
+      fields: [extractionLearningCandidates.correctionSessionId],
+      references: [extractionCorrectionSessions.id],
+    }),
+    vendor: one(vendors, {
+      fields: [extractionLearningCandidates.vendorId],
+      references: [vendors.id],
     }),
   })
 );

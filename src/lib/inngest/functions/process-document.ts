@@ -34,6 +34,7 @@ const lazyProbeVendorIdentity = () =>
   import("@/lib/vendor/probe-identity").then((m) => m.probeVendorIdentity);
 import { getVendorTier } from "@/lib/db/queries/vendor-tier";
 import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
+import { getActiveLearningCandidates } from "@/lib/db/queries/extraction-learning-candidates";
 import { getGlobalExemplars } from "@/lib/db/queries/global-exemplar-pool";
 import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
 import { suggestCategoryForVendor } from "@/lib/db/queries/category-suggest";
@@ -274,7 +275,7 @@ export const processDocument = inngest.createFunction(
       async (): Promise<ExtractionContext> => {
         const log = (ctx: ExtractionContext, reason: string) => {
           console.log(
-            `[process-document] tier=${ctx.tier} vendorId=${ctx.vendorId ?? "none"} exemplars=${ctx.exemplars.length} (${reason})`
+            `[process-document] tier=${ctx.tier} vendorId=${ctx.vendorId ?? "none"} exemplars=${ctx.exemplars.length} candidates=${ctx.learningCandidates?.length ?? 0} (${reason})`
           );
           return ctx;
         };
@@ -324,13 +325,26 @@ export const processDocument = inngest.createFunction(
               probeResult.vendorId,
               3
             );
+            const learningCandidates = await getActiveLearningCandidates({
+              orgId,
+              vendorId: probeResult.vendorId,
+            });
 
-            if (exemplars.length > 0) {
+            if (exemplars.length > 0 || learningCandidates.length > 0) {
               return log(
                 {
                   tier: 1 as const,
                   vendorId: probeResult.vendorId,
                   exemplarIds: exemplars.map((e) => e.id),
+                  learningCandidates: learningCandidates.map((candidate) => ({
+                    fieldName: candidate.fieldName,
+                    candidateType: candidate.candidateType,
+                    documentFamily: candidate.documentFamily,
+                    rationale: candidate.rationale,
+                    selectorHint: candidate.selectorHint,
+                    rejectHint: candidate.rejectHint,
+                    status: "active" as const,
+                  })),
                   exemplars: exemplars.map((e) => ({
                     fieldName: e.fieldName,
                     aiValue: e.aiValue,

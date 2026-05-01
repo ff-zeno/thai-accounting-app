@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   confirmDocumentAction,
@@ -91,6 +92,8 @@ export function ExtractionForm({
           | "not_a_ti"
           | "") || null,
         isPp36Subject: formData.get("isPp36Subject") === "on",
+        correctionExplanation:
+          (formData.get("correctionExplanation") as string | null)?.trim() || null,
       }, doc.updatedAt ?? undefined);
       toast.success("Document updated");
     } catch {
@@ -319,6 +322,19 @@ export function ExtractionForm({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {!isConfirmed && (
+          <div>
+            <Label htmlFor="correctionExplanation">Correction note</Label>
+            <Textarea
+              name="correctionExplanation"
+              id="correctionExplanation"
+              placeholder="Example: for this vendor, total amount should use GrandTotal, not Credit Amount."
+              className="mt-1 min-h-20"
+              maxLength={2000}
+            />
           </div>
         )}
 

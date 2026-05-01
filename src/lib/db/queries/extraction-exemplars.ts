@@ -1,6 +1,6 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "../index";
-import { extractionExemplars } from "../schema";
+import { extractionCorrectionSessions, extractionExemplars } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
 import type { FieldCriticality } from "@/lib/ai/field-criticality";
@@ -18,6 +18,7 @@ export interface UpsertExemplarInput {
   userValue: string | null;
   wasCorrected: boolean;
   documentId: string;
+  correctionSessionId?: string | null;
   modelUsed?: string;
   confidenceAtTime?: string;
   vendorTaxId?: string | null;
@@ -58,6 +59,7 @@ export async function upsertExemplar(
       userValue: input.userValue,
       wasCorrected: input.wasCorrected,
       documentId: input.documentId,
+      correctionSessionId: input.correctionSessionId ?? null,
       modelUsed: input.modelUsed ?? null,
       confidenceAtTime: input.confidenceAtTime ?? null,
       vendorTaxId: input.vendorTaxId ?? null,
@@ -75,6 +77,7 @@ export async function upsertExemplar(
         userValue: sql`EXCLUDED.user_value`,
         wasCorrected: sql`EXCLUDED.was_corrected`,
         fieldCriticality: sql`EXCLUDED.field_criticality`,
+        correctionSessionId: sql`EXCLUDED.correction_session_id`,
         modelUsed: sql`EXCLUDED.model_used`,
         confidenceAtTime: sql`EXCLUDED.confidence_at_time`,
         // Reset created_at on re-save so recency ordering stays correct
@@ -106,7 +109,9 @@ export async function upsertExemplar(
 /**
  * Returns the most recent exemplars for a vendor+org, grouped by field,
  * limited to `limit` per field. Only returns corrected exemplars (the ones
- * that teach the model something new).
+ * that teach the model something new). New correction-loop exemplars are
+ * prompt-eligible only after their correction session is confirmed; legacy
+ * rows without a session remain eligible for backwards compatibility.
  */
 export async function getTopExemplars(
   orgId: string,
@@ -124,11 +129,19 @@ export async function getTopExemplars(
       createdAt: extractionExemplars.createdAt,
     })
     .from(extractionExemplars)
+    .leftJoin(
+      extractionCorrectionSessions,
+      eq(extractionExemplars.correctionSessionId, extractionCorrectionSessions.id)
+    )
     .where(
       and(
         ...orgScope(extractionExemplars, orgId),
         eq(extractionExemplars.vendorId, vendorId),
-        eq(extractionExemplars.wasCorrected, true)
+        eq(extractionExemplars.wasCorrected, true),
+        or(
+          isNull(extractionExemplars.correctionSessionId),
+          eq(extractionCorrectionSessions.status, "confirmed")
+        )
       )
     )
     .orderBy(desc(extractionExemplars.createdAt))

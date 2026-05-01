@@ -111,6 +111,32 @@ describe("buildExemplarPrompt", () => {
     expect(result).not.toContain("totalAmount");
   });
 
+  it("builds Tier 1 prompt with structured learning candidates", () => {
+    const ctx: ExtractionContext = {
+      tier: 1,
+      vendorId: "v-1",
+      exemplarIds: [],
+      exemplars: [],
+      learningCandidates: [
+        {
+          fieldName: "totalAmount",
+          candidateType: "field_rule",
+          documentFamily: "payment_processor_settlement_receipt",
+          rationale: "Use GrandTotal, not Credit Amount.",
+          selectorHint: "GrandTotal",
+          rejectHint: "Credit Amount",
+          status: "active",
+        },
+      ],
+    };
+
+    const result = buildExemplarPrompt(ctx);
+    expect(result).toContain("Confirmed extraction rules");
+    expect(result).toContain('use "GrandTotal"');
+    expect(result).toContain('do not use "Credit Amount"');
+    expect(result).not.toContain("Use GrandTotal, not Credit Amount.");
+  });
+
   it("Tier 2 includes all exemplars (no correction filtering)", () => {
     const ctx: ExtractionContext = {
       tier: 2,

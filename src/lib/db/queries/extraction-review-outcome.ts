@@ -12,6 +12,7 @@ export interface InsertReviewOutcomeInput {
   extractionLogId: string;
   documentId: string;
   orgId: string;
+  correctionSessionId?: string | null;
   userCorrected: boolean;
   correctionCount: number;
   reviewedByUserId: string;
@@ -22,6 +23,7 @@ export interface ReviewOutcomeRow {
   extractionLogId: string;
   documentId: string;
   orgId: string;
+  correctionSessionId: string | null;
   userCorrected: boolean;
   correctionCount: number;
   reviewedByUserId: string;
@@ -46,6 +48,7 @@ export async function insertReviewOutcome(
       extractionLogId: input.extractionLogId,
       documentId: input.documentId,
       orgId: input.orgId,
+      correctionSessionId: input.correctionSessionId ?? null,
       userCorrected: input.userCorrected,
       correctionCount: input.correctionCount,
       reviewedByUserId: input.reviewedByUserId,
@@ -55,6 +58,7 @@ export async function insertReviewOutcome(
       set: {
         userCorrected: sql`EXCLUDED.user_corrected`,
         correctionCount: sql`EXCLUDED.correction_count`,
+        correctionSessionId: sql`EXCLUDED.correction_session_id`,
         reviewedByUserId: sql`EXCLUDED.reviewed_by_user_id`,
         reviewedAt: sql`now()`,
       },
@@ -68,6 +72,7 @@ export async function insertReviewOutcome(
     action: "create",
     newValue: {
       documentId: input.documentId,
+      correctionSessionId: input.correctionSessionId ?? null,
       userCorrected: input.userCorrected,
       correctionCount: input.correctionCount,
     },

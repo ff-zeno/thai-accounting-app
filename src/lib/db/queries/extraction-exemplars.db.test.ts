@@ -38,6 +38,11 @@ vi.mock("@/lib/db/helpers/audit-log", () => ({
 // Import AFTER mock
 const { upsertExemplar, getTopExemplars, getExemplarsByDocument } =
   await import("@/lib/db/queries/extraction-exemplars");
+const { insertExtractionLog } = await import("@/lib/db/queries/extraction-log");
+const {
+  upsertDraftCorrectionSession,
+  confirmLatestCorrectionSessionForDocument,
+} = await import("@/lib/db/queries/extraction-correction-sessions");
 
 // Shared test data populated in beforeEach
 let orgA: { id: string };
@@ -45,7 +50,6 @@ let orgB: { id: string };
 let vendorA: { id: string };
 let vendorB: { id: string };
 let docA: { id: string };
-let docB: { id: string };
 
 beforeAll(async () => {
   await resetTestDb(pool);
@@ -60,6 +64,10 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clean in FK order
   await testDb.delete(schema.extractionExemplars);
+  await testDb.delete(schema.extractionReviewOutcome);
+  await testDb.delete(schema.extractionLearningCandidates);
+  await testDb.delete(schema.extractionCorrectionSessions);
+  await testDb.delete(schema.extractionLog);
   await testDb.delete(schema.documents);
   await testDb.delete(schema.vendors);
   await testDb.delete(schema.organizations);
@@ -70,7 +78,7 @@ beforeEach(async () => {
   vendorA = await createTestVendor(testDb, orgA.id, { taxId: "1111111111111", name: "Vendor A" });
   vendorB = await createTestVendor(testDb, orgB.id, { taxId: "2222222222222", name: "Vendor B" });
   docA = await createTestDocument(testDb, orgA.id, vendorA.id);
-  docB = await createTestDocument(testDb, orgB.id, vendorB.id);
+  await createTestDocument(testDb, orgB.id, vendorB.id);
 });
 
 // ---------------------------------------------------------------------------
@@ -188,6 +196,48 @@ describe("getTopExemplars", () => {
 
     const results = await getTopExemplars(orgA.id, vendorA.id, 2);
     expect(results).toHaveLength(2);
+  });
+
+  it("does not return correction-loop exemplars until the session is confirmed", async () => {
+    const log = await insertExtractionLog({
+      documentId: docA.id,
+      orgId: orgA.id,
+      vendorId: vendorA.id,
+      tierUsed: 0,
+      exemplarIds: [],
+      modelUsed: "qwen/qwen3-vl-32b-instruct",
+      inngestIdempotencyKey: "exemplar-confirmation-gate",
+    });
+    const session = await upsertDraftCorrectionSession({
+      orgId: orgA.id,
+      documentId: docA.id,
+      extractionLogId: log!.id,
+      startedByUserId: "user_1",
+    });
+
+    await upsertExemplar({
+      orgId: orgA.id,
+      vendorId: vendorA.id,
+      fieldName: "total_amount",
+      fieldCriticality: "high",
+      aiValue: "1000.00",
+      userValue: "1200.00",
+      wasCorrected: true,
+      documentId: docA.id,
+      correctionSessionId: session.id,
+    });
+
+    expect(await getTopExemplars(orgA.id, vendorA.id)).toHaveLength(0);
+
+    await confirmLatestCorrectionSessionForDocument({
+      orgId: orgA.id,
+      documentId: docA.id,
+      confirmedByUserId: "user_1",
+    });
+
+    const results = await getTopExemplars(orgA.id, vendorA.id);
+    expect(results).toHaveLength(1);
+    expect(results[0].userValue).toBe("1200.00");
   });
 });
 

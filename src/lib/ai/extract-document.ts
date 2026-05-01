@@ -44,6 +44,15 @@ export interface ExtractionContext {
     aiValue: string | null;
     userValue: string | null;
   }>;
+  learningCandidates?: Array<{
+    fieldName: string;
+    candidateType: "field_exemplar" | "field_rule" | "document_family_rule" | "vendor_rule";
+    documentFamily: string | null;
+    rationale: string | null;
+    selectorHint: string | null;
+    rejectHint: string | null;
+    status: "active";
+  }>;
   compiledPatternId?: string;
   compiledJs?: string;
   compiledResult?: Record<string, string>;
@@ -57,7 +66,8 @@ export interface ExtractionContext {
  * Exported for testing.
  */
 export function buildExemplarPrompt(ctx: ExtractionContext): string {
-  if (ctx.tier < 1 || ctx.exemplars.length === 0) return "";
+  const candidateBlock = buildLearningCandidatePrompt(ctx);
+  if (ctx.tier < 1 || (ctx.exemplars.length === 0 && !candidateBlock)) return "";
 
   if (ctx.tier === 2) {
     // Tier 2: global community patterns
@@ -70,14 +80,14 @@ Multiple organizations have confirmed the following field values for documents f
 Use these community-verified patterns as guidance for field extraction:
 ${lines.join("\n")}
 
-These are consensus values from multiple independent sources — treat as reliable defaults.`;
+These are consensus values from multiple independent sources — treat as reliable defaults.${candidateBlock}`;
   }
 
   // Tier 1: private corrections
   const corrections = ctx.exemplars.filter(
     (e) => e.aiValue !== e.userValue && e.userValue != null
   );
-  if (corrections.length === 0) return "";
+  if (corrections.length === 0) return candidateBlock;
 
   const lines = corrections.map((e) => {
     const from = e.aiValue ?? "(empty)";
@@ -90,7 +100,27 @@ The user has previously corrected the following fields for documents from this v
 Apply these corrections when extracting similar fields:
 ${lines.join("\n")}
 
-Use these corrections as strong guidance for field extraction.`;
+Use these corrections as strong guidance for field extraction.${candidateBlock}`;
+}
+
+function buildLearningCandidatePrompt(ctx: ExtractionContext): string {
+  const activeRules = (ctx.learningCandidates ?? []).filter(
+    (candidate) => candidate.status === "active"
+  );
+  if (activeRules.length === 0) return "";
+
+  const lines = activeRules.map((candidate) => {
+    const details = [
+      candidate.selectorHint ? `use "${candidate.selectorHint}"` : null,
+      candidate.rejectHint ? `do not use "${candidate.rejectHint}"` : null,
+    ].filter(Boolean);
+    return `- ${candidate.fieldName}: ${details.join("; ")}`;
+  });
+
+  return `\n\nConfirmed extraction rules for this vendor:
+${lines.join("\n")}
+
+Use these structured rules only when the new document has matching labels or layout cues.`;
 }
 
 export async function extractDocument(

@@ -11,13 +11,16 @@ import {
   DocumentConfirmationError,
 } from "@/lib/db/queries/documents";
 import { translateText } from "@/lib/ai/translate";
-import { updateVendor } from "@/lib/db/queries/vendors";
+import { getVendorById, updateVendor } from "@/lib/db/queries/vendors";
 import { inngest } from "@/lib/inngest/client";
 import { revalidatePath } from "next/cache";
 import {
   writeReviewExemplars,
   type UserReviewValues,
 } from "@/lib/db/queries/review-exemplars";
+import { confirmLatestCorrectionSessionForDocument } from "@/lib/db/queries/extraction-correction-sessions";
+import { getReviewOutcomeByLog } from "@/lib/db/queries/extraction-review-outcome";
+import { getCurrentUser } from "@/lib/utils/auth";
 
 export async function confirmDocumentAction(docId: string) {
   const orgId = await getVerifiedOrgId();
@@ -48,6 +51,57 @@ export async function confirmDocumentAction(docId: string) {
       console.error("[confirm-doc] Failed to emit document/confirmed:", err);
     });
 
+  try {
+    const user = await getCurrentUser();
+    const correctionSession = await confirmLatestCorrectionSessionForDocument({
+      orgId,
+      documentId: docId,
+      confirmedByUserId: user?.id ?? "unknown",
+    });
+
+    if (correctionSession) {
+      const [reviewOutcome, vendor] = await Promise.all([
+        getReviewOutcomeByLog(orgId, correctionSession.extractionLogId),
+        doc?.vendorId ? getVendorById(orgId, doc.vendorId) : Promise.resolve(null),
+      ]);
+
+      void inngest
+        .send({
+          name: "learning/review-saved",
+          data: {
+            orgId,
+            documentId: docId,
+            vendorId: doc?.vendorId ?? null,
+            vendorTaxId: vendor?.taxId ?? null,
+            extractionLogId: correctionSession.extractionLogId,
+            correctionCount: reviewOutcome?.correctionCount ?? 0,
+            userCorrected: reviewOutcome?.userCorrected ?? false,
+          },
+        })
+        .catch((err) => {
+          console.error("[confirm-doc] Failed to emit learning/review-saved:", err);
+        });
+
+      void inngest
+        .send({
+          name: "learning/review-confirmed",
+          data: {
+            orgId,
+            documentId: docId,
+            vendorId: doc?.vendorId ?? null,
+            extractionLogId: correctionSession.extractionLogId,
+            correctionSessionId: correctionSession.id,
+            confirmed: true,
+          },
+        })
+        .catch((err) => {
+          console.error("[confirm-doc] Failed to emit learning/review-confirmed:", err);
+        });
+    }
+  } catch (error) {
+    console.error("[confirm-doc] Failed to confirm correction session:", error);
+  }
+
   revalidatePath(`/documents/${docId}/review`);
   return { success: true };
 }
@@ -76,6 +130,7 @@ export async function updateDocumentAction(
     vatPeriodMonth?: number | null;
     taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
     isPp36Subject?: boolean | null;
+    correctionExplanation?: string | null;
   },
   expectedUpdatedAt?: string
 ) {
@@ -103,6 +158,7 @@ export async function updateDocumentAction(
       orgId,
       docId,
       userValues: docDataToSchemaValues(data),
+      correctionExplanation: data.correctionExplanation,
     });
   } catch (error) {
     console.error("[updateDocumentAction] exemplar write failed:", error);

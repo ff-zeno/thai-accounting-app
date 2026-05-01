@@ -37,6 +37,10 @@ export const reviewSavedHandler = inngest.createFunction(
         userCorrected: boolean;
       };
 
+    if (!vendorId) {
+      return { processed: false, reason: "missing-vendor-id", correctionCount };
+    }
+
     // Step 1: Update vendor tier doc count + promote if corrections exist
     await step.run("update-vendor-tier", async () => {
       const currentTier = await getVendorTier(orgId, vendorId);

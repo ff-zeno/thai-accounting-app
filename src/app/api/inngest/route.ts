@@ -8,6 +8,7 @@ import { aiReconciliationDispatcher } from "@/lib/inngest/functions/ai-reconcili
 import { aiReconciliationBatch } from "@/lib/inngest/functions/ai-reconciliation-batch";
 import { matchImportedTransactions } from "@/lib/inngest/functions/match-imported-transactions";
 import { reviewSavedHandler } from "@/lib/inngest/functions/review-saved-handler";
+import { reviewConfirmedHandler } from "@/lib/inngest/functions/review-confirmed-handler";
 import { consensusRecompute } from "@/lib/inngest/functions/consensus-recompute";
 import { backfillVendorTaxId } from "@/lib/inngest/functions/backfill-vendor-tax-id";
 import { exemplarDecay } from "@/lib/inngest/functions/exemplar-decay";
@@ -26,6 +27,7 @@ export const { GET, POST, PUT } = serve({
     aiReconciliationBatch,
     matchImportedTransactions,
     reviewSavedHandler,
+    reviewConfirmedHandler,
     consensusRecompute,
     backfillVendorTaxId,
     exemplarDecay,

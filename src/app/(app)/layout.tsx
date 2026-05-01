@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
-import { Sidebar } from "@/components/layout/sidebar";
-import { MobileSidebar } from "@/components/layout/mobile-sidebar";
+import { UserButton } from "@clerk/nextjs";
+import { TwoTierSidebar } from "@/components/layout/two-tier-sidebar";
+import { MobileDrawer } from "@/components/layout/mobile-drawer";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import {
   getOrganizationById,
@@ -52,15 +53,18 @@ export default async function AppLayout({
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
       <div className="hidden md:flex">
-        <Sidebar orgs={orgList} activeOrgId={validActiveOrgId} />
+        <TwoTierSidebar orgs={orgList} activeOrgId={validActiveOrgId} />
       </div>
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
         <header className="flex h-14 items-center gap-2 border-b px-4 md:hidden">
-          <MobileSidebar orgs={orgList} activeOrgId={validActiveOrgId} />
+          <MobileDrawer orgs={orgList} activeOrgId={validActiveOrgId} />
           <span className="text-lg font-semibold text-primary">Long Dtua</span>
+          <div className="ml-auto">
+            <UserButton />
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">

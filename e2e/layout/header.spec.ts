@@ -29,6 +29,11 @@ test.describe("App layout & header", () => {
   });
 
   test("sidebar is visible on desktop", async ({ page }) => {
-    await expect(page.locator("nav")).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Primary navigation" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Section navigation" }),
+    ).toBeVisible();
   });
 });

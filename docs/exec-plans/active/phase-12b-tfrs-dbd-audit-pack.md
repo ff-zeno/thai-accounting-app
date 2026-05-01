@@ -12,7 +12,7 @@ Every Thai juristic person must file:
 
 Phase 12a produces the CIT calculation. This phase produces the financial statements + DBD package + auditor exchange package.
 
-**Critical: this phase cannot start until the DBD/TFRS research spike completes.** Phase 12a referenced TFRS NPAEs and DBD format with hand-waving; round-3 review found the actual format is XBRL-in-Excel V.2.0 + Java Builder + ZIP, with annual changes. The spike confirms current spec; this phase implements against CPA/Builder-validated schema files, not the placeholders currently in `docs/_ai_context/`.
+**Critical: this phase cannot start until the DBD/TFRS research spike completes.** Phase 12a referenced TFRS NPAEs and DBD format with hand-waving; round-3 review found the actual format is XBRL-in-Excel V.2.0 + Java Builder + ZIP, with annual changes. The public desk-check now lives in `docs/_ai_context/dbd-template-spec.md` and `docs/_ai_context/tfrs-npaes-notes-spec.md`, but this phase implements only against CPA/Builder-validated schema files, not placeholders or public-shape notes.
 
 ## Goals
 
@@ -79,7 +79,7 @@ Phase 12a produces the CIT calculation. This phase produces the financial statem
 
 #### Generators (per spike output)
 
-The spike produces `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` and `docs/_ai_context/dbd-template-schema.json`. Generators read these only after `source_status` is no longer `pending_cpa_validation`.
+The spike produces `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` and `docs/_ai_context/dbd-template-schema.json`, with companion readable specs at `docs/_ai_context/tfrs-npaes-notes-spec.md` and `docs/_ai_context/dbd-template-spec.md`. Generators read these only after `source_status` is no longer `pending_cpa_validation`.
 
 - [ ] `src/lib/cit/financial-statements/balance-sheet-tfrs.ts`:
   - Reads `docs/_ai_context/dbd-template-schema.json` for line-item mapping per current taxonomy.

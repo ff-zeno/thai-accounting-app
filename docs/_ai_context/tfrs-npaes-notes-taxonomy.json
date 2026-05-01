@@ -1,11 +1,13 @@
 {
   "source_status": "pending_cpa_validation",
   "prepared_at": "2026-04-30",
+  "desk_checked_at": "2026-05-01",
+  "companion_spec": "docs/_ai_context/tfrs-npaes-notes-spec.md",
   "official_sources": [
     "https://acpro-std.tfac.or.th/standard/2/-NPAEs",
     "https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA"
   ],
-  "standard_reference": "TFRS for NPAEs revised 2565, plus TFAC Q&A and any 2026 CPA-confirmed amendments",
+  "standard_reference": "TFRS for NPAEs revised 2565, effective for financial statements for periods beginning on or after 1 Jan 2023, plus TFAC Q&A and any 2026 CPA-confirmed amendments",
   "note_groups": [
     {
       "id": "accounting_policies",
@@ -46,9 +48,21 @@
       "status": "needs_cpa_confirmation"
     },
     {
+      "id": "intangible_assets",
+      "title_en": "Intangible assets",
+      "source_type": "fixed_asset_or_intangible_register_and_tenant_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
       "id": "trade_payables",
       "title_en": "Trade and other payables",
       "source_type": "gl_and_ap_aging",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "provisions",
+      "title_en": "Provisions and contingencies",
+      "source_type": "gl_tenant_and_auditor_input",
       "status": "needs_cpa_confirmation"
     },
     {
@@ -98,7 +112,42 @@
       "title_en": "Financial risk management",
       "source_type": "gl_subledgers_and_auditor_input",
       "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "foreign_currency",
+      "title_en": "Foreign currency transactions",
+      "source_type": "gl_and_fx_engine",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "leases",
+      "title_en": "Leases",
+      "source_type": "contracts_gl_and_tenant_input",
+      "status": "needs_cpa_confirmation"
+    },
+    {
+      "id": "accounting_policy_changes_errors",
+      "title_en": "Accounting policy changes, accounting estimates, and errors",
+      "source_type": "tenant_auditor_input_and_comparative_payload",
+      "status": "needs_cpa_confirmation"
     }
+  ],
+  "required_note_fields_target_shape": [
+    "id",
+    "title_th",
+    "title_en",
+    "required_rule",
+    "source_data_paths",
+    "tenant_input_fields",
+    "auditor_input_fields",
+    "default_text_th",
+    "default_text_en",
+    "comparative_period_required",
+    "restatement_disclosure_required",
+    "validation_rules",
+    "status",
+    "validated_by",
+    "validated_at"
   ],
   "open_questions": [
     "Which note groups are mandatory for a normal small Thai company under TFRS for NPAEs?",

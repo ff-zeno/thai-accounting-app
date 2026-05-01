@@ -54,7 +54,7 @@ All active plans live in `docs/exec-plans/active/`.
 |---|---|---|---|
 | Active/redesign | `phase-8-extraction-learning-loop.md` | Corrective extraction learning loop | Confirmed-correction dogfood proves lift; Tier 4 either planned separately or deferred |
 | Active reference | `chart-of-accounts.md` | Thai COA design | Keep active until Phase 10.5 GL account implementation is done |
-| Research spike | `dbd-tfrs-research-spike.md` | DBD/TFRS validation | CPA/DBD Builder-validated schema and notes taxonomy produced |
+| Research spike / external validation | `dbd-tfrs-research-spike.md` | DBD/TFRS validation | CPA/DBD Builder-validated schema and notes taxonomy produced |
 | Draft | `phase-9-foreign-vendor-tax.md` | Foreign-vendor VAT/WHT | Implemented and verified |
 | Draft | `phase-10-pos-and-cash-flow.md` | POS, cash flow, §87 reports | Implemented and Lumera cutover complete |
 | Draft | `phase-10-5-gl-primitives.md` | GL spine | Implemented, opening balances entered, first close completed |
@@ -78,7 +78,7 @@ All active plans live in `docs/exec-plans/active/`.
 ## Immediate Work Order
 
 1. Run the DBD/TFRS research spike early.
-   - This is the highest calendar-risk dependency because CPA/DBD Builder validation can take weeks even if engineering effort is small.
+   - Codex public-source desk-check is done. This remains the highest calendar-risk dependency because CPA/DBD Builder validation can take weeks even if engineering effort is small.
 2. Redesign Phase 8 around confirmed corrective learning.
    - Dogfood showed naive exemplar prompting is not enough. Add correction explanation, structured rule candidates, confirmation gates, and scoped promotion before deeper tiers.
 3. Ship Phase 15 before deep Phase 10+ UX work.

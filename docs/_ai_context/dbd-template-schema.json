@@ -1,6 +1,8 @@
 {
   "source_status": "pending_cpa_validation",
   "prepared_at": "2026-04-30",
+  "desk_checked_at": "2026-05-01",
+  "companion_spec": "docs/_ai_context/dbd-template-spec.md",
   "official_sources": [
     "https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf",
     "https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf"
@@ -49,8 +51,138 @@
     "java_requirement": "Public DBD manual references Java Runtime Environment 8 or higher.",
     "template_file_hash": null
   },
+  "statement_forms_seen_in_public_validation_appendix": [
+    {
+      "statement_code": "210000",
+      "title_th": "งบแสดงฐานะการเงิน",
+      "title_en": "Statement of financial position",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "220000",
+      "title_th": "งบกำไรขาดทุนเบ็ดเสร็จ แบบจำแนกค่าใช้จ่ายตามลักษณะของค่าใช้จ่าย แสดงแบบงบเดียว",
+      "title_en": "Statement of comprehensive income by nature, one-statement presentation",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "230000",
+      "title_th": "งบกำไรขาดทุนและงบกำไรขาดทุนเบ็ดเสร็จ แบบจำแนกค่าใช้จ่ายตามลักษณะของค่าใช้จ่าย แสดงแบบสองงบ",
+      "title_en": "Income statement and comprehensive income by nature, two-statement presentation",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "240000",
+      "title_th": "งบกำไรขาดทุนเบ็ดเสร็จ แบบจำแนกค่าใช้จ่ายตามหน้าที่-แบบขั้นเดียว แสดงแบบงบเดียว",
+      "title_en": "Statement of comprehensive income by function, single-step, one-statement presentation",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "250000",
+      "title_th": "งบกำไรขาดทุนและงบกำไรขาดทุนเบ็ดเสร็จ แบบจำแนกค่าใช้จ่ายตามหน้าที่-แบบขั้นเดียว แสดงแบบสองงบ",
+      "title_en": "Income statement and comprehensive income by function, single-step, two-statement presentation",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "260000",
+      "title_th": "งบกำไรขาดทุนเบ็ดเสร็จ แบบจำแนกค่าใช้จ่ายตามหน้าที่-แบบหลายขั้น แสดงแบบงบเดียว",
+      "title_en": "Statement of comprehensive income by function, multi-step, one-statement presentation",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "270000",
+      "title_th": "งบกำไรขาดทุนและงบกำไรขาดทุนเบ็ดเสร็จ แบบจำแนกค่าใช้จ่ายตามหน้าที่-แบบหลายขั้น แสดงแบบสองงบ",
+      "title_en": "Income statement and comprehensive income by function, multi-step, two-statement presentation",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "281000",
+      "title_th": "งบกำไรขาดทุนและกำไรขาดทุนสะสม แบบจำแนกค่าใช้จ่ายตามลักษณะของค่าใช้จ่าย",
+      "title_en": "Income statement and retained earnings by nature",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "282000",
+      "title_th": "งบกำไรขาดทุนและกำไรขาดทุนสะสม แบบจำแนกค่าใช้จ่ายตามหน้าที่-แบบขั้นเดียว",
+      "title_en": "Income statement and retained earnings by function, single-step",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "283000",
+      "title_th": "งบกำไรขาดทุนและกำไรขาดทุนสะสม แบบจำแนกค่าใช้จ่ายตามหน้าที่-แบบหลายขั้น",
+      "title_en": "Income statement and retained earnings by function, multi-step",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "310000",
+      "title_th": "งบกระแสเงินสด ตามวิธีทางตรง",
+      "title_en": "Cash flow statement, direct method",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "320000",
+      "title_th": "งบกระแสเงินสด ตามวิธีทางอ้อม",
+      "title_en": "Cash flow statement, indirect method",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "410000",
+      "title_th": "งบแสดงการเปลี่ยนแปลงส่วนของผู้ถือหุ้น",
+      "title_en": "Statement of changes in equity",
+      "public_appendix_context": "company_general_business_example_not_validated_npae_template",
+      "implementation_status": "public_shape_only_needs_authenticated_template"
+    },
+    {
+      "statement_code": "420000",
+      "title_th": "งบแสดงการเปลี่ยนแปลงส่วนของผู้ถือหุ้น (งบการเงินรวม)",
+      "title_en": "Statement of changes in equity, consolidated",
+      "implementation_status": "out_of_mvp_scope"
+    }
+  ],
   "worksheets": [],
-  "validation_rules": [],
+  "validation_rules": [
+    {
+      "id": "balance_sheet_balances",
+      "source": "public_dbd_validation_appendix",
+      "rule": "total_assets_equals_total_liabilities_plus_equity",
+      "status": "needs_cpa_builder_confirmation"
+    },
+    {
+      "id": "registered_share_capital_positive",
+      "source": "public_dbd_validation_appendix",
+      "rule": "registered_share_capital_must_be_greater_than_zero",
+      "status": "needs_cpa_builder_confirmation"
+    },
+    {
+      "id": "paid_up_capital_present",
+      "source": "public_dbd_validation_appendix",
+      "rule": "issued_and_paid_up_capital_must_be_present_in_balance_sheet",
+      "status": "needs_cpa_builder_confirmation"
+    },
+    {
+      "id": "paid_up_not_exceed_registered",
+      "source": "public_dbd_validation_appendix",
+      "rule": "paid_up_capital_must_not_exceed_registered_share_capital_where_applicable",
+      "status": "needs_cpa_builder_confirmation"
+    },
+    {
+      "id": "thai_only_subitem_labels",
+      "source": "public_dbd_workbook_manual",
+      "rule": "some_subitem_label_cells_allow_thai_text_only",
+      "status": "needs_cpa_builder_confirmation"
+    }
+  ],
   "open_questions": [
     "Exact FY2026 workbook version and file hash",
     "Full worksheet list",

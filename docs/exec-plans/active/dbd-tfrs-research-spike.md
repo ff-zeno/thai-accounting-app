@@ -1,10 +1,10 @@
 # Research Spike: DBD e-Filing Format + TFRS for NPAEs Note Coverage
 
-**Status:** Active — next non-coding spike; blocks Phase 12b start
+**Status:** Codex desk-check complete; blocked on CPA + DBD Builder validation before Phase 12b
 **Owner:** Founder + paid Thai-licensed CPA engagement
 **Estimated effort:** 3 weeks minimum calendar (1 week DBD format extraction, 1 week TFRS notes coverage, 1 week Builder/integration validation). Risk: CPA onboarding and async review can consume 6-8 calendar weeks.
 **Created:** 2026-04-26 after round-3 review found Phase 12 was hand-waving DBD/TFRS
-**Desk-check updated:** 2026-04-30 from official DBD/TFAC public docs
+**Desk-check updated:** 2026-05-01 from official DBD/TFAC public docs
 
 ## Why this exists
 
@@ -21,7 +21,7 @@ The Department of Business Development requires juristic persons to file financi
 
 - Filing format is **NOT plain XBRL or plain XML.** It uses an Excel template (DBD's "XBRL-in-Excel V.2.0" mapping) with prescribed sheets, line items, and Thai-language headers.
 - Filers download the Excel template per current taxonomy version, populate, then run a Java desktop application called "DBD e-Filing Builder" (Windows) which validates the Excel and converts it to DBD's XBRL XML format.
-- The Builder packages the XBRL + auditor-signed PDF + supporting documents into a ZIP, which is then uploaded to DBD's portal.
+- The Builder validates the Excel and converts it to XBRL ZIP output. The final portal submission may also involve auditor-signed PDF/supporting documents; CPA must confirm the current attachment/package composition.
 - Format and Excel template change roughly annually; tenant must use the current year's template.
 - TFRS for NPAEs filers use a different Excel template than full-TFRS filers (most of our tenants are NPAEs).
 
@@ -35,7 +35,9 @@ Official public docs still support the plan's core assumptions:
 - The DBD manual lists taxonomy choices for legal form and accounting standard. For ordinary partnerships/companies, the NPAE taxonomy codes shown include `NPAE_PRT-OTH` and `NPAE_COM-OTH`; the manual notes most non-public-interest juristic persons use the NPAE "OTH" code for their legal form.
 - The Excel workflow still depends on workbook/macros and worksheet-specific entry. The manual shows users enable macros, then work through XBRL-in-Excel worksheets with prior/current period columns and controlled row/sub-item behavior.
 - The DBD manual still references Java Runtime Environment 8+ for the DBD XBRL-in-Excel tooling/validation flow.
-- TFAC's standards site lists **TFRS for NPAEs (ปรับปรุง 2565)** and a March 17, 2025 Q&A for practical implementation issues.
+- The extracted package contains the Excel input workbook, Java builder, and bundled JRE folder. The `.jar` builder must not be renamed/deleted because it validates and converts Excel to XBRL.
+- The public manual's validation appendix shows a company/general-business taxonomy example with statement form codes including balance sheet `210000`, multiple income-statement/OCI presentation forms, cash flow direct `310000`, cash flow indirect `320000`, and equity changes `410000`. Treat this as engineering shape only; CPA must confirm exact NPAE applicability and row/cell mapping.
+- TFAC's standards site lists **TFRS for NPAEs (ปรับปรุง 2565)** for periods beginning on or after 1 Jan 2023, and a March 17, 2025 Q&A for practical implementation issues. The TFAC site also shows current/future standard categories, so we must re-check before implementation.
 
 Sources to pin for the CPA package:
 
@@ -43,6 +45,23 @@ Sources to pin for the CPA package:
 - DBD filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf`
 - TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs`
 - TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA`
+
+## Codex Desk-Check Output — 2026-05-01
+
+Created source-grounded, non-final handoff artifacts:
+
+- `docs/_ai_context/dbd-template-spec.md`
+- `docs/_ai_context/tfrs-npaes-notes-spec.md`
+- `docs/_ai_context/dbd-template-schema.json`
+- `docs/_ai_context/tfrs-npaes-notes-taxonomy.json`
+- `docs/_ai_context/dbd-tfrs-cpa-handoff.md`
+
+These files are intentionally marked `pending_cpa_validation`. They are not implementation contracts until:
+
+1. a Thai-licensed CPA validates the taxonomy/template choice,
+2. the current authenticated DBD template is downloaded and hashed,
+3. a generated sample workbook passes DBD Builder validation,
+4. Phase 12b is patched against the validated schema/spec versions.
 
 ## Owner Split
 
@@ -65,6 +84,7 @@ CPA/Founder must do externally:
 - [x] Create placeholder `docs/_ai_context/dbd-template-schema.json` with legal-form/accounting-standard taxonomy options discovered so far and TODO sections for sheets/rows/validation rules.
 - [x] Create placeholder `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` with the note groups from this spike and TODO fields for source data, tenant input, and auditor input.
 - [x] Patch `phase-12b-tfrs-dbd-audit-pack.md` so implementation cannot start until CPA-validated schema files replace placeholders.
+- [x] Create `docs/_ai_context/dbd-template-spec.md` and `docs/_ai_context/tfrs-npaes-notes-spec.md` as readable companion specs for the JSON placeholders.
 - [ ] Commit this desk-check and handoff package.
 
 ## Spike deliverables

@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { useTranslations } from "next-intl";
-import { Puzzle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavCategory } from "@/lib/nav/structure";
 
@@ -18,17 +16,13 @@ export function Tier1IconStrip({
   activeCategory,
 }: Tier1IconStripProps) {
   const t = useTranslations("nav");
-  const isDesktop = useDesktopMediaQuery();
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r bg-background py-3">
-      <Link
-        href="/dashboard"
-        className="mb-4 flex size-10 items-center justify-center rounded-lg text-primary hover:bg-accent"
-        aria-label="Long Dtua"
-      >
-        <Puzzle className="size-5" />
-      </Link>
+      <div className="flex size-10 items-center justify-center">
+        <UserButton />
+      </div>
+      <div className="my-3 h-px w-9 bg-border" />
 
       <nav
         aria-label="Primary navigation"
@@ -36,45 +30,29 @@ export function Tier1IconStrip({
       >
         {categories.map((category) => {
           const active = activeCategory.labelKey === category.labelKey;
+          const label = t(category.labelKey);
           return (
             <Link
               key={category.labelKey}
               href={category.href}
-              title={t(category.labelKey)}
-              aria-label={t(category.labelKey)}
+              title={label}
+              aria-label={label}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors",
+                "group relative flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors",
                 active
                   ? "bg-accent text-primary"
                   : "hover:bg-accent/60 hover:text-foreground"
               )}
             >
               <category.icon className="size-5" />
+              <span className="pointer-events-none absolute left-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-md group-hover:block group-focus-visible:block">
+                {label}
+              </span>
             </Link>
           );
         })}
       </nav>
-
-      {isDesktop && (
-        <div className="mt-3 flex size-10 items-center justify-center">
-          <UserButton />
-        </div>
-      )}
     </div>
   );
-}
-
-function useDesktopMediaQuery() {
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 768px)");
-    const update = () => setIsDesktop(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  return isDesktop;
 }

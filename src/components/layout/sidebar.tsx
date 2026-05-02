@@ -30,7 +30,7 @@ export function Sidebar({ orgs, activeOrgId }: SidebarProps) {
           <div className="mb-3 flex items-center gap-2.5">
             <Puzzle className="size-5 text-primary" />
             <span className="text-lg font-semibold tracking-tight text-primary">
-              Long Dtua
+              Long Tua
             </span>
           </div>
           <OrgSwitcher

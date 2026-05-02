@@ -402,7 +402,10 @@ export async function getVendorNamesForSummary(
   orgId: string,
   vendorIds: string[]
 ): Promise<Record<string, string>> {
-  if (vendorIds.length === 0) return {};
+  const validVendorIds = vendorIds.filter((id) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  );
+  if (validVendorIds.length === 0) return {};
 
   const { vendors } = await import("../schema");
   const { inArray } = await import("drizzle-orm");
@@ -417,7 +420,7 @@ export async function getVendorNamesForSummary(
     .where(
       and(
         ...orgScope(vendors, orgId),
-        inArray(vendors.id, vendorIds)
+        inArray(vendors.id, validVendorIds)
       )
     );
 

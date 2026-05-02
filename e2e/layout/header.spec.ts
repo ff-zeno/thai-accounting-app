@@ -7,7 +7,7 @@ test.describe("App layout & header", () => {
   });
 
   test("app brand name visible in sidebar", async ({ page }) => {
-    await expect(page.getByText("Long Dtua").first()).toBeVisible();
+    await expect(page.getByText("Long Tua").first()).toBeVisible();
   });
 
   test("org switcher shows current org", async ({ page }) => {

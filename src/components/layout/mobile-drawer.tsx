@@ -63,7 +63,7 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
               >
                 <Puzzle className="size-5" />
                 <span className="text-lg font-semibold tracking-tight">
-                  Long Dtua
+                  Long Tua
                 </span>
               </Link>
               <OrgSwitcher

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Puzzle } from "lucide-react";
 import { LocaleSwitcher } from "./locale-switcher";
 import { OrgSwitcher } from "./org-switcher";
 import { CreateOrgDialog } from "./create-org-dialog";
@@ -41,9 +40,8 @@ export function TwoTierSidebar({ orgs, activeOrgId }: TwoTierSidebarProps) {
         <div className="flex min-w-0 flex-1 flex-col bg-sidebar">
           <div className="p-3">
             <div className="mb-3 flex items-center gap-2.5 text-primary">
-              <Puzzle className="size-5" />
               <span className="text-lg font-semibold tracking-tight">
-                Long Dtua
+                Long Tua
               </span>
             </div>
             <OrgSwitcher

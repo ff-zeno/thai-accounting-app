@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, type DbConnection } from "../index";
 import { periodLocks } from "../schema";
 import { orgScopeAlive } from "../helpers/org-scope";
@@ -58,6 +58,11 @@ export async function lockPeriod(data: {
   tx?: DbConnection;
 }): Promise<string> {
   const conn = data.tx ?? db;
+  if (data.domain === "gl" && data.periodMonth != null) {
+    await conn.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`gl-posting-period:${data.orgId}:${data.periodYear}:${data.periodMonth}`}))`
+    );
+  }
   const [lock] = await conn
     .insert(periodLocks)
     .values({

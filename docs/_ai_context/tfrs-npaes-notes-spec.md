@@ -2,19 +2,21 @@
 
 **Status:** Pending CPA validation
 **Prepared:** 2026-05-01
+**Source refresh:** 2026-05-16
 **Purpose:** Define the note-taxonomy shape Phase 12b needs, without pretending public desk-check replaces CPA judgment.
 
 ## Official Sources
 
-- TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs`
-- TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA`
+- TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs` (retrieved 2026-05-16)
+- TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA` (retrieved 2026-05-16)
 
 ## Confirmed From Public TFAC Pages
 
 - TFAC lists **TFRS for NPAEs (ปรับปรุง 2565)** for financial statements with periods beginning on or after 1 January 2023.
 - TFAC lists related examples and practical Q&A, including a Q&A for practical issues under TFRS for NPAEs published 17 March 2025.
 - TFAC Q&A content is guidance for applying standards and is not itself a replacement for the standards.
-- The TFAC standards site includes current and future standards categories, so Phase 12b must re-check the site before implementation.
+- The TFAC standards site includes current and future standards categories. On 2026-05-16 it visibly lists 2569 future standards and 2568 current standards categories, so Phase 12b must re-check the site before implementation.
+- The TFAC Q&A page is dated 8/05/2569 and states Q&A answers are fact-dependent, may change if standards change, and are not part of or substitutes for standards.
 
 ## Product Position
 

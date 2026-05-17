@@ -2,12 +2,13 @@
 
 **Status:** Pending CPA + DBD Builder validation
 **Prepared:** 2026-05-01
+**Source refresh:** 2026-05-16
 **Purpose:** Capture the public-source DBD e-Filing facts that Phase 12b can use for shape, while blocking implementation on authenticated template and Builder validation.
 
 ## Official Sources
 
-- DBD XBRL-in-Excel manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf`
-- DBD financial-statement filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf`
+- DBD XBRL-in-Excel manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf` (retrieved 2026-05-16)
+- DBD financial-statement filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf` (retrieved 2026-05-16 reference URL; CPA must confirm current portal workflow)
 
 ## Confirmed From Public DBD Docs
 
@@ -18,6 +19,8 @@
   - bundled JRE folder.
 - The DBD Builder validates the workbook and converts it to XBRL ZIP output.
 - Public docs still reference Java Runtime Environment 8+ for the DBD XBRL-in-Excel tooling path.
+- 2026-05-16 refresh still shows the same public flow: DBD XBRL in Excel V.2.0 download/open, workbook data entry, validation, XBRL conversion, and `.zip` submission through DBD e-Filing.
+- 2026-05-16 refresh still shows the downloaded package contains the Excel file, Java builder `.jar`, and bundled JRE folder; the builder and JRE assets must remain intact for conversion.
 - The workbook is worksheet-specific and supports current/prior period columns.
 - Some rows support sub-items, but public docs show a max of 8 sub-items per main line in the illustrated workflow. CPA must confirm this against the current authenticated template.
 - Some cells are Thai-only. The public manual shows validation warnings when Thai-only sub-item labels contain English text.

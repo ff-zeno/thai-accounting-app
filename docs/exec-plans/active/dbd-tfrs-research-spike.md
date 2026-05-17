@@ -4,7 +4,7 @@
 **Owner:** Founder + paid Thai-licensed CPA engagement
 **Estimated effort:** 3 weeks minimum calendar (1 week DBD format extraction, 1 week TFRS notes coverage, 1 week Builder/integration validation). Risk: CPA onboarding and async review can consume 6-8 calendar weeks.
 **Created:** 2026-04-26 after round-3 review found Phase 12 was hand-waving DBD/TFRS
-**Desk-check updated:** 2026-05-01 from official DBD/TFAC public docs
+**Desk-check updated:** 2026-05-17 from official DBD/TFAC public docs
 
 ## Why this exists
 
@@ -39,12 +39,44 @@ Official public docs still support the plan's core assumptions:
 - The public manual's validation appendix shows a company/general-business taxonomy example with statement form codes including balance sheet `210000`, multiple income-statement/OCI presentation forms, cash flow direct `310000`, cash flow indirect `320000`, and equity changes `410000`. Treat this as engineering shape only; CPA must confirm exact NPAE applicability and row/cell mapping.
 - TFAC's standards site lists **TFRS for NPAEs (ปรับปรุง 2565)** for periods beginning on or after 1 Jan 2023, and a March 17, 2025 Q&A for practical implementation issues. The TFAC site also shows current/future standard categories, so we must re-check before implementation.
 
+### 2026-05-16 Source Refresh
+
+No implementation gate is lifted. Public-source shape is still consistent, but CPA + authenticated Builder validation remains mandatory.
+
+- DBD `ExcelXBRLManual.pdf` still describes the preparation flow as DBD XBRL in Excel V.2.0: download/open the program, enter financial-statement data, validate, convert to XBRL, and submit the `.zip` output through DBD e-Filing.
+- The DBD manual still states Java Runtime Environment 8+ is required for conversion, and the downloaded package includes the Excel file, Java builder `.jar`, and bundled JRE folder. The builder `.jar` and JRE folder must not be renamed/deleted.
+- TFAC's standards site now visibly organizes standards under revised-year categories including 2569 future standards and 2568 current standards, increasing the need for a Phase 12b re-check at implementation start.
+- TFAC's NPAEs page still lists TFRS for NPAEs (ปรับปรุง 2565) as effective for periods beginning on or after 1 January 2023.
+- TFAC's Q&A page is dated 8/05/2569 and explicitly warns that Q&A answers are principle-based, fact-dependent, may change when standards change, and are not part of or substitutes for standards. Treat Q&A as interpretive support only.
+
 Sources to pin for the CPA package:
 
 - DBD Excel/XBRL manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf`
 - DBD filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf`
 - TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs`
 - TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA`
+
+Latest retrieval date for the pinned public sources: 2026-05-17.
+
+### 2026-05-17 Source Refresh
+
+Phase 12b remains blocked. The latest public desk-check reconfirmed the workflow shape and tightened implementation constraints:
+
+- DBD `ExcelXBRLManual.pdf` still presents DBD XBRL in Excel V.2.0 as a three-step flow: download/open the tool, enter financial-statement data in Excel, validate/convert, then submit the generated `.zip` XBRL output through DBD e-Filing.
+- The same DBD manual states the conversion flow requires Java Runtime Environment 8+ and that the downloaded package includes a bundled JRE folder for machines without Java. The JRE folder must stay beside the Excel/builder files for conversion to work. Engineering consequence: the product cannot promise cross-platform one-click DBD conversion in v1.
+- The DBD manual's taxonomy-selection pages still show `NPAE_COM-OTH` for ordinary limited companies and `NPAE_PRT-OTH` for ordinary registered partnerships using TFRS for NPAEs. Treat these as public manual examples, not final tenant-specific taxonomy selections.
+- The manual's validation appendix still exposes statement-form codes and cross-statement checks. Examples include balance sheet `210000`, cash flow direct `310000`, cash flow indirect `320000`, and equity changes `410000`; the balance sheet validation requires total assets to equal total liabilities plus equity and requires registered capital to be positive. Engineering consequence: Phase 12b needs local preflight validations before generating the Excel package.
+- TFAC's NPAEs page still lists TFRS for NPAEs (ปรับปรุง 2565) for accounting periods beginning on or after 1 January 2023, with the 17 March 2025 Q&A linked from the NPAEs page.
+- TFAC's Q&A page remains an interpretive support channel, not a substitute for the standard. Use it for CPA discussion prompts, not as a machine-readable source of filing rules.
+
+Source URLs checked 2026-05-17:
+
+- DBD Excel/XBRL manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf`
+- DBD financial-statement filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf`
+- TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs`
+- TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA`
+
+Live-link check on 2026-05-17 returned HTTP 200 for all four pinned public URLs above. Phase 12b remains blocked on authenticated DBD template download, CPA review, and Builder validation, not on public-link availability.
 
 ## Codex Desk-Check Output — 2026-05-01
 
@@ -86,6 +118,7 @@ CPA/Founder must do externally:
 - [x] Patch `phase-12b-tfrs-dbd-audit-pack.md` so implementation cannot start until CPA-validated schema files replace placeholders.
 - [x] Create `docs/_ai_context/dbd-template-spec.md` and `docs/_ai_context/tfrs-npaes-notes-spec.md` as readable companion specs for the JSON placeholders.
 - [ ] Commit this desk-check and handoff package.
+- [x] Refresh public-source addendum on 2026-05-16 before unattended Phase 12b planning.
 
 ## Spike deliverables
 

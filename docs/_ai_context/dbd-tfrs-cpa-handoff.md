@@ -2,15 +2,22 @@
 
 **Status:** Ready for CPA engagement; not implementation-ready
 **Prepared:** 2026-04-30
-**Desk-check updated:** 2026-05-01
+**Desk-check updated:** 2026-05-16
 **Purpose:** Give a Thai-licensed CPA a precise artifact request so Phase 12b can implement DBD/TFRS exports against validated facts, not assumptions.
 
 ## Official Source Links
 
-- DBD Excel/XBRL manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf`
-- DBD financial-statement filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf`
-- TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs`
-- TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA`
+- DBD Excel/XBRL manual: `https://efiling.dbd.go.th/efiling-documents/ExcelXBRLManual.pdf` (retrieved 2026-05-16)
+- DBD financial-statement filing manual: `https://efiling.dbd.go.th/efiling-documents/01_ManualFN.pdf` (retrieved 2026-05-16 reference URL; CPA must confirm current portal workflow)
+- TFAC TFRS for NPAEs page: `https://acpro-std.tfac.or.th/standard/2/-NPAEs` (retrieved 2026-05-16)
+- TFAC Q&A page: `https://acpro-std.tfac.or.th/standard/24/คำถาม-คำตอบ-QA` (retrieved 2026-05-16)
+
+## 2026-05-16 Public Refresh Notes
+
+- DBD public manual still shows DBD XBRL in Excel V.2.0: download/open program, enter financial-statement data, validate, convert to XBRL, and submit the `.zip` via DBD e-Filing.
+- DBD public manual still requires Java Runtime Environment 8+ for conversion and describes the downloaded package as Excel workbook + Java builder `.jar` + bundled JRE folder.
+- TFAC NPAEs page still lists TFRS for NPAEs (ปรับปรุง 2565) for financial statements with periods beginning on or after 1 January 2023.
+- TFAC Q&A page is dated 8/05/2569 and warns Q&A guidance is not a standard and can change if facts or standards change. Use it only as interpretive support.
 
 ## What We Need From CPA
 

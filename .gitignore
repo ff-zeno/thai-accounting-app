@@ -45,6 +45,15 @@ next-env.d.ts
 # Local Claude settings
 .claude/settings.local.json
 
+# Local agent/tool runtime state
+.codex
+.codex/
+.playwright-mcp/
+.serena/
+.superpowers/
+_tmp_images/
+image.png
+
 # script output (generated PDFs, etc.)
 scripts/output/
 benchmarks/output/

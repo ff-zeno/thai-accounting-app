@@ -6,7 +6,7 @@ This audit maps the overnight goal-mode objective to concrete artifacts and curr
 
 ## Most Recent Gate
 
-This is the current verification snapshot for the full stacked dirty tree. Older gate entries later in this audit are historical and should not be treated as the current baseline. These whole-tree gates do not prove that partial review slices are independently green; per-slice gates are valid only when run on the required stacked predecessors from `dirty-tree-checkpoint-2026-05-17.md`.
+This is the current verification snapshot for the committed stacked branch `goal/overnight-completion-2026-05-17`. Older gate entries later in this audit are historical and should not be treated as the current baseline. These whole-tree gates do not prove that partial review slices are independently green; per-slice gates are valid only when run on the required stacked predecessors from `dirty-tree-checkpoint-2026-05-17.md`.
 
 - `pnpm test:e2e` — 223 tests passed.
 - `pnpm test` — 56 files / 633 tests passed.
@@ -14,11 +14,12 @@ This is the current verification snapshot for the full stacked dirty tree. Older
 - `pnpm lint` — 0 errors / 3 existing TanStack/React Compiler warnings after mechanical unused-code cleanup.
 - `pnpm build` — passed with 81 generated static app pages.
 - `pnpm exec drizzle-kit check` — passed.
-- `pnpm db:migrate` — passed after the packaging/control re-review, confirming migration execution beyond Drizzle SQL/journal consistency.
+- `pnpm db:migrate` — passed after the packaged-stack gate, confirming migration execution beyond Drizzle SQL/journal consistency.
 - `pnpm tsc --noEmit` — passed.
 - `git diff --check` — passed.
 - Active-code `vat_records|vatRecords|vat-records` search — no hits outside excluded docs/migrations/meta/test-results.
-- Dirty tree — 276 porcelain entries / 353 file-level entries.
+- Packaging — review slices are now local commits on `goal/overnight-completion-2026-05-17` from `6a6f0b2` through `a767ad2`; `main` remains at `68ba8be`.
+- Dirty tree — only explicit keep-out/scratch paths remain uncommitted: 4 porcelain entries / 8 file-level paths.
 - Artifact status — no tracked/untracked generated `.next`, `test-results`, `playwright-report`, coverage, dist, `.turbo`, `.vercel`, or local agent-runtime artifacts.
 - Note: `pnpm test`, `pnpm build`, `pnpm lint`, `pnpm test:db`, `pnpm test:e2e`, `pnpm exec drizzle-kit check`, `pnpm tsc --noEmit`, `git diff --check`, active-code no-`vat_records` search, artifact-status check, focused compiled-pattern/exemplar unit tests (11 tests), focused inventory DB tests (29 tests), focused fixed-assets Playwright (8 tests), and focused inventory Playwright (5 tests) were refreshed after the mechanical lint cleanup. Full E2E initially exposed stale fixed-assets dashboard-create and inventory count-link click races under parallel load; tests were hardened to use persisted redirect/direct-route assertions and the final full E2E rerun passed 223 tests.
 - Post-estimate reviewability refresh on 2026-05-17 revalidated the dirty-tree staging manifest against the current tree: main slices still select 306 paths, residual assigned mini-groups still select 39 paths, and the coverage model remains 345 staged paths plus 8 explicit keep-out/scratch paths. Follow-up `pnpm tsc --noEmit`, `pnpm exec drizzle-kit check`, `pnpm db:migrate`, `git diff --check`, active-code no-`vat_records`, and artifact-status checks passed.
@@ -38,7 +39,7 @@ Goal-mode success means the app is owner-testable across VAT, WHT, foreign-vendo
 
 | Requirement | Evidence | Status |
 |---|---|---|
-| Keep roadmap/runbook/phase docs authoritative | `docs/exec-plans/active/roadmap.md`, `docs/exec-plans/active/overnight-completion-control.md`, phase docs updated throughout; dirty-tree review map added in `dirty-tree-checkpoint-2026-05-17.md`; owner walkthrough plan added in `owner-test-plan-2026-05-17.md` | Mostly satisfied as control docs; not commit evidence until staged/committed |
+| Keep roadmap/runbook/phase docs authoritative | `docs/exec-plans/active/roadmap.md`, `docs/exec-plans/active/overnight-completion-control.md`, phase docs updated throughout; dirty-tree review map added in `dirty-tree-checkpoint-2026-05-17.md`; owner walkthrough plan added in `owner-test-plan-2026-05-17.md`; control docs and implementation slices are now local commits on `goal/overnight-completion-2026-05-17` | Satisfied for local branch; still needs reviewer/PR acceptance |
 | Phase 8.5 VAT ledger closed/archive-ready | Runbook marks Phase 8.5 completed/archived; completed doc referenced; VAT routes/tests previously green | Automated evidence satisfied; keep bundled with schema/VAT cutover review slice |
 | No active `vat_records` runtime path | Fresh 2026-05-17 code search found no `vat_records` / `vatRecords` / `vat-records` references outside docs, migrations, meta snapshots, and the deleted legacy query/test files | Automated evidence satisfied; recheck before final PR |
 | Extensive tests | Focused gates run across VAT, WHT, payroll, fixed assets, analytics, copilot, all-pages smoke, TypeScript, Drizzle, diff check; full 2026-05-17 `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm test:db`, and `pnpm test:e2e` gate now recorded green | Strong automated coverage for current tree; still not a substitute for owner/accountant walkthrough or external compliance validation |

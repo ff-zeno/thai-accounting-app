@@ -89,12 +89,12 @@ Use `docs/exec-plans/active/overnight-completion-control.md` as the operative ru
 
 Current post-gate order after the 2026-05-17 stabilization pass:
 
-1. Keep the tree reviewable before more feature expansion.
-   - Current dirty tree is intentionally large: use `dirty-tree-checkpoint-2026-05-17.md` to split control docs, migrations/schema, VAT ledger, extraction learning, WHT/foreign-vendor tax, GL/posting, POS/tax reports, imports/inventory, payroll, fixed assets/CIT/analytics/copilot/nav/settings into reviewable slices.
+1. Keep the branch reviewable before more feature expansion.
+   - The former large dirty tree is now packaged into local stacked commits on `goal/overnight-completion-2026-05-17`, from control docs through baseline cleanup. `dirty-tree-checkpoint-2026-05-17.md` remains the review map for the commit boundaries. Only explicit keep-out/scratch paths remain uncommitted.
 2. Close external-validation blockers before claiming production compliance.
    - DBD/TFRS remains blocked on CPA plus authenticated DBD Builder validation; WHT certificate upload storage still needs live Blob/Inngest QA; payroll production filing still needs current SSO config validation and exact RD/SSO exports.
 3. Preserve the green commit gate.
-   - Latest evidence: full `pnpm test:e2e` passed 223 tests after the `/sales` string-date render fix, fixed-assets import-result recovery, and final fixed-assets/inventory E2E race hardening; focused fixed-assets E2E passed 8 tests and focused inventory E2E passed 5 tests; `pnpm test:db` passed 40 files / 437 tests; `pnpm test` passed 56 files / 633 tests; `pnpm lint` now passes with 0 errors / 3 existing TanStack/React Compiler warnings after mechanical unused-code cleanup; `pnpm build` passed; `pnpm tsc --noEmit`, `pnpm exec drizzle-kit check`, `git diff --check`, and no-active-`vat_records` search passed. Unit/build/full-DB/full-E2E/lint/Drizzle/TypeScript/diff/no-active-`vat_records` were refreshed after lint cleanup.
+   - Latest packaged-stack evidence on `goal/overnight-completion-2026-05-17`: full `pnpm test:e2e` passed 223 tests; `pnpm test:db` passed 40 files / 437 tests; `pnpm test` passed 56 files / 633 tests; `pnpm lint` passes with 0 errors / 3 existing TanStack/React Compiler warnings; `pnpm build` passed with 81 static app pages; `pnpm tsc --noEmit`, `pnpm exec drizzle-kit check`, `pnpm db:migrate`, `git diff --check`, artifact-status, and no-active-`vat_records` search passed.
 4. Resolve or explicitly accept review debt.
    - Claude Companion is now available for follow-up slices. Recent review debt closed for imports payment unlink / GL reversal, close/posting readiness, POS/cash posting, inventory movement posting/outbox, payroll payment/remittance outbox, CIT accrual/payment posting-outbox, fixed-asset depreciation posting-outbox, and BYO-Copilot settings hardening; any remaining historic skipped reviews must be resolved or explicitly accepted before PR-ready status.
 5. Choose remaining feature slices only after the packaging/review surface is stable.

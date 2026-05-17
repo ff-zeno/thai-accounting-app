@@ -1,8 +1,8 @@
 # Dirty Tree Checkpoint — 2026-05-17
 
-**Status:** Active review map for the large uncommitted overnight goal-mode tree.
+**Status:** Active review map for the packaged overnight goal-mode branch.
 
-This checkpoint separates the current dirty tree into coherent review slices. It is not a commit boundary by itself, but it gives the next reviewer a stable way to avoid treating the large dirty tree as one undifferentiated patch.
+This checkpoint separates the overnight implementation into coherent review slices. It began as a dirty-tree map; the slices are now local commits on `goal/overnight-completion-2026-05-17`, with only explicit keep-out/scratch paths left uncommitted.
 
 Current count note:
 - Baseline commit: `68ba8be005ec36e943c71e200f2410a9c11313fa`.
@@ -25,6 +25,8 @@ Current count note:
 - After the final SSO wording cleanup in the audit/runbook, counts and coverage still remain unchanged: 276 porcelain entries, 353 dirty file-level paths, 345 staging-covered paths, and the same 8 keep-out/scratch paths.
 - After adding the new-feature design-approval stop condition, counts and coverage still remain unchanged: 276 porcelain entries, 353 dirty file-level paths, 345 staging-covered paths, and the same 8 keep-out/scratch paths.
 - Post-estimate reviewability refresh on 2026-05-17 revalidated the manifest against the current tree: 276 porcelain entries, 353 file-level paths, main slices still selecting 306 paths, residual assigned mini-groups still selecting 39 paths, and coverage still 345 staging-covered paths plus the same 8 keep-out/scratch paths. Follow-up TypeScript, Drizzle check, `pnpm db:migrate`, diff check, active-code no-`vat_records`, and artifact-status checks passed.
+- After packaging into local stacked commits on `goal/overnight-completion-2026-05-17`, implementation/control slices are committed from `6a6f0b2` through `a767ad2`. The only remaining uncommitted paths are the 8 explicit keep-out/scratch paths: five benchmark PNGs, `docs/_ai_context/skills-cleanup-plan.md`, `scripts/check-ksher-cat.ts`, and `vat-info.md`.
+- Final packaged-stack gate passed: `pnpm test` 56 files / 633 tests, `pnpm lint` 0 errors / 3 existing warnings, `pnpm build` 81 static pages, `pnpm test:db` 40 files / 437 tests, `pnpm test:e2e` 223 tests, `pnpm exec drizzle-kit check`, `pnpm db:migrate`, `pnpm tsc --noEmit`, `git diff --check`, active-code no-`vat_records`, and artifact-status check.
 - Post-gate artifact check found no tracked/untracked `test-results`, `playwright-report`, `.next`, `node_modules`, coverage, dist, `.turbo`, `.vercel`, or local agent-runtime artifacts in `git status --porcelain=v1 --untracked-files=all`.
 - Fresh post-build artifact check after the BYO-Copilot gate also found no tracked/untracked `test-results`, `playwright-report`, `.next`, `node_modules`, coverage, dist, `.turbo`, `.vercel`, `.codex`, `.playwright-mcp`, `.serena`, `.superpowers`, `_tmp_images`, or root `image.png` entries in `git status --porcelain=v1 --untracked-files=all`.
 - Fresh post-223-E2E artifact check also found no tracked/untracked `test-results`, `playwright-report`, `.next`, `node_modules`, coverage, dist, `.turbo`, `.vercel`, `.codex`, `.playwright-mcp`, `.serena`, `.superpowers`, `_tmp_images`, or root `image.png` entries in `git status --porcelain=v1 --untracked-files=all`.

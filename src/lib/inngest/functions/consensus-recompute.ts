@@ -102,8 +102,6 @@ export const consensusRecompute = inngest.createFunction(
       }
 
       for (const group of groups.values()) {
-        const vfKey = `${group.vendorKey}|${group.fieldName}`;
-        const allValues = vendorFieldValues.get(vfKey)!;
         // Contradicting = total org count for other values of the same field
         let contradicting = 0;
         for (const otherGroup of groups.values()) {

@@ -57,7 +57,7 @@ export function IndividualPaymentForm() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [extraction, setExtraction] = useState<ExtractionState | null>(null);
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [isExtracting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 

@@ -106,6 +106,7 @@ export async function upsertLearningCandidate(
         extractionLearningCandidates.candidateType,
       ],
       targetWhere: isNull(extractionLearningCandidates.deletedAt),
+      setWhere: sql`${extractionLearningCandidates.orgId} = EXCLUDED.org_id`,
       set: {
         vendorId: sql`EXCLUDED.vendor_id`,
         vendorKey: sql`EXCLUDED.vendor_key`,
@@ -125,6 +126,12 @@ export async function upsertLearningCandidate(
       },
     })
     .returning();
+
+  if (!row) {
+    throw new Error(
+      "Cannot upsert extraction learning candidate across organization boundary"
+    );
+  }
 
   await auditMutation({
     orgId: input.orgId,
@@ -300,4 +307,58 @@ export async function promoteCandidatesForConfirmedSession({
   }
 
   return { active, shadow };
+}
+
+export async function activateValidatedLearningCandidates({
+  orgId,
+  candidateIds,
+  validatedByUserId,
+  validationEvidence,
+}: {
+  orgId: string;
+  candidateIds: string[];
+  validatedByUserId: string;
+  validationEvidence: {
+    validationType: "held_out_document" | "dogfood_replay" | "accountant_review";
+    notes?: string;
+    sampleDocumentIds?: string[];
+  };
+}): Promise<number> {
+  if (candidateIds.length === 0) return 0;
+
+  const rows = await db
+    .update(extractionLearningCandidates)
+    .set({
+      status: "active",
+      promotionEvidence: {
+        ...validationEvidence,
+        validatedByUserId,
+        validatedAt: new Date().toISOString(),
+      },
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        ...orgScope(extractionLearningCandidates, orgId),
+        inArray(extractionLearningCandidates.id, candidateIds),
+        eq(extractionLearningCandidates.status, "shadow" as const)
+      )
+    )
+    .returning({ id: extractionLearningCandidates.id });
+
+  for (const row of rows) {
+    await auditMutation({
+      orgId,
+      entityType: "extraction_learning_candidate",
+      entityId: row.id,
+      action: "update",
+      newValue: {
+        status: "active",
+        validatedByUserId,
+        validationType: validationEvidence.validationType,
+      },
+    });
+  }
+
+  return rows.length;
 }

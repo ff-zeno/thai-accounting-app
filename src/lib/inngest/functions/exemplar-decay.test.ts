@@ -87,7 +87,6 @@ describe("exemplarDecay", () => {
     await harness.invoke(exemplarDecay, { data: {} });
 
     const callArg = vi.mocked(findStaleVendorExemplars).mock.calls[0][0];
-    const now = new Date();
     const expectedAge = new Date();
     expectedAge.setMonth(expectedAge.getMonth() - 12);
 

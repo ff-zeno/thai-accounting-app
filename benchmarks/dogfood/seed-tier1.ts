@@ -24,17 +24,19 @@
  *   --seed-all   Seed every doc, not just the first per vendor group (default: off).
  */
 
+import "./load-env";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { config } from "dotenv";
-
-config({ path: ".env.local" });
 
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../../src/lib/db";
 import {
+  documentFiles,
   documents,
+  extractionCorrectionSessions,
+  extractionLog,
   extractionExemplars,
+  extractionLearningCandidates,
   vendors as vendorsTable,
 } from "../../src/lib/db/schema";
 import {
@@ -42,13 +44,24 @@ import {
   findVendorByTaxId,
 } from "../../src/lib/db/queries/vendors";
 import { upsertExemplar } from "../../src/lib/db/queries/extraction-exemplars";
+import {
+  confirmLatestCorrectionSessionForDocument,
+  upsertDraftCorrectionSession,
+} from "../../src/lib/db/queries/extraction-correction-sessions";
+import {
+  activateValidatedLearningCandidates,
+  promoteCandidatesForConfirmedSession,
+  upsertLearningCandidates,
+} from "../../src/lib/db/queries/extraction-learning-candidates";
 import { promoteVendorTier } from "../../src/lib/db/queries/vendor-tier";
+import { interpretCorrectionExplanation } from "../../src/lib/ai/correction-interpreter";
 import {
   LEARNABLE_INVOICE_FIELDS,
   getFieldCriticality,
 } from "../../src/lib/ai/field-criticality";
 import { fieldValuesEqual } from "../../src/lib/ai/field-normalization";
 import type { GroundTruthFile, GroundTruthDoc } from "./parse-review";
+import { inferDocumentFamily, selectSeedDocsByVendor } from "./seed-selection";
 
 const DOGFOOD_CATEGORY = "dogfood";
 
@@ -115,6 +128,46 @@ async function cleanup(orgId: string, dryRun: boolean): Promise<void> {
     docIds.forEach((id) => console.log(`    doc ${id}`));
     return;
   }
+
+  await db
+    .update(extractionLearningCandidates)
+    .set({ deletedAt: sql`now()` })
+    .where(
+      and(
+        eq(extractionLearningCandidates.orgId, orgId),
+        sql`${extractionLearningCandidates.documentId} IN (${sql.join(
+          docIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`,
+        isNull(extractionLearningCandidates.deletedAt)
+      )
+    );
+  await db
+    .update(extractionCorrectionSessions)
+    .set({ deletedAt: sql`now()` })
+    .where(
+      and(
+        eq(extractionCorrectionSessions.orgId, orgId),
+        sql`${extractionCorrectionSessions.documentId} IN (${sql.join(
+          docIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`,
+        isNull(extractionCorrectionSessions.deletedAt)
+      )
+    );
+  await db
+    .update(documentFiles)
+    .set({ deletedAt: sql`now()` })
+    .where(
+      and(
+        eq(documentFiles.orgId, orgId),
+        sql`${documentFiles.documentId} IN (${sql.join(
+          docIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`,
+        isNull(documentFiles.deletedAt)
+      )
+    );
 
   // Soft-delete exemplars pointing at these docs.
   const exUpdate = await db
@@ -259,6 +312,44 @@ async function insertSyntheticDoc(
   return row.id;
 }
 
+async function insertSyntheticExtractionEvidence(
+  orgId: string,
+  vendorId: string,
+  documentId: string,
+  doc: GroundTruthDoc,
+  dryRun: boolean
+): Promise<string> {
+  if (dryRun) return `dry-log-${doc.docId}`;
+
+  await db.insert(documentFiles).values({
+    orgId,
+    documentId,
+    fileUrl: doc.samplePath,
+    fileType: doc.samplePath.toLowerCase().endsWith(".pdf")
+      ? "application/pdf"
+      : "image/png",
+    originalFilename: doc.samplePath.split("/").at(-1) ?? doc.docId,
+    pipelineStatus: "completed",
+    aiRawResponse: doc.aiExtraction as Record<string, unknown>,
+    aiModelUsed: "dogfood-tier0",
+    aiPurpose: "dogfood",
+  });
+
+  const [row] = await db
+    .insert(extractionLog)
+    .values({
+      orgId,
+      documentId,
+      vendorId,
+      tierUsed: 0,
+      exemplarIds: [],
+      modelUsed: "dogfood-tier0",
+      inngestIdempotencyKey: `dogfood-${doc.docId}-${Date.now()}`,
+    })
+    .returning({ id: extractionLog.id });
+  return row.id;
+}
+
 // ---------------------------------------------------------------------------
 // Seed exemplars for one doc
 // ---------------------------------------------------------------------------
@@ -313,6 +404,147 @@ function toExemplarValue(value: unknown): string | null {
   return null;
 }
 
+function buildCorrectionExplanation(
+  doc: GroundTruthDoc,
+  correctedFields: Array<{
+    fieldName: string;
+    aiValue: string | null;
+    confirmedValue: string | null;
+  }>
+) {
+  const fieldHints = correctedFields.map((field) => {
+    if (
+      doc.vendorGroup.toLowerCase().includes("ksher") &&
+      field.fieldName === "totalAmount"
+    ) {
+      return 'total amount use "GrandTotal" or "Trans. Amount", not "Credit Amount"';
+    }
+    if (
+      field.fieldName === "vendorAddress" &&
+      /[\u0E00-\u0E7F]/.test(field.confirmedValue ?? "")
+    ) {
+      return "vendor address use the Thai address text from the vendor header, not the English address translation";
+    }
+    if (field.fieldName === "buyerTaxId") {
+      return "buyer tax id use the customer/buyer Tax ID near the customer section and do not leave it blank";
+    }
+    if (field.fieldName === "detectedLanguage") {
+      return `detected language use "${field.confirmedValue ?? "blank"}" for this document family`;
+    }
+    return `${field.fieldName} use "${field.confirmedValue ?? "blank"}", not "${field.aiValue ?? "blank"}"`;
+  });
+  return `For ${doc.vendorGroup}, ${fieldHints.join("; ")}.`;
+}
+
+async function seedConfirmedLearningForDoc(
+  orgId: string,
+  vendorId: string,
+  documentId: string,
+  extractionLogId: string,
+  doc: GroundTruthDoc,
+  dryRun: boolean
+): Promise<{ candidates: number; activated: number }> {
+  const truth = doc.groundTruth;
+  const ai = doc.aiExtraction as unknown as Record<string, unknown>;
+  const taxId = (truth.vendorTaxId as string | null) ?? null;
+  const documentFamily = inferDocumentFamily(doc);
+  const correctedFields = LEARNABLE_INVOICE_FIELDS.flatMap((fieldName) => {
+    const aiValue = toExemplarValue(ai[fieldName]);
+    const confirmedValue = toExemplarValue(truth[fieldName]);
+    if (fieldValuesEqual(fieldName, aiValue, confirmedValue)) return [];
+    return [{
+      fieldName,
+      fieldCriticality: getFieldCriticality(fieldName),
+      aiValue,
+      confirmedValue,
+    }];
+  });
+
+  if (correctedFields.length === 0) return { candidates: 0, activated: 0 };
+
+  const explanation = buildCorrectionExplanation(doc, correctedFields);
+  const interpretation = interpretCorrectionExplanation({
+    explanation,
+    correctedFields,
+  });
+  const candidateCount = correctedFields.length + interpretation.rules.length;
+  if (dryRun) return { candidates: candidateCount, activated: candidateCount };
+
+  const session = await upsertDraftCorrectionSession({
+    orgId,
+    documentId,
+    extractionLogId,
+    startedByUserId: "dogfood-seed",
+    userExplanation: explanation,
+    aiInterpretation: {
+      summary: interpretation.summary,
+      rules: interpretation.rules,
+    },
+  });
+  await confirmLatestCorrectionSessionForDocument({
+    orgId,
+    documentId,
+    confirmedByUserId: "dogfood-seed",
+  });
+
+  const candidates = await upsertLearningCandidates([
+    ...correctedFields.map((field) => ({
+      orgId,
+      documentId,
+      correctionSessionId: session.id,
+      vendorId,
+      vendorKey: taxId,
+      documentFamily,
+      fieldName: field.fieldName,
+      fieldCriticality: field.fieldCriticality,
+      candidateType: "field_exemplar" as const,
+      aiValue: field.aiValue,
+      confirmedValue: field.confirmedValue,
+      rationale: `Dogfood confirmed ${field.fieldName}: ${field.confirmedValue ?? "blank"}; Tier 0 had ${field.aiValue ?? "blank"}.`,
+      appliesWhen: [],
+      scope: "vendor_document_family" as const,
+      status: "candidate" as const,
+      confidence: "0.7000",
+    })),
+    ...interpretation.rules.map((rule) => ({
+      orgId,
+      documentId,
+      correctionSessionId: session.id,
+      vendorId,
+      vendorKey: taxId,
+      documentFamily,
+      fieldName: rule.fieldName,
+      fieldCriticality: rule.fieldCriticality,
+      candidateType: "field_rule" as const,
+      aiValue: correctedFields.find((field) => field.fieldName === rule.fieldName)
+        ?.aiValue ?? null,
+      confirmedValue:
+        correctedFields.find((field) => field.fieldName === rule.fieldName)
+          ?.confirmedValue ?? null,
+      rationale: rule.rationale,
+      selectorHint: rule.selectorHint,
+      rejectHint: rule.rejectHint,
+      appliesWhen: rule.appliesWhen,
+      scope: "vendor_document_family" as const,
+      status: "candidate" as const,
+      confidence: rule.confidence,
+    })),
+  ]);
+
+  await promoteCandidatesForConfirmedSession({ orgId, correctionSessionId: session.id });
+  const activated = await activateValidatedLearningCandidates({
+    orgId,
+    candidateIds: candidates.map((candidate) => candidate.id),
+    validatedByUserId: "dogfood-seed",
+    validationEvidence: {
+      validationType: "dogfood_replay",
+      notes: "Dogfood seed document confirmed by human review; activated for held-out replay.",
+      sampleDocumentIds: [documentId],
+    },
+  });
+  return { candidates: candidates.length, activated };
+}
+
 // ---------------------------------------------------------------------------
 // Main seed flow
 // ---------------------------------------------------------------------------
@@ -326,7 +558,7 @@ async function seed(args: CliArgs): Promise<void> {
   }
   const gt = JSON.parse(readFileSync(gtPath, "utf-8")) as GroundTruthFile;
 
-  // Group by vendor, preserve insertion order (which is per-sample order from summary.json)
+  // Group by vendor, preserve insertion order for reporting.
   const byVendor = new Map<string, GroundTruthDoc[]>();
   for (const doc of Object.values(gt.docs)) {
     const arr = byVendor.get(doc.vendorGroup) ?? [];
@@ -334,11 +566,8 @@ async function seed(args: CliArgs): Promise<void> {
     byVendor.set(doc.vendorGroup, arr);
   }
 
-  const seedDocs: GroundTruthDoc[] = [];
-  for (const [, arr] of byVendor) {
-    if (args.seedAll) seedDocs.push(...arr);
-    else seedDocs.push(arr[0]);
-  }
+  const allDocs = Object.values(gt.docs);
+  const seedDocs = args.seedAll ? allDocs : selectSeedDocsByVendor(allDocs);
 
   console.log(
     `Seeding ${seedDocs.length} doc(s) across ${byVendor.size} vendor group(s)${args.dryRun ? " (dry-run)" : ""}.`
@@ -368,6 +597,15 @@ async function seed(args: CliArgs): Promise<void> {
     console.log(`    document.id = ${docId}`);
     summary.docsInserted++;
 
+    const extractionLogId = await insertSyntheticExtractionEvidence(
+      args.orgId,
+      vendor.id,
+      docId,
+      doc,
+      args.dryRun
+    );
+    console.log(`    extraction_log.id = ${extractionLogId}`);
+
     const { written, corrections } = await seedExemplarsForDoc(
       args.orgId,
       vendor.id,
@@ -379,6 +617,18 @@ async function seed(args: CliArgs): Promise<void> {
     summary.corrections += corrections;
     console.log(
       `    exemplars: ${written} written, ${corrections} flagged as corrections`
+    );
+
+    const learning = await seedConfirmedLearningForDoc(
+      args.orgId,
+      vendor.id,
+      docId,
+      extractionLogId,
+      doc,
+      args.dryRun
+    );
+    console.log(
+      `    learning candidates: ${learning.candidates} seeded, ${learning.activated} active`
     );
 
     if (!args.dryRun) {

@@ -16,11 +16,9 @@
  *                  off by default because the seed doc leaks its own answer.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import "./load-env";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { config } from "dotenv";
-
-config({ path: ".env.local" });
 
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../src/lib/db";
@@ -30,10 +28,13 @@ import {
   type ExtractionContext,
   type ExtractionFile,
 } from "../../src/lib/ai/extract-document";
-import { findVendorByTaxId } from "../../src/lib/db/queries/vendors";
+import { findVendorByTaxId, getVendorById } from "../../src/lib/db/queries/vendors";
+import { getOrganizationById } from "../../src/lib/db/queries/organizations";
 import { getTopExemplars } from "../../src/lib/db/queries/extraction-exemplars";
+import { getActiveLearningCandidates } from "../../src/lib/db/queries/extraction-learning-candidates";
 import { getVendorTier } from "../../src/lib/db/queries/vendor-tier";
 import type { GroundTruthFile, GroundTruthDoc } from "./parse-review";
+import { inferDocumentFamily, selectSeedDocsByVendor } from "./seed-selection";
 
 const REPO_ROOT = process.cwd();
 
@@ -126,6 +127,28 @@ async function resolveVendor(
   return null;
 }
 
+async function buildIdentityAnchor(orgId: string, vendorId: string) {
+  const [vendor, org] = await Promise.all([
+    getVendorById(orgId, vendorId),
+    getOrganizationById(orgId),
+  ]);
+
+  return {
+    vendorName: vendor?.name ?? null,
+    vendorNameTh: vendor?.nameTh ?? null,
+    vendorTaxId: vendor?.taxId ?? null,
+    vendorBranchNumber: vendor?.branchNumber ?? null,
+    vendorAddress: vendor?.address ?? null,
+    vendorAddressTh: vendor?.addressTh ?? null,
+    buyerName: org?.name ?? null,
+    buyerNameTh: org?.nameTh ?? null,
+    buyerTaxId: org?.taxId ?? null,
+    buyerBranchNumber: org?.branchNumber ?? null,
+    buyerAddress: org?.address ?? null,
+    buyerAddressTh: org?.addressTh ?? null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -151,17 +174,10 @@ async function main() {
     summary.perSample.filter((s) => s.ok).map((s) => [s.id, s])
   );
 
-  // Determine seeds per vendor group (= first doc, same rule as seed-tier1.ts)
-  const seeds = new Set<string>();
-  const byVendor = new Map<string, GroundTruthDoc[]>();
-  for (const doc of Object.values(gt.docs)) {
-    const arr = byVendor.get(doc.vendorGroup) ?? [];
-    arr.push(doc);
-    byVendor.set(doc.vendorGroup, arr);
-  }
-  for (const arr of byVendor.values()) {
-    if (arr[0]) seeds.add(arr[0].docId);
-  }
+  // Determine seeds per vendor group using the same representative rule as seed-tier1.ts.
+  const seeds = new Set(
+    selectSeedDocsByVendor(Object.values(gt.docs)).map((doc) => doc.docId)
+  );
 
   const targets: GroundTruthDoc[] = Object.values(gt.docs).filter((d) => {
     if (args.includeSeeds) return true;
@@ -169,6 +185,7 @@ async function main() {
   });
 
   const tier1Dir = join(args.outDir, "tier1");
+  rmSync(tier1Dir, { recursive: true, force: true });
   mkdirSync(tier1Dir, { recursive: true });
 
   console.log(`Tier 1 re-extraction: ${targets.length} doc(s)`);
@@ -216,15 +233,31 @@ async function main() {
 
     const tierRow = await getVendorTier(args.orgId, vendor.id);
     const exemplars = await getTopExemplars(args.orgId, vendor.id, 3);
+    const documentFamily = inferDocumentFamily(doc);
+    const learningCandidates = await getActiveLearningCandidates({
+      orgId: args.orgId,
+      vendorId: vendor.id,
+      documentFamily,
+    });
 
     const context: ExtractionContext = {
       tier: 1,
       vendorId: vendor.id,
+      identityAnchor: await buildIdentityAnchor(args.orgId, vendor.id),
       exemplarIds: exemplars.map((e) => e.id),
       exemplars: exemplars.map((e) => ({
         fieldName: e.fieldName,
         aiValue: e.aiValue,
         userValue: e.userValue,
+      })),
+      learningCandidates: learningCandidates.map((candidate) => ({
+        fieldName: candidate.fieldName,
+        candidateType: candidate.candidateType,
+        documentFamily: candidate.documentFamily,
+        rationale: candidate.rationale,
+        selectorHint: candidate.selectorHint,
+        rejectHint: candidate.rejectHint,
+        status: "active" as const,
       })),
     };
 
@@ -235,7 +268,7 @@ async function main() {
     ];
 
     process.stdout.write(
-      `  RUN  ${doc.docId} vendor=${vendor.name} tier=${tierRow?.tier ?? "?"} exemplars=${exemplars.length} ... `
+      `  RUN  ${doc.docId} vendor=${vendor.name} tier=${tierRow?.tier ?? "?"} exemplars=${exemplars.length} candidates=${learningCandidates.length} ... `
     );
     const start = Date.now();
     try {
@@ -259,6 +292,9 @@ async function main() {
               vendorName: vendor.name,
               tier: tierRow?.tier ?? null,
               exemplarCount: exemplars.length,
+              learningCandidateCount: learningCandidates.length,
+              hasIdentityAnchor: true,
+              documentFamily,
             },
           },
           null,

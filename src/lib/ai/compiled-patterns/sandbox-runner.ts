@@ -96,7 +96,6 @@ function runDirectEval(
   compiledJs: string,
   documentText: string
 ): Record<string, string> {
-  // eslint-disable-next-line no-new-func
   const fn = new Function(
     "text",
     `${compiledJs}\nreturn extract(text);`

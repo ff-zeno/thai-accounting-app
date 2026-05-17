@@ -16,7 +16,6 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowUpDown,
   Filter,
   Loader2,
   FileText,
@@ -124,27 +123,6 @@ function ReconBadge({
       {isFullMatch ? t("matched") : t("partial")}
     </Badge>
   );
-}
-
-function StatusBadge({
-  status,
-  needsReview,
-}: {
-  status: string;
-  needsReview: boolean | null;
-}) {
-  const t = useTranslations("documents");
-
-  if (status === "draft" && needsReview) {
-    return <Badge variant="secondary">{t("needsReview")}</Badge>;
-  }
-  if (status === "confirmed") {
-    return <Badge variant="default">{t("confirmed")}</Badge>;
-  }
-  if (status === "voided") {
-    return <Badge variant="destructive">{t("voided")}</Badge>;
-  }
-  return <Badge variant="outline">{status}</Badge>;
 }
 
 function PipelineBadge({ status }: { status: string | null }) {

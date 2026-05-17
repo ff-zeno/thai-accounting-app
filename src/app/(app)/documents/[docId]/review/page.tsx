@@ -5,6 +5,8 @@ import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getDocumentWithDetails } from "@/lib/db/queries/documents";
 import { getMatchesByDocumentId } from "@/lib/db/queries/reconciliation";
 import { getLatestExtractionLog } from "@/lib/db/queries/extraction-log";
+import { getFixedAssetByAcquisitionDocument } from "@/lib/db/queries/fixed-assets";
+import { getInventorySkuOptions } from "@/lib/db/queries/inventory";
 import { DocumentReview } from "./document-review";
 import { MatchedTransactions } from "./matched-transactions";
 import { LearningIndicator } from "./learning-indicator";
@@ -28,6 +30,10 @@ export default async function DocumentReviewPage({
     getLatestExtractionLog(orgId, docId),
   ]);
   if (!doc) notFound();
+  const [capitalizedAsset, inventorySkus] = await Promise.all([
+    getFixedAssetByAcquisitionDocument(orgId, docId),
+    getInventorySkuOptions(orgId),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -51,6 +57,7 @@ export default async function DocumentReviewPage({
       <DocumentReview
         document={{
           id: doc.id,
+          direction: doc.direction,
           type: doc.type,
           documentNumber: doc.documentNumber,
           issueDate: doc.issueDate,
@@ -59,7 +66,16 @@ export default async function DocumentReviewPage({
           vatAmount: doc.vatAmount,
           totalAmount: doc.totalAmount,
           currency: doc.currency,
+          exchangeRate: doc.exchangeRate,
+          totalAmountThb: doc.totalAmountThb,
+          category: doc.category,
           taxInvoiceSubtype: doc.taxInvoiceSubtype,
+          supplierTaxIdSnapshot: doc.supplierTaxIdSnapshot,
+          supplierBranchNumberSnapshot: doc.supplierBranchNumberSnapshot,
+          buyerTaxIdSnapshot: doc.buyerTaxIdSnapshot,
+          buyerBranchNumberSnapshot: doc.buyerBranchNumberSnapshot,
+          taxInvoiceSerialNumber: doc.taxInvoiceSerialNumber,
+          taxInvoiceWords: doc.taxInvoiceWords,
           isPp36Subject: doc.isPp36Subject,
           status: doc.status,
           needsReview: doc.needsReview,
@@ -67,6 +83,7 @@ export default async function DocumentReviewPage({
           reviewNotes: doc.reviewNotes,
           detectedLanguage: doc.detectedLanguage,
           updatedAt: doc.updatedAt?.toISOString() ?? null,
+          capitalizedAssetId: capitalizedAsset?.id ?? null,
         }}
         files={doc.files.map((f) => ({
           id: f.id,
@@ -83,6 +100,14 @@ export default async function DocumentReviewPage({
           vatAmount: li.vatAmount,
           whtType: li.whtType,
         }))}
+        inventorySkus={inventorySkus.map((sku) => ({
+          id: sku.id,
+          skuCode: sku.skuCode,
+          nameEn: sku.nameEn,
+          nameTh: sku.nameTh,
+          currentAvgCost: sku.currentAvgCost,
+          standardCost: sku.standardCost,
+        }))}
         vendor={
           doc.vendor
             ? {
@@ -91,6 +116,8 @@ export default async function DocumentReviewPage({
                 nameTh: doc.vendor.nameTh,
                 displayAlias: doc.vendor.displayAlias,
                 taxId: doc.vendor.taxId,
+                entityType: doc.vendor.entityType,
+                country: doc.vendor.country,
               }
             : null
         }

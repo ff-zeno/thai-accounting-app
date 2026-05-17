@@ -28,6 +28,7 @@ const {
   getCandidatesByCorrectionSession,
   getActiveLearningCandidates,
   promoteCandidatesForConfirmedSession,
+  activateValidatedLearningCandidates,
 } = await import("@/lib/db/queries/extraction-learning-candidates");
 
 beforeAll(async () => {
@@ -281,6 +282,80 @@ describe("extraction correction learning", () => {
     expect(stillShadow.find((candidate) => candidate.fieldName === "documentNumber")?.status).toBe("shadow");
   });
 
+  it("activates shadow candidates only after explicit scoped validation", async () => {
+    const org = await createTestOrg(testDb);
+    const vendor = await createTestVendor(testDb, org.id);
+    const doc = await createTestDocument(testDb, org.id, vendor.id);
+    const log = await insertExtractionLog({
+      documentId: doc.id,
+      orgId: org.id,
+      vendorId: vendor.id,
+      tierUsed: 0,
+      exemplarIds: [],
+      modelUsed: "qwen/qwen3-vl-32b-instruct",
+      inngestIdempotencyKey: "candidate-activate-1",
+    });
+    const session = await upsertDraftCorrectionSession({
+      orgId: org.id,
+      documentId: doc.id,
+      extractionLogId: log!.id,
+      startedByUserId: "user_1",
+    });
+
+    const candidate = await upsertLearningCandidate({
+      orgId: org.id,
+      documentId: doc.id,
+      correctionSessionId: session.id,
+      vendorId: vendor.id,
+      documentFamily: "payment_processor_settlement_receipt",
+      fieldName: "totalAmount",
+      fieldCriticality: "high",
+      candidateType: "field_rule",
+      aiValue: "950.00",
+      confirmedValue: "1000.00",
+      selectorHint: "GrandTotal",
+      rejectHint: "Credit Amount",
+      scope: "vendor_document_family",
+      status: "candidate",
+    });
+
+    await promoteCandidatesForConfirmedSession({
+      orgId: org.id,
+      correctionSessionId: session.id,
+    });
+
+    expect(
+      await getActiveLearningCandidates({
+        orgId: org.id,
+        vendorId: vendor.id,
+      })
+    ).toHaveLength(0);
+
+    const activated = await activateValidatedLearningCandidates({
+      orgId: org.id,
+      candidateIds: [candidate.id],
+      validatedByUserId: "accountant_1",
+      validationEvidence: {
+        validationType: "held_out_document",
+        notes: "Replay extracted totalAmount from GrandTotal on one held-out Ksher PDF.",
+        sampleDocumentIds: [doc.id],
+      },
+    });
+    expect(activated).toBe(1);
+
+    const active = await getActiveLearningCandidates({
+      orgId: org.id,
+      vendorId: vendor.id,
+      documentFamily: "payment_processor_settlement_receipt",
+    });
+    expect(active).toHaveLength(1);
+    expect(active[0].status).toBe("active");
+    expect(active[0].promotionEvidence).toMatchObject({
+      validationType: "held_out_document",
+      validatedByUserId: "accountant_1",
+    });
+  });
+
   it("rejects cross-org correction session and candidate references", async () => {
     const orgA = await createTestOrg(testDb);
     const orgB = await createTestOrg(testDb);
@@ -302,6 +377,18 @@ describe("extraction correction learning", () => {
       documentId: docA.id,
       extractionLogId: logA!.id,
       startedByUserId: "user_1",
+    });
+    await upsertLearningCandidate({
+      orgId: orgA.id,
+      documentId: docA.id,
+      correctionSessionId: sessionA.id,
+      vendorId: vendorA.id,
+      fieldName: "totalAmount",
+      fieldCriticality: "high",
+      candidateType: "field_exemplar",
+      aiValue: "1.00",
+      confirmedValue: "2.00",
+      scope: "vendor_document_family",
     });
 
     await expect(

@@ -121,26 +121,6 @@ const DENIED_IDENTIFIERS = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
-// Allowed method callee names (on safe builtins)
-// ---------------------------------------------------------------------------
-
-const ALLOWED_CALLEE_OBJECTS = new Set([
-  "String",
-  "Array",
-  "RegExp",
-  "Math",
-  "JSON",
-  "Number",
-  "Object",
-  "parseInt",
-  "parseFloat",
-  "isNaN",
-  "isFinite",
-  "encodeURIComponent",
-  "decodeURIComponent",
-]);
-
-// ---------------------------------------------------------------------------
 // Unsafe regex detection
 // ---------------------------------------------------------------------------
 

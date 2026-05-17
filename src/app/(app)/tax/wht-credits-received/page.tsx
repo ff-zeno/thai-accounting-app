@@ -49,10 +49,10 @@ export default async function WhtCreditsReceivedPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          WHT Credits Received
+          Incoming WHT
         </h1>
         <p className="text-sm text-muted-foreground">
-          Track 50 Tawi certificates received from customers for PND.50 credit.
+          Withholding tax credits customers deducted from payments to us, backed by certificates we receive.
         </p>
       </div>
 
@@ -68,13 +68,13 @@ export default async function WhtCreditsReceivedPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {currentYear} Credit Total: {formatAmount(total)} THB
+            {currentYear} Incoming WHT Total: {formatAmount(total)} THB
           </CardTitle>
         </CardHeader>
         <CardContent>
           {credits.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No WHT credits recorded for this tax year.
+              No incoming WHT credits recorded for this tax year.
             </p>
           ) : (
             <Table>

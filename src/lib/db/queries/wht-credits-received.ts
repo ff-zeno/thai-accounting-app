@@ -1,8 +1,9 @@
 import { and, desc, eq, isNull, sum } from "drizzle-orm";
-import { db } from "../index";
-import { documents, vendors, whtCreditsReceived } from "../schema";
+import { db, type DbConnection } from "../index";
+import { documentLineItems, documents, vendors, whtCreditsReceived } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
+import { enqueuePostingOutbox } from "./posting-outbox";
 
 export interface CreateWhtCreditReceivedInput {
   orgId: string;
@@ -15,6 +16,7 @@ export interface CreateWhtCreditReceivedInput {
   taxYear?: number;
   certificateNo?: string | null;
   notes?: string | null;
+  tx?: DbConnection;
 }
 
 function taxYearFromDate(paymentDate: string): number {
@@ -25,24 +27,34 @@ function taxYearFromDate(paymentDate: string): number {
   return year;
 }
 
-function parseMoney(value: string, label: string): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${label} must be a non-negative amount`);
+function parseMoneyCents(value: string, label: string): number {
+  if (!/^\d+(\.\d{1,2})?$/.test(value)) {
+    throw new Error(`${label} must be a non-negative amount with at most 2 decimals`);
   }
-  return parsed;
+  const [whole, fraction = ""] = value.split(".");
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
+function formatCents(cents: number): string {
+  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 }
 
 export async function createWhtCreditReceived(
   input: CreateWhtCreditReceivedInput
 ): Promise<string> {
-  const grossAmount = parseMoney(input.grossAmount, "Gross amount");
-  const whtAmount = parseMoney(input.whtAmount, "WHT amount");
-  if (whtAmount > grossAmount) {
+  if (!input.tx) {
+    return db.transaction((tx) =>
+      createWhtCreditReceived({ ...input, tx: tx as DbConnection })
+    );
+  }
+  const conn = input.tx ?? db;
+  const grossAmountCents = parseMoneyCents(input.grossAmount, "Gross amount");
+  const whtAmountCents = parseMoneyCents(input.whtAmount, "WHT amount");
+  if (whtAmountCents > grossAmountCents) {
     throw new Error("WHT amount cannot exceed gross amount");
   }
 
-  const [customer] = await db
+  const [customer] = await conn
     .select({ id: vendors.id })
     .from(vendors)
     .where(
@@ -55,7 +67,7 @@ export async function createWhtCreditReceived(
   if (!customer) throw new Error("Customer vendor not found");
 
   if (input.certificateReceivedDocumentId) {
-    const [document] = await db
+    const [document] = await conn
       .select({ id: documents.id })
       .from(documents)
       .where(
@@ -69,15 +81,15 @@ export async function createWhtCreditReceived(
   }
 
   const taxYear = input.taxYear ?? taxYearFromDate(input.paymentDate);
-  const [created] = await db
+  const [created] = await conn
     .insert(whtCreditsReceived)
     .values({
       orgId: input.orgId,
       customerVendorId: input.customerVendorId,
       certificateReceivedDocumentId: input.certificateReceivedDocumentId ?? null,
       paymentDate: input.paymentDate,
-      grossAmount: grossAmount.toFixed(2),
-      whtAmount: whtAmount.toFixed(2),
+      grossAmount: formatCents(grossAmountCents),
+      whtAmount: formatCents(whtAmountCents),
       formType: input.formType,
       taxYear,
       certificateNo: input.certificateNo?.trim() || null,
@@ -85,22 +97,114 @@ export async function createWhtCreditReceived(
     })
     .returning({ id: whtCreditsReceived.id });
 
-  await auditMutation({
+  await auditMutation(
+    {
+      orgId: input.orgId,
+      entityType: "wht_credit_received",
+      entityId: created.id,
+      action: "create",
+      newValue: {
+        customerVendorId: input.customerVendorId,
+        taxYear,
+        grossAmount: input.grossAmount,
+        whtAmount: input.whtAmount,
+        formType: input.formType,
+        certificateNo: input.certificateNo ?? null,
+      },
+    },
+    conn
+  );
+  await enqueuePostingOutbox({
     orgId: input.orgId,
-    entityType: "wht_credit_received",
-    entityId: created.id,
-    action: "create",
-    newValue: {
+    sourceEntityType: "wht_credits_received",
+    sourceEntityId: created.id,
+    eventType: "create",
+    postingDate: input.paymentDate,
+    payload: {
       customerVendorId: input.customerVendorId,
-      taxYear,
-      grossAmount: input.grossAmount,
-      whtAmount: input.whtAmount,
-      formType: input.formType,
+      paymentDate: input.paymentDate,
+      grossAmount: formatCents(grossAmountCents),
+      whtAmount: formatCents(whtAmountCents),
       certificateNo: input.certificateNo ?? null,
     },
+    tx: conn,
   });
 
   return created.id;
+}
+
+export async function materializeWhtCreditReceivedFromDocument(
+  orgId: string,
+  documentId: string,
+  tx?: DbConnection
+): Promise<string | null> {
+  const conn = tx ?? db;
+  const [doc] = await conn
+    .select({
+      id: documents.id,
+      vendorId: documents.vendorId,
+      type: documents.type,
+      direction: documents.direction,
+      status: documents.status,
+      issueDate: documents.issueDate,
+      documentNumber: documents.documentNumber,
+      totalAmount: documents.totalAmount,
+    })
+    .from(documents)
+    .where(and(...orgScope(documents, orgId), eq(documents.id, documentId)))
+    .limit(1);
+
+  if (
+    !doc ||
+    doc.type !== "wht_certificate_received" ||
+    doc.direction !== "income" ||
+    doc.status !== "confirmed"
+  ) {
+    return null;
+  }
+  if (!doc.vendorId) throw new Error("Incoming WHT certificate requires customer");
+  if (!doc.issueDate) throw new Error("Incoming WHT certificate requires payment date");
+  if (!doc.totalAmount || Number(doc.totalAmount) <= 0) {
+    throw new Error("Incoming WHT certificate requires gross amount > 0");
+  }
+
+  const [existing] = await conn
+    .select({ id: whtCreditsReceived.id })
+    .from(whtCreditsReceived)
+    .where(
+      and(
+        ...orgScope(whtCreditsReceived, orgId),
+        eq(whtCreditsReceived.certificateReceivedDocumentId, documentId)
+      )
+    )
+    .limit(1);
+  if (existing) return existing.id;
+
+  const [withheld] = await conn
+    .select({ whtAmount: sum(documentLineItems.whtAmount) })
+    .from(documentLineItems)
+    .where(
+      and(...orgScope(documentLineItems, orgId), eq(documentLineItems.documentId, documentId))
+    );
+  const whtAmount = withheld?.whtAmount
+    ? formatCents(parseMoneyCents(String(withheld.whtAmount), "WHT amount"))
+    : "0.00";
+  if (Number(whtAmount) <= 0) {
+    throw new Error("Incoming WHT certificate requires withheld amount");
+  }
+
+  return createWhtCreditReceived({
+    orgId,
+    customerVendorId: doc.vendorId,
+    certificateReceivedDocumentId: documentId,
+    paymentDate: doc.issueDate,
+    grossAmount: doc.totalAmount,
+    whtAmount,
+    formType: "50_tawi",
+    certificateNo: doc.documentNumber,
+    notes: "Materialized from confirmed incoming 50 Tawi document",
+    tx: conn,
+  });
 }
 
 export async function getWhtCreditsReceived(orgId: string, taxYear?: number) {

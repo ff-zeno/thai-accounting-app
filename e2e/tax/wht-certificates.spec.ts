@@ -8,9 +8,10 @@ test.describe("WHT Certificates", () => {
 
   test("page title and subtitle visible", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: "WHT Certificates" }),
+      page.getByRole("heading", { name: "Outgoing WHT" }),
     ).toBeVisible();
-    await expect(page.getByText("50 Tawi")).toBeVisible();
+    await expect(page.getByText(/certificates issued to payees/i)).toBeVisible();
+    await expect(page.getByText(/live Blob\/Inngest storage QA/i)).toBeVisible();
   });
 
   test("filter dropdowns render", async ({ page }) => {

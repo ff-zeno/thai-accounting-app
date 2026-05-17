@@ -67,6 +67,7 @@ const {
   allocateSequenceNumber,
   createWhtCertificateDraft,
   ForeignWhtBelowDefaultGateError,
+  ForeignWhtFormRouteError,
 } = await import("./wht-certificates");
 
 beforeEach(() => {
@@ -94,6 +95,15 @@ describe("getFormTypeForEntity", () => {
 
   it("returns pnd54 for foreign", () => {
     expect(getFormTypeForEntity("foreign")).toBe("pnd54");
+  });
+
+  it("returns pnd54 for non-TH corporate payees", () => {
+    expect(getFormTypeForEntity("company", "SG")).toBe("pnd54");
+  });
+
+  it("normalizes Thai country codes before routing", () => {
+    expect(getFormTypeForEntity("company", "th")).toBe("pnd53");
+    expect(getFormTypeForEntity("individual", " th ")).toBe("pnd3");
   });
 });
 
@@ -161,9 +171,32 @@ describe("allocateSequenceNumber", () => {
 // ---------------------------------------------------------------------------
 
 describe("createWhtCertificateDraft", () => {
+  it("blocks foreign corporate payees from PND 53", async () => {
+    selectResults[0] = [{ entityType: "company", country: "SG" }];
+
+    await expect(
+      createWhtCertificateDraft({
+        orgId: "org-1",
+        vendorId: "vendor-1",
+        formType: "pnd53",
+        paymentDate: "2026-03-15",
+        lineItems: [
+          {
+            documentId: "doc-1",
+            lineItemId: "li-1",
+            baseAmount: "10000.00",
+            whtRate: "0.0300",
+            whtAmount: "300.00",
+          },
+        ],
+      })
+    ).rejects.toBeInstanceOf(ForeignWhtFormRouteError);
+  });
+
   it("blocks below-default foreign WHT without accountant note", async () => {
     selectResults[0] = [{ entityType: "foreign", country: "SG" }];
-    selectResults[1] = [{ standardRate: "0.1500" }];
+    selectResults[1] = [{ entityType: "foreign", country: "SG" }];
+    selectResults[2] = [{ standardRate: "0.1500" }];
 
     await expect(
       createWhtCertificateDraft({
@@ -188,8 +221,9 @@ describe("createWhtCertificateDraft", () => {
   });
 
   it("creates certificate with items and returns id + formatted number", async () => {
+    selectResults[0] = [{ entityType: "company", country: "TH" }];
     // allocateSequenceNumber: select (empty) + insert (counter)
-    selectResults[0] = [];
+    selectResults[1] = [];
     insertResults[0] = [{ id: "counter-1" }]; // sequence counter
 
     // createWhtCertificateDraft: insert certificate + insert items
@@ -225,8 +259,9 @@ describe("createWhtCertificateDraft", () => {
   });
 
   it("formats certificate number with padded sequence", async () => {
+    selectResults[0] = [{ entityType: "individual", country: "TH" }];
     // allocateSequenceNumber: select (existing with seq=42) + update
-    selectResults[0] = [{ id: "counter-1", nextSequence: 42 }];
+    selectResults[1] = [{ id: "counter-1", nextSequence: 42 }];
     updateResults[0] = [{ nextSequence: 43 }];
 
     // certificate insert
@@ -254,7 +289,8 @@ describe("createWhtCertificateDraft", () => {
   });
 
   it("supports explicit PND 2 certificate numbering", async () => {
-    selectResults[0] = [{ id: "counter-1", nextSequence: 7 }];
+    selectResults[0] = [{ entityType: "individual", country: "TH" }];
+    selectResults[1] = [{ id: "counter-1", nextSequence: 7 }];
     updateResults[0] = [{ nextSequence: 8 }];
     insertResults[0] = [{ id: "cert-pnd2" }];
     insertResults[1] = [];
@@ -280,7 +316,8 @@ describe("createWhtCertificateDraft", () => {
   });
 
   it("calculates correct totals from line items", async () => {
-    selectResults[0] = [];
+    selectResults[0] = [{ entityType: "company", country: "TH" }];
+    selectResults[1] = [];
     insertResults[0] = [{ id: "counter-1" }]; // sequence counter
     insertResults[1] = [{ id: "cert-totals" }]; // certificate
     insertResults[2] = []; // items

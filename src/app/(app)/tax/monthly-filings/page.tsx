@@ -5,10 +5,10 @@ export default function MonthlyFilingsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Monthly WHT Filings
+          WHT Filings
         </h1>
         <p className="text-sm text-muted-foreground">
-          Prepare and track PND 2, PND 3, PND 53, and PND 54 monthly filings.
+          Prepare and track monthly withholding tax filings and payment status.
         </p>
       </div>
       <FilingView />

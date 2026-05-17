@@ -22,7 +22,14 @@ export class ForeignWhtBelowDefaultGateError extends Error {
   }
 }
 
-interface ForeignWhtBelowDefaultAcknowledgment {
+export class ForeignWhtFormRouteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ForeignWhtFormRouteError";
+  }
+}
+
+export interface ForeignWhtBelowDefaultAcknowledgment {
   acknowledgedByUserId: string;
   rationale: string;
   accountantNote: string;
@@ -33,6 +40,16 @@ interface ForeignWhtBelowDefaultDecision {
   selectedRate: string;
 }
 
+function isForeignPayee(input: {
+  entityType?: "individual" | "company" | "foreign" | string | null;
+  country?: string | null;
+}) {
+  return (
+    input.entityType === "foreign" ||
+    (input.country ?? "TH").trim().toUpperCase() !== "TH"
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Form type determination
 // ---------------------------------------------------------------------------
@@ -40,8 +57,12 @@ interface ForeignWhtBelowDefaultDecision {
 export type WhtFormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
 
 export function getFormTypeForEntity(
-  entityType: "individual" | "company" | "foreign"
+  entityType: "individual" | "company" | "foreign",
+  country?: string | null
 ): WhtFormType {
+  if (isForeignPayee({ entityType, country })) {
+    return "pnd54";
+  }
   switch (entityType) {
     case "individual":
       return "pnd3";
@@ -172,9 +193,7 @@ async function assertForeignWhtBelowDefaultAllowed(data: {
     .where(and(eq(vendors.id, data.vendorId), eq(vendors.orgId, data.orgId)))
     .limit(1);
 
-  const isForeign =
-    payee?.entityType === "foreign" || (payee?.country ?? "TH") !== "TH";
-  if (!isForeign) return null;
+  if (!isForeignPayee(payee ?? {})) return null;
 
   let mostSevere: ForeignWhtBelowDefaultDecision | null = null;
   for (const item of data.lineItems) {
@@ -233,6 +252,11 @@ export async function createWhtCertificateDraft(data: {
   paymentId?: string;
   applyAnnualThreshold?: boolean;
   foreignWhtBelowDefaultAcknowledgment?: ForeignWhtBelowDefaultAcknowledgment;
+  foreignWhtBelowDefaultSnapshot?: {
+    acknowledgedAt: Date;
+    statutoryRate: string;
+    selectedRate: string;
+  };
   lineItems: Array<{
     documentId: string;
     lineItemId: string | null;
@@ -250,6 +274,20 @@ export async function createWhtCertificateDraft(data: {
   totalWht: string;
 }> {
   const conn = data.tx ?? db;
+  const [routePayee] = await conn
+    .select({
+      entityType: vendors.entityType,
+      country: vendors.country,
+    })
+    .from(vendors)
+    .where(and(eq(vendors.id, data.vendorId), eq(vendors.orgId, data.orgId)))
+    .limit(1);
+  const payeeIsForeign = isForeignPayee(routePayee ?? {});
+  if (payeeIsForeign && data.formType !== "pnd54") {
+    throw new ForeignWhtFormRouteError(
+      "Foreign vendor outgoing WHT must be filed on PND 54"
+    );
+  }
   // Check if the payment date's period is locked
   const paymentDateObj = new Date(data.paymentDate);
   const paymentYear = paymentDateObj.getFullYear();
@@ -270,6 +308,15 @@ export async function createWhtCertificateDraft(data: {
 
   const year = new Date(data.paymentDate).getFullYear();
   const belowDefaultDecision = await assertForeignWhtBelowDefaultAllowed(data);
+  const belowDefaultSnapshot =
+    data.foreignWhtBelowDefaultSnapshot ??
+    (belowDefaultDecision
+      ? {
+          acknowledgedAt: new Date(),
+          statutoryRate: belowDefaultDecision.statutoryRate,
+          selectedRate: belowDefaultDecision.selectedRate,
+        }
+      : null);
   const thresholdLineItems = data.applyAnnualThreshold
     ? await applyAnnualWhtThreshold({
         orgId: data.orgId,
@@ -346,10 +393,12 @@ export async function createWhtCertificateDraft(data: {
       signatoryNameSnapshot: "",
       signatoryPositionSnapshot: "",
       rateBelowDefaultAcknowledgedByUserId:
-        belowDefaultDecision ? data.foreignWhtBelowDefaultAcknowledgment?.acknowledgedByUserId : null,
-      rateBelowDefaultAcknowledgedAt: belowDefaultDecision ? new Date() : null,
-      rateBelowDefaultStatutoryRate: belowDefaultDecision?.statutoryRate ?? null,
-      rateBelowDefaultSelectedRate: belowDefaultDecision?.selectedRate ?? null,
+        belowDefaultSnapshot
+          ? data.foreignWhtBelowDefaultAcknowledgment?.acknowledgedByUserId
+          : null,
+      rateBelowDefaultAcknowledgedAt: belowDefaultSnapshot?.acknowledgedAt ?? null,
+      rateBelowDefaultStatutoryRate: belowDefaultSnapshot?.statutoryRate ?? null,
+      rateBelowDefaultSelectedRate: belowDefaultSnapshot?.selectedRate ?? null,
       rateBelowDefaultRationale:
         data.foreignWhtBelowDefaultAcknowledgment?.rationale ?? null,
       rateBelowDefaultAccountantNote:
@@ -567,9 +616,11 @@ async function applyAnnualWhtThreshold(data: {
  */
 export async function getCertificatesByDocument(
   orgId: string,
-  documentId: string
+  documentId: string,
+  tx?: DbConnection
 ) {
-  const items = await db
+  const conn = tx ?? db;
+  const items = await conn
     .select({ certificateId: whtCertificateItems.certificateId })
     .from(whtCertificateItems)
     .where(
@@ -582,7 +633,7 @@ export async function getCertificatesByDocument(
 
   if (items.length === 0) return [];
 
-  return db
+  return conn
     .select()
     .from(whtCertificates)
     .where(
@@ -654,6 +705,13 @@ export async function getCertificatesWithVendors(
       totalWht: whtCertificates.totalWht,
       status: whtCertificates.status,
       pdfUrl: whtCertificates.pdfUrl,
+      rateBelowDefaultAcknowledgedAt:
+        whtCertificates.rateBelowDefaultAcknowledgedAt,
+      rateBelowDefaultStatutoryRate:
+        whtCertificates.rateBelowDefaultStatutoryRate,
+      rateBelowDefaultSelectedRate:
+        whtCertificates.rateBelowDefaultSelectedRate,
+      rateBelowDefaultRationale: whtCertificates.rateBelowDefaultRationale,
       vendorName: vendors.name,
     })
     .from(whtCertificates)
@@ -854,6 +912,16 @@ export async function reissueWhtCertificate(
               acknowledgedByUserId: original.rateBelowDefaultAcknowledgedByUserId,
               rationale: original.rateBelowDefaultRationale,
               accountantNote: original.rateBelowDefaultAccountantNote,
+            }
+          : undefined,
+      foreignWhtBelowDefaultSnapshot:
+        original.rateBelowDefaultAcknowledgedAt &&
+        original.rateBelowDefaultStatutoryRate &&
+        original.rateBelowDefaultSelectedRate
+          ? {
+              acknowledgedAt: original.rateBelowDefaultAcknowledgedAt,
+              statutoryRate: original.rateBelowDefaultStatutoryRate,
+              selectedRate: original.rateBelowDefaultSelectedRate,
             }
           : undefined,
       lineItems: items.map((item) => ({

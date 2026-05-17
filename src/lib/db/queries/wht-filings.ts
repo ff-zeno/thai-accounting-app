@@ -19,6 +19,12 @@ import {
 } from "./period-locks";
 
 type WhtFilingFormType = "pnd2" | "pnd3" | "pnd53" | "pnd54";
+const WHT_FILING_FORM_TYPES: WhtFilingFormType[] = [
+  "pnd2",
+  "pnd3",
+  "pnd53",
+  "pnd54",
+];
 
 function whtDomain(formType: WhtFilingFormType): PeriodLockDomain {
   return `wht_${formType}` as PeriodLockDomain;
@@ -58,10 +64,18 @@ export async function aggregateMonthlyFiling(
       certCount: sql<number>`COUNT(*)::int`,
     })
     .from(whtCertificates)
+    .innerJoin(
+      vendors,
+      and(
+        eq(whtCertificates.payeeVendorId, vendors.id),
+        eq(whtCertificates.orgId, vendors.orgId)
+      )
+    )
     .where(
       and(
         ...orgScope(whtCertificates, orgId),
         eq(whtCertificates.formType, formType),
+        formType === "pnd53" ? domesticPayeeSql() : sql`true`,
         sql`${whtCertificates.status} != 'voided'`,
         sql`EXTRACT(YEAR FROM ${whtCertificates.paymentDate}::date) = ${year}`,
         sql`EXTRACT(MONTH FROM ${whtCertificates.paymentDate}::date) = ${month}`
@@ -69,6 +83,48 @@ export async function aggregateMonthlyFiling(
     );
 
   return result[0] ?? { totalBaseAmount: "0.00", totalWhtAmount: "0.00", certCount: 0 };
+}
+
+function domesticPayeeSql() {
+  return sql`${vendors.entityType} != 'foreign'
+    AND UPPER(BTRIM(COALESCE(${vendors.country}, 'TH'))) = 'TH'`;
+}
+
+export async function getMonthlyFilingSummaryByForm(
+  orgId: string,
+  year: number,
+  month: number
+): Promise<
+  Array<{
+    formType: WhtFilingFormType;
+    totalBaseAmount: string;
+    totalWhtAmount: string;
+    certCount: number;
+    filingId: string | null;
+    status: "draft" | "filed" | "paid" | null;
+    deadline: string | null;
+    periodLocked: boolean;
+  }>
+> {
+  const filings = await getFilingsByPeriod(orgId, year, month);
+  const filingByForm = new Map(filings.map((filing) => [filing.formType, filing]));
+
+  return Promise.all(
+    WHT_FILING_FORM_TYPES.map(async (formType) => {
+      const totals = await aggregateMonthlyFiling(orgId, year, month, formType);
+      const filing = filingByForm.get(formType);
+      return {
+        formType,
+        totalBaseAmount: totals.totalBaseAmount,
+        totalWhtAmount: totals.totalWhtAmount,
+        certCount: totals.certCount,
+        filingId: filing?.id ?? null,
+        status: filing?.status ?? null,
+        deadline: filing?.deadline ?? null,
+        periodLocked: filing?.periodLocked ?? false,
+      };
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -191,6 +247,7 @@ export async function getCertificatesForFiling(
       and(
         ...orgScope(whtCertificates, orgId),
         eq(whtCertificates.formType, formType),
+        formType === "pnd53" ? domesticPayeeSql() : sql`true`,
         sql`${whtCertificates.status} != 'voided'`,
         sql`EXTRACT(YEAR FROM ${whtCertificates.paymentDate}::date) = ${year}`,
         sql`EXTRACT(MONTH FROM ${whtCertificates.paymentDate}::date) = ${month}`

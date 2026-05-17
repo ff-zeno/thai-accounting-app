@@ -13,6 +13,10 @@ import {
   type WhtFormType,
 } from "@/lib/db/queries/wht-certificates";
 import { renderFiftyTawiPdf, type FiftyTawiData } from "@/lib/pdf/fifty-tawi";
+import {
+  renderFiftyTawiBilingualPdf,
+  shouldRenderBilingualFiftyTawiPayee,
+} from "@/lib/pdf/fifty-tawi-bilingual";
 import { createStorage } from "@/lib/storage";
 import { db } from "@/lib/db";
 import { whtCertificates } from "@/lib/db/schema";
@@ -63,18 +67,18 @@ export async function generateCertificatePdfAction(
     payer: {
       name: org.name,
       nameTh: org.nameTh,
-      taxId: org.taxId,
+      taxId: cert.payerTaxIdSnapshot || org.taxId,
       branchNumber: org.branchNumber,
-      address: org.address,
-      addressTh: org.addressTh,
+      address: cert.payerAddressSnapshot || org.address,
+      addressTh: cert.payerAddressSnapshot || org.addressTh,
     },
     payee: {
       name: vendor.name,
       nameTh: vendor.nameTh,
-      taxId: vendor.taxId,
+      taxId: cert.payeeIdNumberSnapshot || vendor.taxId,
       branchNumber: vendor.branchNumber,
-      address: vendor.address,
-      addressTh: vendor.addressTh,
+      address: cert.payeeAddressSnapshot || vendor.address,
+      addressTh: cert.payeeAddressSnapshot || vendor.addressTh,
     },
     items: cert.items.map((item) => ({
       whtType: item.whtType,
@@ -85,8 +89,12 @@ export async function generateCertificatePdfAction(
     })),
   };
 
-  // Render PDF
-  const pdfBuffer = await renderFiftyTawiPdf(pdfData);
+  const isForeignPayee = shouldRenderBilingualFiftyTawiPayee(vendor);
+
+  // Render PDF. Foreign payees receive Thai/English side-by-side labels.
+  const pdfBuffer = isForeignPayee
+    ? await renderFiftyTawiBilingualPdf(pdfData)
+    : await renderFiftyTawiPdf(pdfData);
 
   // Upload to blob storage
   const storage = createStorage();

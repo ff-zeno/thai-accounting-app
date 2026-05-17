@@ -50,6 +50,10 @@ export interface CertificateRow {
   totalWht: string | null;
   status: "draft" | "issued" | "voided" | "replaced";
   pdfUrl: string | null;
+  rateBelowDefaultAcknowledgedAt: Date | string | null;
+  rateBelowDefaultStatutoryRate: string | null;
+  rateBelowDefaultSelectedRate: string | null;
+  rateBelowDefaultRationale: string | null;
   vendorName: string;
 }
 
@@ -93,6 +97,13 @@ function formatCertNoDisplay(certNo: string): string {
     }
   }
   return parts.join("/");
+}
+
+function formatPercent(value: string | null): string {
+  if (!value) return "-";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "-";
+  return `${(num * 100).toFixed(2)}%`;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +209,7 @@ export function CertificateTable({
               <TableHead className="text-right">Base Amount</TableHead>
               <TableHead className="text-right">WHT</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Rate Review</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -228,6 +240,27 @@ export function CertificateTable({
                   <Badge variant={STATUS_VARIANT[cert.status] ?? "secondary"}>
                     {cert.status}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {cert.rateBelowDefaultAcknowledgedAt ? (
+                    <div className="space-y-1">
+                      <Badge variant="outline" className="gap-1">
+                        <AlertTriangle className="size-3" />
+                        Below default
+                      </Badge>
+                      <div className="text-xs text-muted-foreground">
+                        {formatPercent(cert.rateBelowDefaultSelectedRate)} vs{" "}
+                        {formatPercent(cert.rateBelowDefaultStatutoryRate)}
+                      </div>
+                      {cert.rateBelowDefaultRationale ? (
+                        <div className="max-w-[220px] truncate text-xs text-muted-foreground">
+                          {cert.rateBelowDefaultRationale}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Default ok</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">

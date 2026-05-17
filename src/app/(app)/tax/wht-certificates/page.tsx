@@ -32,6 +32,10 @@ export default async function WhtCertificatesPage() {
     totalWht: cert.totalWht,
     status: cert.status,
     pdfUrl: cert.pdfUrl,
+    rateBelowDefaultAcknowledgedAt: cert.rateBelowDefaultAcknowledgedAt,
+    rateBelowDefaultStatutoryRate: cert.rateBelowDefaultStatutoryRate,
+    rateBelowDefaultSelectedRate: cert.rateBelowDefaultSelectedRate,
+    rateBelowDefaultRationale: cert.rateBelowDefaultRationale,
     vendorName: cert.vendorName ?? "Unknown",
   }));
 
@@ -39,11 +43,16 @@ export default async function WhtCertificatesPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">
-          WHT Certificates
+          Outgoing WHT
         </h1>
         <p className="text-sm text-muted-foreground">
-          50 Tawi withholding tax certificates
+          Withholding tax we deduct when paying vendors, including certificates issued to payees.
         </p>
+      </div>
+      <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
+        Certificate generation and register links are covered locally. Before relying
+        on uploaded certificate URLs in production, run live Blob/Inngest storage QA
+        and confirm generated PDFs are retrievable from browser storage links.
       </div>
       <CertificateTable certificates={certificates} />
     </div>

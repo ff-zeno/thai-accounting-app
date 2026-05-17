@@ -1,8 +1,13 @@
 # Plan: Phase 10.6b — Inventory, COGS, Asset Visibility
 
-**Status:** Draft — captured 2026-04-26
+**Status:** Implementation-active — foundation schema, weighted-average movement helper, customs-date import receipts, confirmed-document domestic purchase receipt hookup, POS CSV SKU-line sale-out hookup, weighted-average sale COGS GL posting, document purchase inventory/AP/VAT posting, count-variance GL posting, inventory movement posting-outbox producer/handler coverage, GL-period movement/replay guard, live sales-source validation for sale-out, sign-safe manual adjustment controls, count reconciliation, inventory UI, configurable low-stock watch from per-SKU reorder points, SKU detail movement history/profile edit v1, count detail read-only page, standalone sign-safe adjustment page, roll-forward/aged inventory reports with CSV export, §87 source-line movement drilldown, export coverage, and tests landed 2026-05-16/17.
 **Position:** After Phase 10.6a Imports and Phase 10.5 GL primitives; before Phase 11/12a for inventory tenants. PND.50 gross profit cannot be computed without this.
 **Authority reference:** `vat-info.md` §2.6 (goods/raw-materials report), §5.4 (deemed supply implications); Thai Revenue Code §65 bis (inventory costing methods); TFRS for NPAEs Section 8 (Inventories)
+**Official source refresh (retrieved 2026-05-16):**
+- Revenue Department Revenue Code English index: `https://www.rd.go.th/english/37764.html` — used as the RD primary entry point for Section 65 bis / CIT inventory-costing follow-up.
+- Revenue Department VAT overview: `https://www.rd.go.th/english/6043.html` — goods/VAT reporting context shared with Phase 10 §87 inventory report work.
+- TFAC/TFRS NPAEs inventory authority remains CPA/Builder validation-blocked; schema stores statutory overhead components now, but true-up calculations stay blocked until the DBD/TFRS research packet is signed off.
+- Live-link check on 2026-05-17 returned HTTP 200 for both RD URLs above; TFAC/TFRS authority remains governed by the DBD/TFRS research spike and CPA validation.
 
 ## Problem
 
@@ -30,7 +35,7 @@ User-elaborated business case (Lumera, Japan importer):
      ```
      Posted on the last day of the fiscal year, before P&L close (in the year-end orchestration ordering per Phase 10.5).
 - [ ] Do **not** auto-reverse statutory year-end inventory carrying value on day 1. That would make opening BS differ from the prior signed closing FS. Instead:
-  - Store `inventory_statutory_overhead_component` by SKU/lot/source import.
+  - [x] Store `inventory_statutory_overhead_component` by SKU/lot/source import.
   - Relieve the statutory overhead component through COGS as the related units sell.
   - Keep owner-facing daily management reports goods-value-only if needed, but statutory GL/FS basis remains continuous.
 - [ ] Phase 12b's TFRS notes engine adds disclosure: "Inventory carrying value reflects landed-cost true-up at fiscal year-end per TFRS NPAEs Section 8. Interim-period inventory may understate by import-overhead component." This makes the platform's accounting policy transparent.
@@ -52,16 +57,18 @@ The standalone import module (multi-invoice line-item linkage with mixed VAT tre
 - **Manufacturing/work-in-progress.** Lumera doesn't manufacture today; a separate phase if needed.
 - **Multi-warehouse / location stock transfers.** v1: single inventory pool per `establishment_id`.
 - **Lot tracking / serial numbers / expiry.** Defer; high-value items use specific-identification valuation but not lot tracking.
-- **Demand forecasting / reorder point automation.** Surface low-stock indicators, no automation.
+- **Demand forecasting / reorder point automation.** Per-SKU reorder points and low-stock indicators are surfaced; automated forecasting remains deferred.
 - **Bills of materials.** Defer until manufacturing in scope.
 
 ## Requirements
 
 ### Schema
 
+**Implemented foundation (2026-05-16):** `drizzle/0038_inventory_cogs_foundation.sql` and Drizzle schema now cover `skus`, `inventory_movements`, `inventory_counts`, `inventory_count_items`, and `inventory_statutory_overhead_components`, with same-org guardrails, immutable movement rows, movement sign checks, count-to-movement reconciliation, and export coverage.
+
 #### SKU master
 
-- [ ] New table `skus`:
+- [x] New table `skus`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid` — null = available across all branches
@@ -86,7 +93,7 @@ The standalone import module (multi-invoice line-item linkage with mixed VAT tre
 
 #### Inventory movements (the canonical ledger)
 
-- [ ] New table `inventory_movements`:
+- [x] New table `inventory_movements`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid NOT NULL`
@@ -113,24 +120,25 @@ The full import-module schema (multi-invoice packets, mixed-treatment lines, pap
 
 This plan only needs the inventory-side hook from imports:
 
-- [ ] On `imports.is_finalized = true`, the imports module emits one `inventory_movements` row per line item with:
+- [x] On `imports.is_finalized = true`, the imports module emits one `inventory_movements` row per line item with:
   - `movement_type='import_in'`
   - `quantity` from the import line
   - `unit_cost_thb` = goods value only (`unit_price_original × fx_rate_at_arrival`) — **NOT** including duty/freight/VAT/broker (those expense to P&L)
   - Updates SKU running average per the cost-flow engine.
-- [ ] `inventory_movements.source_entity_type = 'import_lines'`, `source_entity_id` = the line ID, for FK back to the originating import.
-- [ ] Round-4 simplification: no per-line allocation, no `landed_unit_cost`, no `cost_allocation_method`. The user has accepted that per-SKU margin is overstated; period overhead still reaches P&L via the import module's expense JEs (Phase 10.6-imports posts those).
+- [x] `inventory_movements.source_entity_type = 'import_goods_lines'`, `source_entity_id` = the line ID, for traceability back to the originating import line.
+- [x] Round-4 simplification: no per-line allocation, no `landed_unit_cost`, no `cost_allocation_method`. The user has accepted that per-SKU margin is overstated; period overhead still reaches P&L via the import module's expense JEs (Phase 10.6-imports posts those).
+- [x] Receipt date uses `imports.customs_clearance_date` at Bangkok noon, not the user finalize timestamp, so period roll-forward and future GL locks align to the economic event date.
 
 #### Domestic purchases (simpler path)
 
-- [ ] When a confirmed `documents` row has `direction='expense'` AND lines reference SKUs (when extracted with line-item detail):
+- [x] When a confirmed `documents` row has `direction='expense'` AND lines reference SKUs (v1 uses one selected SKU from document review):
   - Create `inventory_movements` row(s) with `movement_type='purchase_in'`, `unit_cost = line.unit_price` (already in THB), `quantity = line.quantity`.
   - Update `skus.current_quantity`, `current_avg_cost`, `current_value` per `valuation_method`.
-  - Post GL JE: `Dr 1160 Inventory + Cr 2110 AP / 1110 Bank`.
+  - Post GL JE: `Dr 1160 Inventory + Dr 1251 input VAT / Cr 2110 AP gross`.
 
 #### Inventory counts
 
-- [ ] New table `inventory_counts`:
+- [x] New table `inventory_counts`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid NOT NULL`
@@ -143,18 +151,19 @@ This plan only needs the inventory-side hook from imports:
   - `notes text`
   - `created_at, updated_at`
 
-- [ ] New table `inventory_count_items`:
+- [x] New table `inventory_count_items`:
   - `id, count_id, sku_id`
   - `system_quantity numeric(14,4)` — what the perpetual ledger says
   - `counted_quantity numeric(14,4)` — physical count
   - `variance numeric(14,4)` — counted − system
   - `variance_value_thb numeric(14,2)` — `variance × current_avg_cost`
   - `variance_reason` text — `shrinkage`, `damage`, `count_error`, `unrecorded_sale`, `other`
-- On reconcile, creates `inventory_movements` rows with `movement_type='count_variance_in/out'`.
+- [x] On reconcile, creates immutable `inventory_movements` rows with `movement_type='count_variance_in/out'`, source link `source_entity_type='inventory_counts'`, and idempotency guards.
+- [x] All inventory movement posts, including count reconciliation, check active GL `period_locks` for the Bangkok movement month before mutating stock.
 
 ### Cost-flow method engines
 
-- [ ] `src/lib/inventory/weighted-average.ts`:
+- [x] `src/lib/inventory/weighted-average.ts`:
   - On `purchase_in` / `import_in`: `new_avg_cost = ((old_quantity × old_avg_cost) + (quantity_in × unit_cost_in)) ÷ (old_quantity + quantity_in)`
   - On `sale_out`: `unit_cost_out = current_avg_cost`; total COGS = `quantity × current_avg_cost`
   - **Negative inventory cost-basis policy (round-4 fix).** When quantity would go negative, the system MUST still post a non-zero COGS to avoid silently understating P&L:
@@ -180,7 +189,7 @@ The original landed-cost allocator spec is intentionally not preserved inline be
 
 ### POS sale → COGS posting
 
-- [ ] When a `sales_transactions` row is created with `event_role='pos_primary'` AND line items reference inventoriable SKUs:
+- [x] When a weighted-average `sale_out` inventory movement is created:
   - For each line: create `inventory_movements` row (`movement_type='sale_out'`, `unit_cost=current_avg_cost` for weighted-avg, or per-method).
   - Update SKU quantities.
   - Post GL JE (companion to the sale-revenue JE from Phase 10.5):
@@ -188,35 +197,37 @@ The original landed-cost allocator spec is intentionally not preserved inline be
     Dr  5110 COGS (sum of unit_cost × quantity per line)
         Cr  1160 Inventory
     ```
-  - Single combined JE per sale (revenue + COGS), or two coupled JEs — implementation detail; both must commit atomically with the sale.
+  - Implemented as a coupled COGS JE per immutable sale movement. POS sale-line hookup remains open.
 
 ### UI
 
-- [ ] `src/app/(app)/inventory/page.tsx` — SKU list with current stock, value, recent movements.
-- [ ] `src/app/(app)/inventory/skus/[id]/page.tsx` — SKU detail with movement history + chart.
-- [ ] `src/app/(app)/inventory/skus/new/page.tsx` — manual SKU creation.
+- [x] `src/app/(app)/inventory/page.tsx` — SKU list with current stock, value, recent movements, manual SKU creation, manual weighted-average movement capture, count creation, count item variance capture, reconciliation, recent count status, roll-forward report, aged inventory report, CSV export buttons, and SKU-detail links.
+- [x] `/inventory` now shows an owner-visible weighted-average v1 caveat: FIFO, specific-ID costing, statutory true-up automation, demand forecasting, and adjustment approval workflow remain deferred and should go through accountant review before filing. Evidence: `pnpm test:e2e e2e/inventory/inventory.spec.ts`; `.next/types` + `.next/dev/types` cleanup; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] `src/app/(app)/inventory/skus/[id]/page.tsx` — SKU detail with current quantity/value, weighted-average cost, branch, editable name/category/unit/standard-cost/reorder-point profile, movement history, source links, JE trace IDs, and notes. Remaining: chart and richer dedicated new/edit route polish.
+- [x] Manual SKU creation — covered inline on `/inventory` for v1; dedicated `src/app/(app)/inventory/skus/new/page.tsx` remains a deferred richer editor route, not a blocker.
 - [ ] Imports list + wizard live in the **imports plan** (`phase-10-6-imports.md`); the inventory page links into them. This plan does not own the import wizard UI.
-- [ ] `src/app/(app)/inventory/counts/page.tsx` — count list.
-- [ ] `src/app/(app)/inventory/counts/[id]/page.tsx` — count entry per SKU + reconcile.
-- [ ] `src/app/(app)/inventory/adjustments/new/page.tsx` — manual adjustment with reason + audit log.
-- [ ] Dashboard widget: total inventory value alongside cash; low-stock alerts.
+- [x] Count list, count item entry, count reconciliation, and count detail inspection — covered by `/inventory` plus read-only `src/app/(app)/inventory/counts/[id]/page.tsx` for v1. Richer count edit workflow remains deferred polish.
+- [x] Manual adjustments — covered inline on `/inventory` plus standalone sign-safe `src/app/(app)/inventory/adjustments/new/page.tsx`; both paths accept positive quantity and apply direction from adjustment type, and the query layer rejects movement signs that conflict with movement type.
+- [x] Dashboard/accounting widget: total inventory value is visible on `/inventory`, and `/accounting` shows GL 1160 versus SKU inventory variance.
+- [x] Low-stock watch v1: `/inventory` surfaces SKUs at or below their per-SKU reorder point, manual SKU creation captures `reorder_point_quantity`, SKU detail can update the reorder point for existing SKUs, and the dashboard summary shows low-stock count. Automated forecasting remains deferred.
 
 ### Reports
 
-- [ ] **Inventory roll-forward** per SKU per period: opening qty + purchases − sales − adjustments = closing qty; same for value.
-- [ ] **Aged inventory** — slow-moving stock (no sales 60/90/180 days).
-- [ ] **§87 goods/raw-materials report** (รายงานสินค้าและวัตถุดิบ) — completes Phase 10's placeholder. Inventory in/out per tax month per `establishment_id`, per SKU.
+- [x] **Inventory roll-forward** per SKU per period: opening qty/value + purchases − sales ± adjustments = closing qty/value; exposed on `/inventory` with CSV export.
+- [x] **Aged inventory** — slow-moving stock buckets by last `sale_out` movement (`0-59`, `60-89`, `90-179`, `180+`, or no sales); exposed on `/inventory` with CSV export.
+- [x] **§87 goods/raw-materials report** (รายงานสินค้าและวัตถุดิบ) — completes Phase 10's placeholder. Inventory in/out per tax month per `establishment_id`, per SKU, with CSV export from `/tax/reports`.
+- [x] **§87 goods/raw-materials drilldown v1** — movement report rows and CSV include source type/source ID/journal entry ID; `/tax/reports` shows source-linked movement detail for documents, imports, counts, sales, and manual rows where a route exists.
 
 ## Approach
 
 ### Sequencing (4 weeks)
 
 **Week 1 — SKU master + perpetual ledger + weighted-avg engine**
-1. Schema migrations.
-2. SKU CRUD UI + import from CSV.
-3. Inventory movements ledger.
-4. Weighted-average engine.
-5. Domestic purchase → inventory hookup (when document line items have SKU references).
+1. [x] Schema migrations.
+2. [x] SKU CRUD UI foundation. CSV import remains.
+3. [x] Inventory movements ledger.
+4. [x] Weighted-average engine foundation.
+5. [x] Domestic purchase → inventory hookup v1: confirmed document review can receive stock to an existing SKU, validates quantity × unit cost against document net subtotal, posts `Dr 1160` inventory + `Dr 1251` input VAT / `Cr 2110` AP gross, honors SKU establishment, and blocks duplicate doc+SKU receipts. Remaining: line-level SKU references and richer picker UX.
 6. Backfill: existing tenants enter opening inventory.
 
 **Week 2 — Import output integration**
@@ -227,18 +238,18 @@ The original landed-cost allocator spec is intentionally not preserved inline be
 5. GL posting here is limited to inventory movement / COGS entries.
 
 **Week 3 — POS sale → COGS + inventory counts**
-1. Sales-side hookup: sales_transactions with SKU lines → inventory_movements with sale_out + COGS posting.
-2. Inventory count flow + reconciliation.
+1. Sales-side hookup: POS CSV rows can now include `sku_code` + `quantity`; the importer links the sale to a SKU, writes a `sale_out` inventory movement sourced to `sales_transactions`, and posts weighted-average COGS. Remaining gap: richer multi-line POS sale schema/UI beyond one SKU line per CSV row.
+2. [x] Inventory count flow + reconciliation. Count variance JEs are posted immediately and covered by the `inventory_movements:post_gl` outbox path.
 3. Adjustment workflow.
 4. FIFO engine (option for tenants who select it).
 
 **Week 4 — Reports + dashboard + balance sheet visibility**
-1. Inventory roll-forward report.
-2. Aged inventory report.
-3. §87 goods/raw-materials report.
-4. Dashboard widget for inventory value alongside cash.
-5. Balance sheet integration (inventory value rolls into 1160 BS line).
-6. First-tenant validation: Lumera enters opening inventory + processes one import + one POS day → all numbers tie.
+1. [x] Inventory roll-forward report.
+2. [x] Aged inventory report.
+3. [x] §87 goods/raw-materials report with source-line movement drilldown v1.
+4. [x] Dashboard widget for inventory value alongside cash. Inventory page shows total SKU value; accounting page now shows GL 1160, SKU current value, and variance.
+5. [x] Balance sheet integration check: accounting read model reconciles 1160 Inventory to sum of `skus.current_value`; remaining mismatch is surfaced as variance rather than hidden.
+6. [x] SKU detail movement history v1. Remaining: chart and full first-tenant validation with real Lumera inventory.
 
 ### Dependencies
 
@@ -267,16 +278,21 @@ The original landed-cost allocator spec is intentionally not preserved inline be
 
 ## Verification
 
-- [ ] Weighted-avg: open 100 units @ ฿10 avg = ฿1,000 value. Buy 100 @ ฿15 → new avg = ฿12.50, qty 200, value ฿2,500. Sell 50 → COGS ฿625, qty 150, value ฿1,875.
+- [x] Weighted-avg: open 100 units @ ฿10 avg = ฿1,000 value. Buy 100 @ ฿15 → new avg = ฿12.50, qty 200, value ฿2,500. Sell 50 → COGS ฿625, qty 150, value ฿1,875, with Dr 5110 / Cr 1160 GL posting.
 - [ ] FIFO: open layer 100 @ ฿10. Buy layer 100 @ ฿15. Sell 150 → COGS = (100×10) + (50×15) = ฿1,750; remaining layer 50 @ ฿15.
 - [ ] Import daily ops: 100 units @ $10 USD invoice; FX 35 → goods THB 35,000. Inventory movement unit cost = ฿350. Import overhead posts separately through `5150/5151/5160`; import VAT posts to `1251`. No per-SKU landed-cost allocation during daily ops.
 - [ ] Import year-end true-up: if 40 of those 100 imported units remain unsold and total import overhead was ฿6,000, true-up = ฿2,400. Post Dr `1160` / Cr `5150/5151/5160` proportionally on fiscal year-end, then reverse on day 1 of next fiscal year.
-- [ ] POS sale of import line item: revenue + VAT JE from Phase 10; COGS JE from this phase. Balance sheet: 1160 decreases by COGS; 5110 increases.
-- [ ] Inventory count variance: system says 100, count says 95 → variance −5 × current_avg → loss ฿62.50 posted to `5120 Inventory adjustments` (or `5130 Inventory write-offs` when damage/obsolescence is documented).
-- [ ] §87 inventory report: matches per-SKU movements for the tax month.
-- [ ] Balance sheet: 1160 Inventory line equals sum of `skus.current_value`.
+- [x] Weighted-average sale movement COGS JE from this phase: balance sheet 1160 decreases by COGS; 5110 increases. POS sale-line hookup remains open.
+- [x] Inventory count variance: system says 10, count says 8 → variance −2 × current_avg posts `count_variance_out`, updates running quantity/value, locks the count, blocks duplicate reconciliation, and posts `Dr 5120 / Cr 1160`. Found-stock variances post `Dr 1160 / Cr 5120`.
+- [x] Posting outbox: sale COGS, domestic purchase inventory/AP/VAT, and count-variance movements enqueue `inventory_movements:post_gl` rows transactionally and process idempotently without duplicate JEs. Follow-up hardening now validates live sale sources for sale-out, checks GL period locks in replay posting, rejects missing/deleted document purchase sources, blocks same-instant/backdated movement ordering, rejects count-variance-out cost overrides that would desync GL and SKU value, and makes dashboard/manual adjustment signs safe. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/inventory.db.test.ts` passed 29 tests; `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts` passed 34 tests; `pnpm test:e2e e2e/inventory/inventory.spec.ts` passed 5 tests; `pnpm test:e2e e2e/documents/review-learning.spec.ts --workers=1` passed 6 tests after a combined parallel run showed unrelated toast/state flake; follow-up `.next/types` + `.next/dev/types` cleanup, `pnpm tsc --noEmit`, `git diff --check`, and active-code no-`vat_records` search passed. Claude Companion final follow-up reported no blocking findings.
+- [x] §87 inventory report: matches per-SKU movements for the tax month, exposes source IDs in rows/CSV, and renders movement detail in Playwright smoke.
+- [x] Balance sheet: accounting dashboard exposes 1160 Inventory versus sum of `skus.current_value`, with variance. Evidence: `getInventoryBalanceReconciliation()` and `general-ledger.db.test.ts`.
+- [x] Low-stock watch: `skus.reorder_point_quantity` is migrated/schema-backed, dashboard/read model returns `lowStockSkuCount` plus `lowStockSkus`, `/inventory` renders the watch table and create-SKU reorder input, `/inventory/skus/[id]` updates reorder points for existing SKUs, export includes `reorder_point_quantity`, and E2E covers the owner-visible controls. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/inventory.db.test.ts`; `pnpm vitest run src/lib/export/full-export.test.ts`; `pnpm exec drizzle-kit check`; `pnpm db:migrate`; `pnpm test:e2e e2e/inventory/inventory.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] SKU profile edit v1: `/inventory/skus/[id]` can update owner-facing profile fields and reorder configuration for existing SKUs without crossing org boundaries. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/inventory.db.test.ts`; `pnpm test:e2e e2e/inventory/inventory.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] Count detail page v1: `/inventory/counts/[id]` shows count status, branch, variance value, count items, SKU links, and generated variance movements; `/inventory` links recent counts into the detail page. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/inventory.db.test.ts`; `pnpm test:e2e e2e/inventory/inventory.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] Standalone adjustment page v1: `/inventory/adjustments/new` records found-stock, adjustment-out, and shrinkage movements with sign-safe positive quantity input, links from `/inventory`, and is covered by static route smoke. Evidence: `pnpm test:e2e e2e/inventory/inventory.spec.ts`; `pnpm test:e2e e2e/smoke/all-pages.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`.
 - [ ] Multi-establishment: SKU available at branch A and branch B with separate movements; aggregate at org level.
-- [ ] All movements auto-post JE; failure mode: posting outbox queue (per Phase 10.5 hardening).
+- [ ] All POS sale lines auto-create sale movements; current CSV one-SKU-line path is covered by the general Phase 10.5 posting outbox.
 
 ## Risks
 

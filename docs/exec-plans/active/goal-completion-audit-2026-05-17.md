@@ -17,6 +17,7 @@ This is the current verification snapshot for the committed stacked branch `goal
 - `pnpm db:migrate` — passed after the packaged-stack gate, confirming migration execution beyond Drizzle SQL/journal consistency.
 - `pnpm tsc --noEmit` — passed.
 - `git diff --check` — passed.
+- Vercel PR preview — initially failed because Vercel blocks vulnerable `inngest@3.52.6`; `inngest` was updated to `3.54.2`, focused Inngest tests / TypeScript / build passed locally, and the Vercel check is now `SUCCESS`.
 - Active-code `vat_records|vatRecords|vat-records` search — no hits outside excluded docs/migrations/meta/test-results.
 - Packaging — review slices are now local commits on `goal/overnight-completion-2026-05-17` from `6a6f0b2` through `a767ad2`; `main` remains at `68ba8be`.
 - Review surface — draft PR #1 is open at `https://github.com/ff-zeno/thai-accounting-app/pull/1`.

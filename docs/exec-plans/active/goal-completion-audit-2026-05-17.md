@@ -19,6 +19,7 @@ This is the current verification snapshot for the committed stacked branch `goal
 - `git diff --check` — passed.
 - Active-code `vat_records|vatRecords|vat-records` search — no hits outside excluded docs/migrations/meta/test-results.
 - Packaging — review slices are now local commits on `goal/overnight-completion-2026-05-17` from `6a6f0b2` through `a767ad2`; `main` remains at `68ba8be`.
+- Review surface — draft PR #1 is open at `https://github.com/ff-zeno/thai-accounting-app/pull/1`.
 - Dirty tree — only explicit keep-out/scratch paths remain uncommitted: 4 porcelain entries / 8 file-level paths.
 - Artifact status — no tracked/untracked generated `.next`, `test-results`, `playwright-report`, coverage, dist, `.turbo`, `.vercel`, or local agent-runtime artifacts.
 - Note: `pnpm test`, `pnpm build`, `pnpm lint`, `pnpm test:db`, `pnpm test:e2e`, `pnpm exec drizzle-kit check`, `pnpm tsc --noEmit`, `git diff --check`, active-code no-`vat_records` search, artifact-status check, focused compiled-pattern/exemplar unit tests (11 tests), focused inventory DB tests (29 tests), focused fixed-assets Playwright (8 tests), and focused inventory Playwright (5 tests) were refreshed after the mechanical lint cleanup. Full E2E initially exposed stale fixed-assets dashboard-create and inventory count-link click races under parallel load; tests were hardened to use persisted redirect/direct-route assertions and the final full E2E rerun passed 223 tests.

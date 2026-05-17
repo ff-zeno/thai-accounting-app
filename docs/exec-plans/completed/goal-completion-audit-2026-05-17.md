@@ -1,5 +1,7 @@
 # Goal Completion Audit — 2026-05-17
 
+**Archived note:** Moved to completed on 2026-05-17 after PR #1 merged to `main`. Use `docs/exec-plans/active/roadmap.md` and `docs/exec-plans/active/completion-control.md` for the current remaining-work list.
+
 **Status:** Not complete.
 
 This audit maps the overnight goal-mode objective to concrete artifacts and current evidence. It is intentionally conservative: missing external validation, live manual QA, or broad unfinished phase items remain open even when adjacent tests are green.
@@ -41,7 +43,7 @@ Goal-mode success means the app is owner-testable across VAT, WHT, foreign-vendo
 
 | Requirement | Evidence | Status |
 |---|---|---|
-| Keep roadmap/runbook/phase docs authoritative | `docs/exec-plans/active/roadmap.md`, `docs/exec-plans/active/overnight-completion-control.md`, phase docs updated throughout; dirty-tree review map added in `dirty-tree-checkpoint-2026-05-17.md`; owner walkthrough plan added in `owner-test-plan-2026-05-17.md`; control docs and implementation slices are now local commits on `goal/overnight-completion-2026-05-17` | Satisfied for local branch; still needs reviewer/PR acceptance |
+| Keep roadmap/runbook/phase docs authoritative | Historical snapshot: `docs/exec-plans/active/roadmap.md`, the former `docs/exec-plans/active/overnight-completion-control.md`, phase docs updated throughout; dirty-tree review map added in `dirty-tree-checkpoint-2026-05-17.md`; owner walkthrough plan added in `owner-test-plan-2026-05-17.md`; control docs and implementation slices were committed on `goal/overnight-completion-2026-05-17` | Satisfied for PR #1; current authoritative docs are `docs/exec-plans/active/roadmap.md` and `docs/exec-plans/active/completion-control.md` |
 | Phase 8.5 VAT ledger closed/archive-ready | Runbook marks Phase 8.5 completed/archived; completed doc referenced; VAT routes/tests previously green | Automated evidence satisfied; keep bundled with schema/VAT cutover review slice |
 | No active `vat_records` runtime path | Fresh 2026-05-17 code search found no `vat_records` / `vatRecords` / `vat-records` references outside docs, migrations, meta snapshots, and the deleted legacy query/test files | Automated evidence satisfied; recheck before final PR |
 | Extensive tests | Focused gates run across VAT, WHT, payroll, fixed assets, analytics, copilot, all-pages smoke, TypeScript, Drizzle, diff check; full 2026-05-17 `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm test:db`, and `pnpm test:e2e` gate now recorded green | Strong automated coverage for current tree; still not a substitute for owner/accountant walkthrough or external compliance validation |

@@ -2,7 +2,7 @@
 
 **Status:** Historical audit map for the packaged overnight goal-mode branch.
 
-This checkpoint separates the overnight implementation into coherent review slices. It began as a dirty-tree map; the slices are now local commits on `goal/overnight-completion-2026-05-17`, with only explicit keep-out/scratch paths left uncommitted. User decision on 2026-05-17 supersedes the earlier PR-splitting plan: PR #1 should merge as one non-production baseline, and this file remains an audit map for what landed.
+This checkpoint separates the overnight implementation into coherent review slices. It began as a dirty-tree map; the slices are now local commits on `goal/overnight-completion-2026-05-17`, with only explicit keep-out/scratch paths left uncommitted. PR #1 merged to `main` on 2026-05-17, so this file remains an audit map for what landed, not an active staging or PR-splitting plan.
 
 Current count note:
 - Baseline commit: `68ba8be005ec36e943c71e200f2410a9c11313fa`.

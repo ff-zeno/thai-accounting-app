@@ -1,6 +1,6 @@
 # Research Spike: DBD e-Filing Format + TFRS for NPAEs Note Coverage
 
-**Status:** Codex desk-check complete; blocked on CPA + DBD Builder validation before Phase 12b
+**Status:** Active external-validation blocker. Codex desk-check is complete; CPA + authenticated DBD Builder validation is still required before Phase 12b implementation.
 **Owner:** Founder + paid Thai-licensed CPA engagement
 **Estimated effort:** 3 weeks minimum calendar (1 week DBD format extraction, 1 week TFRS notes coverage, 1 week Builder/integration validation). Risk: CPA onboarding and async review can consume 6-8 calendar weeks.
 **Created:** 2026-04-26 after round-3 review found Phase 12 was hand-waving DBD/TFRS

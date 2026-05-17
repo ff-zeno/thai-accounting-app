@@ -1,7 +1,7 @@
 # Plan: Phase 12b — TFRS for NPAEs Financial Statements + DBD e-Filing Package + Audit Firm Exchange Package
 
 **Status:** Draft/blocked — public-source desk-check refreshed 2026-05-17; still blocked on CPA + authenticated DBD Builder validation before implementation
-**Depends on:** Phase 12a (CIT engine) shipped; Phase 13 (fixed assets) shipped; Phase 14 (analytics + AR/AP aging) shipped; **DBD/TFRS research spike** completed (`dbd-tfrs-research-spike.md`)
+**Depends on:** Phase 12a (CIT engine) shipped; Phase 13 (fixed assets) shipped; Phase 14 (analytics + AR/AP aging) shipped; **DBD/TFRS research spike** desk-check exists but remains blocked on CPA + authenticated DBD Builder validation (`dbd-tfrs-research-spike.md`)
 **Authority reference:** TFRS for NPAEs (Revised 2022 + DBD/TFAC amendments confirmed by spike); DBD e-Filing system specifications confirmed by spike
 
 ## Problem

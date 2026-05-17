@@ -1,6 +1,8 @@
 # Overnight Completion Control — Phase Runway
 
-**Status:** Active control surface for post-merge stabilization and manual QA
+**Archived note:** Moved to completed on 2026-05-17 after PR #1 merged to `main`. The live checklist is now `docs/exec-plans/active/completion-control.md`; treat unchecked items below as historical unless repeated there.
+
+**Status:** Historical control surface for the overnight branch and PR #1 merge
 **Created:** 2026-05-16
 **Owner:** Codex goal-mode agent, with user review after each major slice when available
 **Purpose:** Keep phase order, remaining work, research duties, review gates, and test gates authoritative while pushing the app toward a broad testable UI.
@@ -11,12 +13,12 @@
 
 ## Remaining Blocker Checklist
 
-Use this list as the live remaining-work checklist after PR #1 merges. It supersedes the earlier review-splitting recommendation for this non-production baseline.
+This was the remaining-work checklist before the active docs were consolidated. Current remaining work now lives in `docs/exec-plans/active/completion-control.md`.
 
 Merge and baseline:
 
-- [ ] Merge PR #1 as one stack into the target baseline.
-- [ ] Pull the merged target branch locally and run the minimal post-merge gate: `pnpm db:migrate`, `pnpm tsc --noEmit`, and `pnpm test:e2e e2e/smoke/all-pages.spec.ts`.
+- [x] Merge PR #1 as one stack into the target baseline. Merged to `main` at `f89b7f420f4daeb80e89d631e1336be5644512d8`.
+- [x] Pull the merged target branch locally and run the minimal post-merge gate: `pnpm db:migrate`, `pnpm tsc --noEmit`, and `pnpm test:e2e e2e/smoke/all-pages.spec.ts`. Post-merge smoke passed 65 routes.
 - [ ] Keep scratch paths uncommitted unless explicitly promoted: `benchmarks/_ground-truth-pages/`, `docs/_ai_context/skills-cleanup-plan.md`, `scripts/check-ksher-cat.ts`, and `vat-info.md`.
 - [ ] Preserve the invariant that no active runtime path uses `vat_records`, `vatRecords`, or `vat-records`.
 
@@ -97,8 +99,8 @@ Before starting any new phase:
 - [x] VAT actions/export/Phase 9A dependent tests currently pass when DB suites run serially.
 - [x] VAT Playwright smoke currently covers `/tax/vat`, `/tax/vat/input`, `/tax/vat/output`, `/tax/vat/register`, `/tax/vat/filings`, `/tax/vat/forecast`.
 - [x] Archive Phase 8.5 to completed after one final full gate.
-- [x] Clearly separate current dirty overnight baseline before large new slices via `docs/exec-plans/active/dirty-tree-checkpoint-2026-05-17.md`, mapping the 200+ file dirty tree into review slices and listing current stabilization gates. Earlier PR split advice is superseded by the 2026-05-17 user decision to merge PR #1 as one stack; the checkpoint remains an audit/review map, not an active PR-splitting plan.
-- [x] Add goal completion audit: `docs/exec-plans/active/goal-completion-audit-2026-05-17.md` maps explicit goal requirements to artifacts/evidence and records why the goal is not complete.
+- [x] Clearly separate current dirty overnight baseline before large new slices via `docs/exec-plans/completed/dirty-tree-checkpoint-2026-05-17.md`, mapping the 200+ file dirty tree into review slices and listing current stabilization gates. Earlier PR split advice is superseded by the 2026-05-17 user decision to merge PR #1 as one stack; the checkpoint remains an audit/review map, not an active PR-splitting plan.
+- [x] Add goal completion audit: `docs/exec-plans/completed/goal-completion-audit-2026-05-17.md` maps explicit goal requirements to artifacts/evidence and records why the goal is not complete.
 - [x] Run broader serial DB stabilization gate after the completion audit: VAT ledger schema/behavior, foreign-vendor tax, GL, payroll, fixed assets, and Copilot DB suites passed serially; follow-up `pnpm tsc --noEmit` and `git diff --check` passed. Evidence recorded in `goal-completion-audit-2026-05-17.md`.
 - [x] Run selected Playwright stabilization bundle after the completion audit: VAT, accounting, fixed-assets, and analytics suites passed; follow-up `pnpm tsc --noEmit` and `git diff --check` passed. Evidence recorded in `goal-completion-audit-2026-05-17.md`.
 - [x] Run core export/unit stabilization bundle after the completion audit: full export, fixed-asset roll-forward CSV, GL report CSV, inventory movement report CSV, and VAT actions tests passed; follow-up `pnpm tsc --noEmit` and `git diff --check` passed. Evidence recorded in `goal-completion-audit-2026-05-17.md`.

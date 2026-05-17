@@ -6,7 +6,7 @@ Use this after merging PR #1 and starting the app locally. It focuses on owner/a
 
 ## Remaining Blockers
 
-Track the full checklist in `docs/exec-plans/active/overnight-completion-control.md`. For manual QA, the important blockers are:
+Track the full checklist in `docs/exec-plans/active/completion-control.md`. For manual QA, the important blockers are:
 
 - [ ] Run this walkthrough against the merged baseline, not the pre-merge branch preview only.
 - [ ] Treat CPA/DBD Builder validation, SSO production configuration, live Blob/Inngest WHT storage QA, exact RD/SSO exports, employee 50 Tawi production format, and exact TP form rendering as blocked until external evidence exists.

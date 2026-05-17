@@ -4,6 +4,8 @@
 **Dependencies:** Phase 5 (WHT certificates, filing calendar, period locking), Phase 3 (documents with VAT amounts, vendor entity_type/country)
 **Blocked by:** V7 (FlowAccount import format researched from Phase 0 validation), V8 (Peak Accounts import format researched from Phase 0 validation)
 
+> **Superseded planning note (2026-05-15):** Phase 8.5 replaces this phase's report-centric VAT architecture. In particular, the historical statement below that PP36 is "not reclaimable" / a "pure cost" is superseded for product planning. New work must use `phase-8-5-vat-operations-ledger.md`: PP36 remains a separate declaration/payment workflow, but paid/remitted PP36 can later become PP30 reclaim eligibility through the VAT operations ledger and frozen filing lines. Treat this completed plan as shipped-baseline context, not current compliance architecture.
+
 ## Goal
 
 Track input and output VAT, prepare PP 30 and PP 36 filings (separately!), generate VAT register reports, handle credit note adjustments, and export data to FlowAccount and Peak Accounts. This is the final compliance layer -- after this phase, the platform covers the full WHT + VAT filing cycle.

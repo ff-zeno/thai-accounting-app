@@ -30,8 +30,44 @@ test.describe("Dashboard", () => {
     await expect(page.getByText("Income").first()).toBeVisible();
   });
 
+  test("analytics overview widgets render", async ({ page }) => {
+    await expect(page.getByText("Analytics Overview")).toBeVisible();
+    await expect(page.getByText("Projected 30-day Cash")).toBeVisible();
+    await expect(page.getByText("Cash Runway")).toBeVisible();
+    await expect(page.getByText("Open AR / AP")).toBeVisible();
+    await expect(page.getByText("DSO")).toBeVisible();
+  });
+
+  test("analytics overview widgets link to drilldowns", async ({ page }) => {
+    await expect(
+      page.getByRole("link", { name: "Projected 30-day Cash" }),
+    ).toHaveAttribute("href", "/analytics/cash-flow");
+    await expect(
+      page.getByRole("link", { name: "Cash Runway" }),
+    ).toHaveAttribute("href", "/analytics/cash-flow");
+    await expect(
+      page.getByRole("link", { name: "Open AR / AP" }),
+    ).toHaveAttribute("href", "/analytics/ar-aging");
+    await expect(page.getByRole("link", { name: "DSO" })).toHaveAttribute(
+      "href",
+      "/analytics/ar-aging",
+    );
+    await expect(
+      page.getByRole("link", { name: /Payroll outflows/i }),
+    ).toHaveAttribute("href", "/payroll");
+    await expect(
+      page.getByRole("link", { name: /^Depreciation$/i }),
+    ).toHaveAttribute("href", "/fixed-assets/reports/roll-forward");
+    await expect(
+      page.getByRole("link", { name: /Concentration/i }),
+    ).toHaveAttribute("href", "/analytics/concentration");
+    await expect(
+      page.getByRole("link", { name: /Profitability/i }),
+    ).toHaveAttribute("href", "/analytics/profitability");
+  });
+
   test("filing status section renders", async ({ page }) => {
-    await expect(page.getByText("Filing Status Overview")).toBeVisible();
+    await expect(page.getByText("Filing Status Overview").first()).toBeVisible();
   });
 
   test("quick links render and navigate", async ({ page }) => {

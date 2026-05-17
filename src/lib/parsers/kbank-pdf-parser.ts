@@ -280,9 +280,6 @@ function parseTransactionGroup(lines: string[]): RawTxn | null {
 
     thaiType = fallbackMatch[1];
     amount = fallbackMatch[2].replace(/,/g, "");
-    // Guess direction from balance change: if balance went up, it's credit
-    const prevBalance = parseFloat(balance);
-    const amountNum = parseFloat(amount);
     // balance is the NEW balance after this transaction, so we can't infer direction
     // from balance alone without the previous balance. Default to debit (conservative).
     txnType = "debit";

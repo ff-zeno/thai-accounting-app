@@ -39,10 +39,18 @@ const mockSelect = vi.fn().mockImplementation(() => {
 });
 
 vi.mock("../index", () => ({
-  db: {
-    select: (...args: unknown[]) => mockSelect(...args),
-    insert: (...args: unknown[]) => mockInsert(...args),
-  },
+  db: (() => {
+    const mockedDb = {
+      select: (...args: unknown[]) => mockSelect(...args),
+      insert: (...args: unknown[]) => mockInsert(...args),
+      transaction: (callback: (tx: unknown) => unknown) => callback(mockedDb),
+    };
+    return mockedDb;
+  })(),
+}));
+
+vi.mock("./foreign-vendor-tax", () => ({
+  materializePp36ObligationFromDocument: vi.fn().mockResolvedValue(null),
 }));
 
 const { createPayment, getDocumentPaymentSummary } = await import("./payments");

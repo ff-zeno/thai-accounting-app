@@ -15,6 +15,10 @@ import { exemplarDecay } from "@/lib/inngest/functions/exemplar-decay";
 import { compileVendorPattern } from "@/lib/inngest/functions/compile-vendor-pattern";
 import { shadowValidatePattern } from "@/lib/inngest/functions/shadow-validate-pattern";
 import { shadowCanary } from "@/lib/inngest/functions/shadow-canary";
+import { fetchBotFxRates } from "@/lib/inngest/functions/fetch-bot-fx-rates";
+import { processMonthlyDepreciation } from "@/lib/inngest/functions/process-monthly-depreciation";
+import { processMonthEndFxRevaluation } from "@/lib/inngest/functions/process-month-end-fx-revaluation";
+import { processPostingOutbox } from "@/lib/inngest/functions/process-posting-outbox";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -34,5 +38,9 @@ export const { GET, POST, PUT } = serve({
     compileVendorPattern,
     shadowValidatePattern,
     shadowCanary,
+    fetchBotFxRates,
+    processMonthlyDepreciation,
+    processMonthEndFxRevaluation,
+    processPostingOutbox,
   ],
 });

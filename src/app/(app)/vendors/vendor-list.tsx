@@ -139,7 +139,6 @@ function DeleteButton({ vendorId }: { vendorId: string }) {
 
 function TranslateButton({
   from,
-  onTranslated,
 }: {
   from: string;
   onTranslated: (text: string) => void;

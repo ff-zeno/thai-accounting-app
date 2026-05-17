@@ -30,7 +30,7 @@ type UploadState =
 
 export function StatementUpload({ bankAccountId }: StatementUploadProps) {
   const [state, setState] = useState<UploadState>({ step: "idle" });
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const router = useRouter();
 
   const onDrop = useCallback(

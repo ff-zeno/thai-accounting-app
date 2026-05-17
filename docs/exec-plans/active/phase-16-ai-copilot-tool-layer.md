@@ -1,6 +1,6 @@
 # Phase 16 — AI Copilot and Tool/MCP Action Layer
 
-**Status:** Draft
+**Status:** Implementation-active; read-only typed tool registry, deterministic natural-language prompt router, first draft preview/apply tool, first safe write task tool, audited tool events, BYO Copilot provider settings, export coverage, and `/copilot` UI landed
 **Date:** 2026-05-01
 **Depends on:** Phase 8 corrective learning, Phase 10.5 GL primitives, Phase 15 UI nav refactor, hardened audit/period-lock baseline
 **Related:** `phase-8-extraction-learning-loop.md`, `phase-10-5-gl-primitives.md`, `phase-14-analytics-audit-pack.md`
@@ -8,6 +8,34 @@
 ## 1. Purpose
 
 Make AI a first-class operating surface in the accounting app, not only a background extractor.
+
+## Implementation Snapshot — 2026-05-16
+
+Landed MVP foundation:
+
+- Internal typed read-tool registry in `src/lib/copilot/tool-registry.ts`.
+- Audited persistence tables: `copilot_sessions`, `copilot_messages`, and `copilot_tool_events`.
+- Read-only tools: `search_documents`, `search_vendors`, `search_accounts`, `list_open_exceptions`, and `get_tax_position`.
+- First draft/preview tool: `preview_recode_documents`, which resolves a target GL account, previews candidate document recodes, marks non-draft rows blocked, and records a draft-risk audited tool event without mutating records.
+- First guarded apply tool: `apply_recode_documents`, which requires `APPLY RECODE`, enforces accountant-role execution, updates only unlocked draft document line `account_code` values, skips confirmed/paid/posted/locked-period documents, and records a bulk-write audited tool event.
+- First safe write tool: `create_accountant_review_task`, which creates an open exception-queue review task and records a write-risk audited tool event. It does not mutate accounting source records.
+- Tool executor hardening: registry `requiredRole` is enforced centrally, malformed/failed tool attempts are persisted as failed tool events with raw input, and `/copilot` admin action invokes accountant-scoped tools explicitly.
+- Deterministic natural-language prompt router: `/copilot` "Ask Copilot" maps prompts to the existing typed tool contracts for document/vendor/account search, tax-position summaries, open exceptions, safe review-task creation, and preview-only document recode. It does not call a live model yet and does not add a new mutation path; write-capable actions still use existing role, preview, confirmation, audit, and period-lock gates.
+- `/copilot` authenticated route with compact tool runner and recent tool-event table.
+- BYO Copilot provider configuration on `/settings/ai`: owner/admin provider/model controls, secret-reference-only API key storage, last-four audit hint, monthly budget, live-model enablement, and write-tool enablement flags.
+- Preview-only live-model status is now visible in both `/settings/ai` and `/copilot`, so owners do not mistake provider settings for finished live orchestration. The UI states that prompts currently route through deterministic audited tools and write-capable tools still require preview, role checks, confirmation, period-lock checks, and audit events.
+- Full export includes copilot tables.
+- Tests: `src/lib/db/queries/copilot-tools.db.test.ts`, `src/lib/db/queries/ai-settings.db.test.ts`, `src/lib/export/full-export.test.ts`, `e2e/copilot/copilot.spec.ts`, and `e2e/settings/ai.spec.ts`.
+- Verification: `pnpm tsc --noEmit`, `pnpm exec drizzle-kit check`, `git diff --check`, focused Copilot DB/export/E2E tests, and the overnight broad serial DB/export/Playwright gate passed on 2026-05-16. Post-Claude hardening gate passed again with `pnpm tsc --noEmit`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/copilot-tools.db.test.ts`, `pnpm vitest run src/lib/export/full-export.test.ts`, `pnpm test:e2e e2e/copilot/copilot.spec.ts`, `pnpm exec drizzle-kit check`, and `git diff --check`. Additional 2026-05-17 safety coverage proves staff-role attempts to run `apply_recode_documents` fail before mutating draft line items while still writing a failed bulk-write tool event; `/copilot` Playwright smoke and post-Playwright TypeScript also passed.
+- BYO settings gate passed on 2026-05-16: `pnpm test:e2e e2e/settings/ai.spec.ts`, `pnpm tsc --noEmit`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/ai-settings.db.test.ts`, `pnpm vitest run src/lib/export/full-export.test.ts`, `pnpm exec drizzle-kit check`, and `git diff --check`. Self-review added raw-provider-key rejection for the secret-reference field.
+- BYO settings Claude review debt closed on 2026-05-17: settings reads/mutations use verified-org owner/admin gating, AI settings mutations write redacted allowlist audit payloads with secret-ref presence booleans, `org_ai_settings` export excludes Copilot secret refs/last-four values from JSON and CSV, Copilot tool execution maps the caller's membership role instead of hardcoding accountant, live enablement requires provider/model/secret ref plus a present server env var, model/budget inputs are bounded, and `/settings/ai` is force-dynamic. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/ai-settings.db.test.ts src/lib/db/queries/copilot-tools.db.test.ts`; `pnpm vitest run src/lib/export/full-export.test.ts`; `pnpm vitest run src/app/\(app\)/tax/vat/actions.test.ts`; `pnpm test:e2e e2e/settings/ai.spec.ts e2e/copilot/copilot.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`; active-code no-`vat_records` search. Claude Companion follow-up reported no blockers.
+- Preview-only status gate passed on 2026-05-17: `pnpm test:e2e e2e/settings/ai.spec.ts e2e/copilot/copilot.spec.ts`, `.next/dev/types` cleanup, `pnpm tsc --noEmit`, and `git diff --check`.
+
+Deliberately not landed yet:
+
+- Live model/provider calls.
+- Confirmed/posted accounting-source write tools and MCP exposure.
+- Free-form model orchestration. Current UI supports deterministic prompt-to-tool routing and explicit typed tools.
 
 Users should be able to ask questions and request actions in plain language:
 
@@ -195,10 +223,11 @@ Do not start with unrestricted chat actions.
 MVP should ship:
 
 1. Read-only copilot over documents, vendors, accounts, VAT/WHT filings, and exceptions.
-2. `preview_recode_documents` for account-code changes.
-3. App-side confirmation for applying a recode to unlocked draft documents.
+2. `preview_recode_documents` for account-code changes. First apply slice landed for draft document line `account_code` only; confirmed/posted/locked-period documents remain blocked.
+3. App-side confirmation plus accountant-role enforcement for applying a recode to unlocked draft documents.
 4. Audit log for chat, tool calls, preview, confirmation, and mutation.
-5. BYO model-key configuration with org admin controls.
+5. Deterministic prompt-to-tool routing as a no-model first step toward natural-language chat.
+6. BYO model-key configuration with owner/admin controls. Landed as settings-only configuration; live provider calls remain disabled until orchestration is implemented.
 
 Out of MVP:
 

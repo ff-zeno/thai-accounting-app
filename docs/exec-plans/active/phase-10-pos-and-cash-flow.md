@@ -1,6 +1,6 @@
 # Plan: Phase 10 — POS Sales Ledger + Channel Settlement + Cash Deposit Tracking + Mandatory §87 Reports
 
-**Status:** Draft v2 — captured 2026-04-26, patched same day after Opus + Codex adversarial review
+**Status:** Implementation-active — POS/source-ledger foundation, first owner-testable Sales Control Tower, manual POS-to-VAT/GL posting with posting-outbox coverage, manual settlement/cash-deposit GL posting with posting-outbox coverage, POS gross/base/VAT tie-out, source-row audit logs, owner-visible manual/CSV v1 scope caveat, and first owner-visible Section 87 output/input/goods report workbench landed 2026-05-16/17; connectors and richer report exports remain
 **Depends on:** Phases 2-4 (bank statements, documents, reconciliation) shipped; this layers a second source of truth on top
 **Authority reference:** `vat-info.md` §1 (two-ledger model), §2.3 (output VAT base), §2.5 (TI / ABB), §2.6 (PP 30 + §87 mandatory reports), §5 (reconciliation), §5.4 (edge cases), §7.1 (VAT integrity), §8.1 (amendment penalties)
 
@@ -28,10 +28,48 @@ Reconciling these gives the owner a **channel tracker** showing unsettled balanc
 
 ## Requirements
 
+## 2026-05-16 Official Source Refresh
+
+Official RD sources checked before the schema slice:
+
+- Revenue Code Sections 87-90, English RD page, retrieved 2026-05-16: `https://www.rd.go.th/english/37747.html`. Applied rule: VAT registrants must make output tax, input tax, and goods/raw-material reports; reports are made by each place of business; entries are generally due within 3 working days.
+- Revenue Code Sections 87-90, Thai RD page, retrieved 2026-05-16: `https://www.rd.go.th/5209.html`. Applied as the primary Thai-language text for the same Section 87 obligations.
+- Director-General VAT Announcement No. 89, RD page, retrieved 2026-05-16: `https://www.rd.go.th/3374.html`. Applied rule: Section 87 reports may be prepared by computer and can be in Thai or English.
+- Live-link check on 2026-05-17 returned HTTP 200 for all three RD Section 87 / report-format source URLs above.
+
+Implementation checkpoint:
+
+- Migration `0036_pos_sales_ledger_foundation.sql` creates `establishments`, `sales_transactions`, `voucher_sales`, `processor_settlements`, and `cash_deposits`.
+- Drizzle schema exposes POS/source-ledger tables.
+- DB checks enforce POS primary rows carrying tax invoice classification, processor-shadow row separation, same-org establishment guardrails, active tax invoice serial uniqueness by terminal/branch, non-negative source amounts, and processor fee VAT evidence before fee VAT is claimable.
+- Migration journal entries for `0035`/`0036` are present, and `pnpm db:migrate` was applied to the local app database used by Playwright.
+- `src/lib/db/queries/pos-sales-ledger.ts` provides head-office establishment bootstrap, dashboard read model, manual POS sale creation, generic POS CSV import, manual cash deposit capture, and manual processor settlement capture. Manual cash deposits and processor settlements now post source-linked `auto_payment` JEs through the shared GL writer with posting-outbox coverage.
+- Manual POS sale creation and generic POS CSV import both validate gross equals tax base plus VAT, materialize reportable VAT output ledger items and `auto_sales` GL journal entries in the same transaction, write source-row audit logs, then enqueue `sales_transactions:create` posting-outbox rows for idempotent queue processing. Cash deposits and processor settlements also write source-row audit logs inside the same source+GL+outbox transaction.
+- Claude Companion follow-up for the POS/cash posting slice found and the implementation fixed server-side POS tie-out validation, POS/cash/processor audit-log gaps, UTF-8 BOM CSV header handling, and duplicate manual-sale error messaging. Evidence: POS DB tests passed 16 tests; GL DB tests passed 34 tests serially; sales Playwright passed 2 tests; TypeScript, diff check, and no-active-`vat_records` search passed; Claude re-review approved with no new findings.
+- Full Playwright refresh after BYO-Copilot hardening found `/sales` could crash when Drizzle aggregate date values reached the server component as strings instead of `Date` instances. `/sales` now formats channel-balance and recent-sale dates through a Date-or-string helper, and the route has seeded E2E regression coverage for aggregate date values. Evidence: focused sales plus all-pages smoke passed 68 tests after adding the regression; later full `pnpm test:e2e` passed 223 tests after fixed-assets import-result recovery; TypeScript, diff check, and no-active-`vat_records` search passed.
+- `/sales` now includes a live channel-balance table by branch and clearing account for pending/aged POS-primary sales, excluding voided, superseded, credit-note, and deleted rows.
+- `src/lib/tax/output-tax-report.ts` builds the first Section 87 output-tax report read model from POS-primary sales by Bangkok tax month and establishment, excluding processor-shadow rows.
+- `src/lib/tax/input-tax-report.ts` builds the first Section 87 input-tax report read model from VAT input ledger items by eligible claim period, excluding held/deleted/non-claimable input VAT. This remains org-level until existing input sources propagate non-null establishment IDs.
+- `src/lib/tax/inventory-movement-report.ts` builds the first Section 87 goods/raw-materials read model from inventory movements by Bangkok tax month, establishment, and SKU.
+- CSV serializers and authenticated routes now exist for output tax, input tax, and goods/raw-materials reports, with UTF-8 BOMs for Excel compatibility and sanitized branch-number filenames where branch-scoped.
+- `/tax/reports` renders the first statutory reports workbench with period/place filters, output-tax totals, output detail rows, daily output totals, input-tax totals/detail rows, goods/raw-materials SKU movement summary, explicit org-level input scope notice, and report CSV downloads.
+- `/tax/reports` now also shows an owner-visible v1 scope caveat: reports are CSV-first workpapers; Excel/PDF formats, branch-level input propagation, processor-fee VAT lanes, and PP36 reclaim lanes remain deferred until source establishment mapping is complete.
+- `/sales` renders the first Sales Control Tower with gross POS sales, money-in-pipe, processor net, cash deposit cards, channel balances, manual POS sale capture, generic POS CSV paste import, cash deposit slip capture, processor settlement capture, and recent POS sale rows.
+- `/sales` now also shows an owner-visible manual/CSV v1 scope caveat: manual sales, normalized POS CSV paste import, cash deposits, processor settlements, VAT output, and GL posting are testable; processor matching, cash variance resolution, cash-slip OCR/bank matching, connector imports, and Excel/PDF statutory exports remain deferred.
+- `src/lib/nav/structure.ts` and i18n messages expose Sales navigation.
+- Full export includes the new POS/source-ledger evidence tables.
+- Verification passed: `pnpm exec drizzle-kit check`, `pnpm tsc --noEmit`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/pos-sales-ledger-schema.db.test.ts`, `pnpm vitest run src/lib/export/full-export.test.ts`, and `pnpm test:e2e e2e/sales/pos.spec.ts`.
+
+Still outstanding before Phase 10 completion:
+
+- Existing source tables still need establishment propagation/backfill and branch-unknown blocking workflow.
+- Richer settlement import/matching actions, settlement aging/escalation controls, cash variance resolution posting, branch-level input report propagation, Excel/PDF report exports, non-manual POS connectors, and historical backfill remain. Generic POS CSV import v1, manual cash deposit capture/posting, and manual processor settlement capture/posting are landed for head-office workflows.
+- Evidence for v1 scope caveats: `pnpm test:e2e e2e/tax/reports.spec.ts`; `pnpm test:e2e e2e/sales/pos.spec.ts`; `.next/types` + `.next/dev/types` cleanup; `pnpm tsc --noEmit`; `git diff --check`.
+
 ### Schema
 
 #### New: place of business / branch dimension
-- [ ] New table `establishments` (per-org place of business under `vat-info.md` §2.6 "one PP 30 per place of business"):
+- [x] New table `establishments` (per-org place of business under RD Section 87 reports-by-place-of-business):
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `branch_number varchar(5) NOT NULL` — '00000' for head office, '00001'+ for branches (matches `vendors.branchNumber` precedent)
@@ -56,7 +94,7 @@ Reconciling these gives the owner a **channel tracker** showing unsettled balanc
   - All branch-level reports (output tax, input tax, inventory, PND.1, PND.3/53, SSO) JOIN on `establishment_id` and filter to one branch at a time.
 
 #### New: sales ledger
-- [ ] New table `sales_transactions`:
+- [x] New table `sales_transactions`:
   - `id uuid PK`
   - `org_id uuid NOT NULL` (Clerk org)
   - `establishment_id uuid NOT NULL` — FK to `establishments` (per-branch PP 30 grouping)
@@ -103,7 +141,7 @@ Reconciling these gives the owner a **channel tracker** showing unsettled balanc
   - Check: `event_role='pos_primary' → tax_invoice_type IS NOT NULL` for VAT-registered establishments
 
 #### New: voucher / gift card deferred recognition (§5.4)
-- [ ] New table `voucher_sales`:
+- [x] New table `voucher_sales`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid NOT NULL`
@@ -120,7 +158,7 @@ Reconciling these gives the owner a **channel tracker** showing unsettled balanc
 - VAT is recognized only at redemption time (creates `sales_transactions` with `is_voucher_redemption=true`). Cash received at sale-of-voucher books to a deferred-revenue liability account; not on PP 30 until redeemed.
 
 #### New: settlement (processor → bank) records
-- [ ] New table `processor_settlements`:
+- [x] New table `processor_settlements`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid` — when the processor reports per-terminal/branch
@@ -143,7 +181,7 @@ Reconciling these gives the owner a **channel tracker** showing unsettled balanc
   - Check: `fee_vat_amount > 0 → processor_tax_invoice_document_id IS NOT NULL`
 
 #### New: cash deposit tracking
-- [ ] New table `cash_deposits`:
+- [x] New table `cash_deposits`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid NOT NULL` — which branch's drawer
@@ -160,33 +198,29 @@ Reconciling these gives the owner a **channel tracker** showing unsettled balanc
   - `created_at`, `updated_at`
 
 #### Channel tracker view
-- [ ] Materialized or live view `channel_balances`:
+- [x] Materialized or live view `channel_balances`:
   - Group `sales_transactions WHERE event_role='pos_primary'` by `(org_id, establishment_id, clearing_account_key)` where `settlement_status IN ('pending', 'aged_unsettled')`
   - Sum `amount_including_vat`, oldest `sold_at`, count, expected SLA breach indicator
   - Used by the Money-in-the-pipe dashboard
+  - Landed v1: live query in `getPosSalesWorkflowDashboard`, grouped table on `/sales`, pending gross, oldest sale, and aged count. Remaining: SLA aging job and owner escalation workflow.
 
 #### Filing audit primitives (cross-cutting)
-Apply to existing `vat_records` (PP 30) and existing `wht_filings` AND any new filing tables:
+Apply to Phase 8.5 `vat_filings` / `vat_filing_lines`, existing `wht_filings`, and any new filing tables:
 
-- [ ] Add to `vat_records`:
-  - `is_amendment` boolean DEFAULT false
-  - `amends_filing_id` uuid — FK to the original filing being amended
-  - `amendment_reason` text
-  - `pp30_data_source` text NOT NULL DEFAULT 'bank_derived' — `bank_derived` (legacy), `pos_derived` (new), `hybrid` during cutover
-  - `rd_reference_number` text
-  - `confirmation_document_id` uuid — FK to `documents` storing the RD-issued acceptance receipt
-  - **No `period_locked` boolean** — round-4 removed legacy boolean. Lock state lives in shared `period_locks` table (`domain='vat'`). Trigger on `vat_records` blocks mutations on locked periods unless `app.lock_override_user_id` is set. See `docs/_ai_context/period-lock-protocol.md`.
-  - `voluntary_amendment_penalty_pct` numeric(5,4) — 0.02 / 0.05 / 0.10 / 0.20 per §8.1 lookup
-  - `surcharge_amount` numeric(14,2) — 1.5%/month from due date, capped at tax amount per §8.1
-
-- [ ] Same five amendment fields (`is_amendment`, `amends_filing_id`, `amendment_reason`, `rd_reference_number`, `confirmation_document_id`) added to all other filing tables (existing + new).
+- [ ] POS-derived PP30 output VAT must enter `vat_output_items` and be frozen through `vat_filings` / `vat_filing_lines`; do not reintroduce legacy `vat_records`.
+- [ ] Track POS cutover source with a ledger-era field or related audit record such as `pp30_data_source` = `bank_derived`, `pos_derived`, or `hybrid`.
+- [ ] Store amendment metadata on filing tables: `is_amendment`, `amends_filing_id`, `amendment_reason`, `rd_reference_number`, `confirmation_document_id`.
+- [ ] Store voluntary-amendment exposure on filing/audit records: `voluntary_amendment_penalty_pct` and `surcharge_amount`.
+- [ ] Lock state lives in shared `period_locks` with `domain='vat'`; Phase 8.5 ledger filing/source triggers block mutations unless `app.lock_override_user_id` is set. See `docs/_ai_context/period-lock-protocol.md`.
+- [ ] Same amendment fields (`is_amendment`, `amends_filing_id`, `amendment_reason`, `rd_reference_number`, `confirmation_document_id`) must exist on all other filing tables that can be amended.
 
 ### Connectors
 
 **Priority re-shuffled per Opus + Codex review.** API access requires merchant onboarding cycles (5+ business days, often 2-4 weeks for Thai processors); CSV path de-risks v1 entirely.
 
 #### Priority 1 (de-risk v1): generic CSV + Ksher CSV/PDF
-- [ ] Generic POS CSV importer with column-mapping UI under `src/app/(app)/sales/import/csv/`. Auto-detect header rows for ZORT / FlowAccount / common Thai POS exports. Maps to `sales_transactions` with `event_role='pos_primary'`.
+- [x] Generic POS CSV importer with column-mapping UI under `src/app/(app)/sales/import/csv/`. Auto-detect header rows for ZORT / FlowAccount / common Thai POS exports. Maps to `sales_transactions` with `event_role='pos_primary'`.
+  - Landed v1: `/sales` paste importer for normalized headers (`external_id`, `sold_at`, `channel`, `amount_including_vat`, `tax_base_ex_vat`, `vat_amount`, `tax_invoice_type`, `tax_invoice_number`, `terminal_id`, optional `clearing_account_key`). Rows are idempotent on `(org_id, source='manual_csv', external_id)` and materialize VAT output plus GL. Remaining: file upload, column mapping/autodetection, branch selection, ZORT/FlowAccount presets, and import preview/error table.
 - [ ] Ksher transaction-list CSV importer. Maps to `sales_transactions` with `event_role='processor_shadow'` (Ksher reports the card swipe, not the original sale).
 - [ ] Ksher daily settlement CSV importer. Maps to `processor_settlements`.
 - [ ] Ksher PDF settlement importer — **not** "reuse existing pipeline" (Codex #7 — settlement PDFs are tabular batch documents structurally different from invoices). Build a dedicated extractor:
@@ -212,21 +246,21 @@ Apply to existing `vat_records` (PP 30) and existing `wht_filings` AND any new f
 
 Three reports are mandatory under Revenue Code §87 and `vat-info.md` §2.6. Output report alone is incomplete.
 
-- [ ] **Output tax report (รายงานภาษีขาย)** — `src/lib/tax/output-tax-report.ts`:
+- [x] **Output tax report (รายงานภาษีขาย)** — `src/lib/tax/output-tax-report.ts`:
   - `buildOutputTaxReport(orgId, establishmentId, taxMonth)` — pulls `sales_transactions WHERE event_role='pos_primary' AND establishment_id=...` for the tax month, applies credit notes, daily ABB roll-up under §86/6.
   - Returns: per-day totals, ABB aggregate, full TI list, credit notes, total output VAT.
-  - Output: HTML table + downloadable Excel/CSV (RD-compliant layout).
+  - Landed v1: POS-primary-only rows by Bangkok tax month and establishment, voided/superseded/credit-note rows excluded pending a dedicated credit-note section, daily totals, report totals, official-source metadata, `/tax/reports` UI table, and CSV download. Remaining: credit-note section and richer Excel/PDF formats.
 
-- [ ] **Input tax report (รายงานภาษีซื้อ)** — `src/lib/tax/input-tax-report.ts`:
+- [x] **Input tax report (รายงานภาษีซื้อ)** — `src/lib/tax/input-tax-report.ts`:
   - `buildInputTaxReport(orgId, establishmentId, taxMonth)` — pulls qualifying `documents` (full TI in buyer's name with all §2.4 required fields) + `processor_settlements.fee_vat_amount` (where processor TI captured) + PP 36 reclaims **with `reclaim_status='eligible_for_reclaim'` AND `pp36_paid_at <= taxMonth end`** (Phase 9 linkage; round-4 reclaim-gating fix).
   - Surfaces non-recoverable items separately (ABBs from suppliers, missing TIN, >6-months-old without override).
-  - Output: HTML + Excel/CSV (RD-compliant layout).
+  - Landed v1: VAT input ledger claim-period rows with tax invoice date/number required by DB/report filter, totals, daily summary, `/tax/reports` UI detail rows, explicit org-level scope notice, and CSV download. Remaining: branch scope after source propagation, processor-fee VAT, PP36 reclaim lanes, non-recoverable section, and Excel/PDF exports.
 
-- [ ] **Goods & raw materials report (รายงานสินค้าและวัตถุดิบ)** — `src/lib/tax/inventory-movement-report.ts`:
+- [x] **Goods & raw materials report (รายงานสินค้าและวัตถุดิบ)** — `src/lib/tax/inventory-movement-report.ts`:
   - Tracks inventory in/out per tax month per `establishment_id`.
   - Source: existing `documents` (purchase receipts → in) + `sales_transactions` line items where available (out).
   - For tenants without per-item POS line items, surface as "limited data — manual reconciliation required" placeholder.
-  - First-pass: minimum viable — capture totals; full per-SKU tracking deferred until tenant demand.
+  - Landed v1: inventory movement rows and per-SKU opening/in/out/net/closing roll-forward summary by Bangkok tax month and establishment, surfaced on `/tax/reports` with CSV download. Remaining: source-line drilldown, Excel/PDF export formats, and PP30 cutover gate wiring.
 
 - [ ] **PP 30 reconciliation harness** — every PP 30 generation runs invariants:
   - `sum(output_tax_report.vat) = pp30.output_vat_line`
@@ -269,8 +303,10 @@ CI test matrix: one test per invariant. Failing invariant blocks the period clos
   - When `superseded_by_id IS NOT NULL`, show "upgraded to full TI #..." with link.
 - [ ] Cash deposits page `src/app/(app)/sales/cash-deposits/page.tsx`:
   - List of slips, amounts, who deposited, bank arrival status, variance vs POS cash for the period.
-- [ ] §87 reports page `src/app/(app)/tax/reports/page.tsx`:
+  - Landed v1: compact `/sales` capture form inserts `cash_deposits`, updates deposited amount/open variance cards, and supports slip reference, depositor, cash period, and signed variance. Remaining: dedicated list/detail page, document OCR linkage, bank matching, and variance resolution workflow.
+- [x] §87 reports page `src/app/(app)/tax/reports/page.tsx`:
   - Three tabs: output / input / inventory. Per-month, per-establishment. Export CSV / Excel.
+  - Landed v1: output report surface with CSV download. Input/inventory tabs and Excel export remain.
 
 ### Settings / configuration
 
@@ -284,6 +320,8 @@ CI test matrix: one test per invariant. Failing invariant blocks the period clos
 
 ### Migration hardening (Phase 10 Week 4 cutover)
 
+**Status:** Not implemented in the current v1. The shipped Phase 10 surface is manual/POS CSV capture, channel balances, GL/VAT posting, and CSV-first Section 87 workpapers. PP30 cutover from bank-derived to POS-derived numbers, amendment packets, and owner sign-off remain future cutover work and must not be treated as partially live.
+
 The PP 30 data-source switch is **not optional**. Without migration, tenants who started filing under bank-derived numbers stay non-compliant.
 
 - [ ] **Mandatory dual-write period (≥1 full tax month per org).** During this window, both bank-derived and POS-derived PP 30 are computed. The active filing source is `pp30_data_source='hybrid'` (bank-derived remains authoritative; POS-derived is shadow).
@@ -293,8 +331,8 @@ The PP 30 data-source switch is **not optional**. Without migration, tenants who
   - Compute voluntary-amendment penalty per §8.1 schedule: 2% / 5% / 10% / 20% by lateness.
   - Show total exposure: surcharge + penalty + delta.
 - [ ] **Owner sign-off.** Cutover from `bank_derived` → `pos_derived` requires explicit owner approval (modal with full delta + exposure + legal acknowledgement). Sign-off written to `audit_log` with `actor_user_id`, IP, timestamp, snapshot of delta.
-- [ ] **PP 30 ก amendment packet generator.** For each historical month with non-zero delta, generate the formal PP 30 ก amendment filing (additional return) ready for RD submission. Owner files; system tracks `vat_records.is_amendment=true`, links to original.
-- [ ] **Period lock.** After cutover and any historical amendments file, insert `period_locks` rows for each closed period with `domain='vat'`, `lock_reason='vat_filed'` (one per `(org_id, establishment_id, year, month)`). The shared trigger on `vat_records`, `documents`, and `sales_transactions` blocks mutations on those periods unless `app.lock_override_user_id` is set via the unlock workflow. See `docs/_ai_context/period-lock-protocol.md`.
+- [ ] **PP 30 ก amendment packet generator.** For each historical month with non-zero delta, generate the formal PP 30 ก amendment filing (additional return) ready for RD submission. Owner files; system tracks an amendment `vat_filings` row linked to the original.
+- [ ] **Period lock.** After cutover and any historical amendments file, insert `period_locks` rows for each closed period with `domain='vat'`, `lock_reason='vat_filed'` (one per `(org_id, establishment_id, year, month)`). The shared trigger on VAT ledger source tables, `documents`, and `sales_transactions` blocks mutations on those periods unless `app.lock_override_user_id` is set via the unlock workflow. See `docs/_ai_context/period-lock-protocol.md`.
 - [ ] **Legal acknowledgement banner.** "Switching the PP 30 data source recomputes historical numbers. Discrepancies vs filed returns may require voluntary amendments under Revenue Code §8.1. Recommended: consult Thai CPA before cutover." Surfaced in cutover flow.
 
 ## Approach
@@ -339,7 +377,7 @@ The PP 30 data-source switch is **not optional**. Without migration, tenants who
 **Inventory tenants (e.g. Lumera) are blocked from PP 30 cutover until Phase 10.6 ships the per-SKU §87 inventory report.** Round-4 review found that filing PP 30 without §87(3) per-SKU inventory data violates the Revenue Code requirement; Phase 10's "totals-only" placeholder is fine for service tenants but not for goods tenants.
 
 **Cutover gate (DB-enforced):**
-- `vat_records` BEFORE INSERT trigger: if `pp30_data_source='pos_derived'` AND the org has any `skus` rows AND Phase 10.6's §87 inventory report module is not flagged ready (config `tenant_capabilities.has_full_sku_report=true`) → reject with explicit error.
+- VAT ledger filing/source trigger: if `pp30_data_source='pos_derived'` AND the org has any `skus` rows AND Phase 10.6's §87 inventory report module is not flagged ready (config `tenant_capabilities.has_full_sku_report=true`) → reject with explicit error.
 - Lumera and other goods tenants stay on `bank_derived` until 10.6 ships.
 
 **Week 6+ — BEAM API + connector long tail + inventory-tenant cutover (after 10.6)**
@@ -368,7 +406,7 @@ Each row has a schema/code path; this is the verification checklist:
 
 - **Phase 3 (extraction pipeline)** — cash deposit slips + Ksher PDF settlements both add new doc types to the existing classification → extraction pipeline. Settlement schema is dedicated, NOT a reuse of invoice schema (Codex #7).
 - **Phase 4 (reconciliation)** — new layers (A: POS↔processor, C: slip↔bank) added to the matcher cascade; existing 7 layers untouched.
-- **Phase 6 (VAT/PP 30)** — `vat_records.pp30_data_source` field added; existing bank-derived path preserved during dual-write; cutover per-org. Existing `vat_records.period_locked` enforces post-cutover immutability.
+- **Phase 8.5 (VAT operations ledger)** — POS output VAT feeds `vat_output_items`; PP30 filing source state belongs to ledger-era filing/audit records. Existing bank-derived path is preserved only as a shadow/read model during cutover; immutable `vat_filings` and `period_locks` enforce post-cutover immutability.
 - **Phase 8 (extraction learning)** — applies to cash deposit slip extraction the same way it applies to invoices. Vendor concept is replaced by "bank account" or "depositor" for tier promotion. Probably defer learning loop on slips until volumes warrant.
 - **Phase 9 (foreign-vendor tax)** — independent; POS data is sales-side; Phase 9 is purchase-side. They share no code. Both add amendment fields to filing tables — coordinate the migration.
 
@@ -383,6 +421,7 @@ To be created:
 - `src/lib/inngest/functions/pull-beam-settlements.ts` (Week 6+)
 - `src/lib/inngest/functions/pull-beam-transactions.ts` (Week 6+)
 - `src/lib/tax/output-tax-report.ts`
+- `src/lib/tax/output-tax-report-export.ts`
 - `src/lib/tax/input-tax-report.ts`
 - `src/lib/tax/inventory-movement-report.ts`
 - `src/lib/tax/pp30-from-sales.ts`
@@ -447,7 +486,7 @@ To be edited:
 - **Migration of existing orgs.** No longer optional — see Migration hardening §. Lumera's first cutover is the proving ground; if surcharge exposure is large, may delay rollout to other orgs until reviewed by Thai CPA.
 - **POS data quality.** ZORT export may include voids, miss late-day transactions. Shadow validation against processor totals catches the worst offenders. Reconciliation discrepancy threshold + alert on `processor_settlements.reconciliation_discrepancy != 0`.
 - **Storage growth.** Retail tenant doing 200 transactions/day × 365 days = 73k rows/year. Manageable in Neon; partition `sales_transactions` by month when a tenant exceeds 1M rows.
-- **Schema migration touches existing filing tables.** Amendment fields land on `vat_records` and `wht_filings`. Backfill: existing rows get `is_amendment=false`, NULL for amends_filing_id, no surcharge/penalty (clean slate). Coordinate Phase 9 + Phase 10 + Phase 11 migrations to land amendment fields once.
+- **Schema migration touches existing filing tables.** Amendment fields land on `vat_filings`, `wht_filings`, and any new filing tables. Backfill: existing rows get `is_amendment=false`, NULL for amends_filing_id, no surcharge/penalty (clean slate). Coordinate Phase 9 + Phase 10 + Phase 11 migrations to land amendment fields once.
 - **§87 inventory report under-spec for tenants without per-SKU POS data.** First-pass produces totals + "manual reconciliation required" placeholder. Full per-SKU tracking is a separate product surface (defer until tenant demand).
 
 ## Open questions

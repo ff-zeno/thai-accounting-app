@@ -21,7 +21,7 @@ export async function GET(
   const result = await get(file.fileUrl, {
     access: "private",
     ifNoneMatch: request.headers.get("if-none-match") ?? undefined,
-  });
+  }).catch(() => null);
 
   if (!result) {
     return new NextResponse("Not found", { status: 404 });

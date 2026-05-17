@@ -6,6 +6,20 @@ import { PeriodComparison } from "./period-comparison";
 import { FilingStatusTable } from "./filing-status-table";
 import { QuickLinks } from "./quick-links";
 import { ExceptionReviewList } from "./exception-review-list";
+import { AnalyticsOverview } from "./analytics-overview";
+
+function bangkokYearMonth() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+
+  return {
+    year: Number(parts.find((part) => part.type === "year")?.value),
+    month: Number(parts.find((part) => part.type === "month")?.value),
+  };
+}
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
@@ -19,9 +33,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const { year, month } = bangkokYearMonth();
 
   const metrics = await getDashboardMetrics(orgId, year, month);
 
@@ -44,6 +56,8 @@ export default async function DashboardPage() {
         currentIncome={metrics.totalIncome}
         prevIncome={metrics.prevMonthIncome}
       />
+
+      <AnalyticsOverview snapshot={metrics.analyticsSnapshot} />
 
       {/* Row 3: Filing status overview */}
       <FilingStatusTable deadlines={metrics.upcomingDeadlines} />

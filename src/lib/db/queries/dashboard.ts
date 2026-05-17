@@ -3,18 +3,17 @@ import { db } from "../index";
 import {
   documents,
   whtMonthlyFilings,
-  vatRecords,
   documentLineItems,
   exceptionQueue,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import {
   whtEfilingDeadline,
-  pp30EfilingDeadline,
-  pp36Deadline,
   DEFAULT_TAX_CONFIG,
   formatBangkokDate,
 } from "@/lib/tax/filing-deadlines";
+import { getVatLedgerPeriodDashboard } from "./vat-operations-ledger";
+import { computeCashForecast, computeDso } from "@/lib/analytics/kpi-engine";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,8 +34,20 @@ export interface DashboardMetrics {
   prevMonthIncome: string;
   netVatPosition: string;
   outstandingFilings: number;
+  analyticsSnapshot: DashboardAnalyticsSnapshot;
   upcomingDeadlines: FilingDeadline[];
   openExceptions: ReviewException[];
+}
+
+export interface DashboardAnalyticsSnapshot {
+  asOfDate: string;
+  arTotal: string;
+  apTotal: string;
+  projected30DayCash: string;
+  runwayMonths: number | null;
+  dsoDays: string;
+  scheduledPayrollOutflows: string;
+  scheduledDepreciationExpense: string;
 }
 
 export interface ReviewException {
@@ -60,6 +71,15 @@ function getPreviousMonth(year: number, month: number): { year: number; month: n
 
 function formatPeriod(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function todayBangkokDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function daysBetween(from: Date, to: Date): number {
@@ -110,6 +130,7 @@ export async function getDashboardMetrics(
   month: number
 ): Promise<DashboardMetrics> {
   const prev = getPreviousMonth(year, month);
+  const asOfDate = todayBangkokDate();
 
   const [
     totalExpenses,
@@ -118,25 +139,18 @@ export async function getDashboardMetrics(
     prevMonthIncome,
     vatResult,
     outstandingResult,
+    cashForecast,
+    dso,
   ] = await Promise.all([
     getMonthlyDocumentTotals(orgId, year, month, "expense"),
     getMonthlyDocumentTotals(orgId, year, month, "income"),
     getMonthlyDocumentTotals(orgId, prev.year, prev.month, "expense"),
     getMonthlyDocumentTotals(orgId, prev.year, prev.month, "income"),
-    // Net VAT position from vat_records
-    db
-      .select({
-        netVatPayable: sql<string>`COALESCE(${vatRecords.netVatPayable}, 0)::numeric(14,2)::text`,
-      })
-      .from(vatRecords)
-      .where(
-        and(
-          ...orgScope(vatRecords, orgId),
-          eq(vatRecords.periodYear, year),
-          eq(vatRecords.periodMonth, month)
-        )
-      )
-      .limit(1),
+    getVatLedgerPeriodDashboard({
+      orgId,
+      periodYear: year,
+      periodMonth: month,
+    }),
     // Outstanding WHT filings count
     db
       .select({
@@ -149,12 +163,14 @@ export async function getDashboardMetrics(
           sql`${whtMonthlyFilings.status} != 'filed'`
         )
       ),
+    computeCashForecast({ orgId, asOfDate }),
+    computeDso({ orgId, asOfDate }),
   ]);
 
-  const netVatPosition = vatResult[0]?.netVatPayable ?? "0.00";
+  const netVatPosition = vatResult.pp30.signedNetPosition;
   const outstandingFilings = outstandingResult[0]?.count ?? 0;
 
-  // Build upcoming deadlines from WHT filings and VAT records
+  // Build upcoming deadlines from WHT filings and VAT ledger state.
   const upcomingDeadlines = await getUpcomingDeadlines(orgId, year, month);
   const openExceptions = await getOpenExceptions(orgId);
 
@@ -165,6 +181,16 @@ export async function getDashboardMetrics(
     prevMonthIncome,
     netVatPosition,
     outstandingFilings,
+    analyticsSnapshot: {
+      asOfDate,
+      arTotal: cashForecast.arTotal,
+      apTotal: cashForecast.apTotal,
+      projected30DayCash: cashForecast.projected30DayCash,
+      runwayMonths: cashForecast.runwayMonths,
+      dsoDays: dso.averageDays,
+      scheduledPayrollOutflows: cashForecast.scheduledPayrollOutflows,
+      scheduledDepreciationExpense: cashForecast.scheduledDepreciationExpense,
+    },
     upcomingDeadlines,
     openExceptions,
   };
@@ -250,57 +276,35 @@ async function getUpcomingDeadlines(
     }
   }
 
-  // VAT PP 30 and PP 36 deadlines
+  // VAT PP 30 and PP 36 deadlines from the operations ledger
   for (const period of periodsToCheck) {
-    const vatRows = await db
-      .select({
-        pp30Status: vatRecords.pp30Status,
-        pp30Deadline: vatRecords.pp30Deadline,
-        pp36Status: vatRecords.pp36Status,
-        pp36Deadline: vatRecords.pp36Deadline,
-        pp36ReverseCharge: vatRecords.pp36ReverseCharge,
-      })
-      .from(vatRecords)
-      .where(
-        and(
-          ...orgScope(vatRecords, orgId),
-          eq(vatRecords.periodYear, period.year),
-          eq(vatRecords.periodMonth, period.month)
-        )
-      )
-      .limit(1);
+    const vat = await getVatLedgerPeriodDashboard({
+      orgId,
+      periodYear: period.year,
+      periodMonth: period.month,
+    });
+    const pp30DeadlineDate = new Date(vat.pp30.deadline);
 
-    if (vatRows.length > 0) {
-      const vat = vatRows[0];
+    deadlines.push({
+      filingType: "PP 30",
+      period: formatPeriod(period.year, period.month),
+      status: vat.pp30.status,
+      deadline: vat.pp30.deadline,
+      daysRemaining: daysBetween(today, pp30DeadlineDate),
+    });
 
-      // PP 30
-      const pp30DeadlineDate = vat.pp30Deadline
-        ? new Date(vat.pp30Deadline)
-        : pp30EfilingDeadline(period.year, period.month, DEFAULT_TAX_CONFIG).deadline;
+    const hasPp36 =
+      parseFloat(vat.pp36.pp36VatTotal) > 0 || vat.pp36.status === "filed";
+    if (hasPp36) {
+      const pp36DeadlineDate = new Date(vat.pp36.deadline);
 
       deadlines.push({
-        filingType: "PP 30",
+        filingType: "PP 36",
         period: formatPeriod(period.year, period.month),
-        status: vat.pp30Status ?? "draft",
-        deadline: vat.pp30Deadline ?? formatBangkokDate(pp30DeadlineDate),
-        daysRemaining: daysBetween(today, pp30DeadlineDate),
+        status: vat.pp36.status,
+        deadline: vat.pp36.deadline,
+        daysRemaining: daysBetween(today, pp36DeadlineDate),
       });
-
-      // PP 36 only if there is a reverse charge amount
-      const haspp36 = vat.pp36ReverseCharge && parseFloat(vat.pp36ReverseCharge) > 0;
-      if (haspp36) {
-        const pp36DeadlineDate = vat.pp36Deadline
-          ? new Date(vat.pp36Deadline)
-          : pp36Deadline(period.year, period.month, DEFAULT_TAX_CONFIG).deadline;
-
-        deadlines.push({
-          filingType: "PP 36",
-          period: formatPeriod(period.year, period.month),
-          status: vat.pp36Status ?? "draft",
-          deadline: vat.pp36Deadline ?? formatBangkokDate(pp36DeadlineDate),
-          daysRemaining: daysBetween(today, pp36DeadlineDate),
-        });
-      }
     }
   }
 

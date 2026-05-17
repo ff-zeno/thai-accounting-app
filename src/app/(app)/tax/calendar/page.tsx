@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { BadgePercent, Globe2, Landmark, ReceiptText } from "lucide-react";
+import { and, eq, isNull } from "drizzle-orm";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { db } from "@/lib/db";
+import { vatFilings } from "@/lib/db/schema";
 import { getFilingsByPeriod } from "@/lib/db/queries/wht-filings";
 import { toBuddhistYear } from "@/lib/utils/thai-date";
 import {
@@ -11,6 +15,11 @@ import {
   type FilingStatus,
 } from "@/lib/tax/filing-calendar";
 import {
+  DEFAULT_TAX_CONFIG,
+  pp30EfilingDeadline,
+  pp36Deadline,
+} from "@/lib/tax/filing-deadlines";
+import {
   Table,
   TableHeader,
   TableBody,
@@ -20,6 +29,22 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+type CalendarFormKey = "pp30" | "pp36" | FilingFormType;
+
+const formColumns: Array<{
+  key: CalendarFormKey;
+  label: string;
+  icon: typeof Landmark;
+  tone: string;
+}> = [
+  { key: "pp30", label: "PP 30", icon: Landmark, tone: "text-sky-700" },
+  { key: "pp36", label: "PP 36", icon: Globe2, tone: "text-violet-700" },
+  { key: "pnd2", label: "PND 2", icon: ReceiptText, tone: "text-slate-700" },
+  { key: "pnd3", label: "PND 3", icon: ReceiptText, tone: "text-slate-700" },
+  { key: "pnd53", label: "PND 53", icon: ReceiptText, tone: "text-slate-700" },
+  { key: "pnd54", label: "PND 54", icon: BadgePercent, tone: "text-amber-700" },
+];
 
 // ---------------------------------------------------------------------------
 // Status badge styling
@@ -56,6 +81,18 @@ function statusLabel(status: FilingStatus): string {
   }
 }
 
+function vatStatusLabel(status: string | null, paymentStatus: string | null): FilingStatus {
+  if (paymentStatus === "paid") return "paid";
+  if (status === "filed") return "filed";
+  return "upcoming";
+}
+
+function formLabel(formType: CalendarFormKey): string {
+  if (formType === "pp30") return "PP 30";
+  if (formType === "pp36") return "PP 36";
+  return formatFormType(formType);
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -81,6 +118,13 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     totalBaseAmount: string | null;
     totalWhtAmount: string | null;
   }>();
+  const vatFilingsByKey = new Map<string, {
+    status: string;
+    paymentStatus: string;
+    id: string;
+    totalAmount: string | null;
+    deadline: string | null;
+  }>();
 
   if (orgId) {
     const filings = await getFilingsByPeriod(orgId, selectedYear);
@@ -93,31 +137,87 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         totalWhtAmount: f.totalWhtAmount,
       });
     }
+
+    const vatRows = await db
+      .select({
+        id: vatFilings.id,
+        filingType: vatFilings.filingType,
+        periodMonth: vatFilings.periodMonth,
+        status: vatFilings.status,
+        paymentStatus: vatFilings.paymentStatus,
+        pp36VatTotal: vatFilings.pp36VatTotal,
+        netPayable: vatFilings.netPayable,
+        deadline: vatFilings.deadline,
+      })
+      .from(vatFilings)
+      .where(
+        and(
+          eq(vatFilings.orgId, orgId),
+          eq(vatFilings.periodYear, selectedYear),
+          eq(vatFilings.filingKind, "ordinary"),
+          isNull(vatFilings.deletedAt)
+        )
+      );
+    for (const filing of vatRows) {
+      const key = `${filing.periodMonth}-${filing.filingType}`;
+      vatFilingsByKey.set(key, {
+        status: filing.status,
+        paymentStatus: filing.paymentStatus,
+        id: filing.id,
+        totalAmount:
+          filing.filingType === "pp36"
+            ? filing.pp36VatTotal
+            : filing.netPayable,
+        deadline: filing.deadline,
+      });
+    }
   }
 
   const now = new Date();
-  const formTypes: FilingFormType[] = ["pnd2", "pnd3", "pnd53", "pnd54"];
 
-  // Build a 12-row grid across WHT form types.
+  // Build a 12-row grid across VAT and WHT form types.
   const calendarData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
-    const cells = formTypes.map((formType) => {
+    const cells = formColumns.map((column) => {
+      if (column.key === "pp30" || column.key === "pp36") {
+        const deadline =
+          column.key === "pp30"
+            ? pp30EfilingDeadline(selectedYear, month, DEFAULT_TAX_CONFIG).deadline
+            : pp36Deadline(selectedYear, month, DEFAULT_TAX_CONFIG).deadline;
+        const filing = vatFilingsByKey.get(`${month}-${column.key}`);
+        return {
+          formType: column.key,
+          deadline: filing?.deadline ? new Date(filing.deadline) : deadline,
+          status: filing
+            ? vatStatusLabel(filing.status, filing.paymentStatus)
+            : computeFilingStatus(null, deadline, now),
+          filingId: filing?.id ?? null,
+          amountLabel: column.key === "pp36" ? "VAT" : "Net",
+          amount: filing?.totalAmount,
+          href:
+            column.key === "pp36"
+              ? `/tax/vat?year=${selectedYear}&month=${month}`
+              : `/tax/vat?year=${selectedYear}&month=${month}`,
+        };
+      }
+
       const deadline = deadlines.find(
-        (d) => d.month === month && d.formType === formType
+        (d) => d.month === month && d.formType === column.key
       );
-      const key = `${month}-${formType}`;
+      const key = `${month}-${column.key}`;
       const filing = filingsByKey.get(key);
-      const status = computeFilingStatus(
-        filing?.status ?? null,
-        deadline?.deadline ?? new Date(),
-        now
-      );
       return {
-        formType,
+        formType: column.key,
         deadline: deadline?.deadline ?? null,
-        status,
+        status: computeFilingStatus(
+          filing?.status ?? null,
+          deadline?.deadline ?? new Date(),
+          now
+        ),
         filingId: filing?.id ?? null,
-        totalWht: filing?.totalWhtAmount,
+        amountLabel: "WHT",
+        amount: filing?.totalWhtAmount,
+        href: `/tax/monthly-filings?year=${selectedYear}&month=${month}`,
       };
     });
     return { month, cells };
@@ -131,7 +231,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
             Filing Calendar
           </h1>
           <p className="text-sm text-muted-foreground">
-            WHT filing deadlines for {selectedYear} (B.E. {beYear})
+            VAT and WHT filing deadlines for {selectedYear} (B.E. {beYear})
           </p>
         </div>
 
@@ -182,16 +282,24 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       {/* Calendar table */}
       <Card>
         <CardHeader>
-          <CardTitle>Monthly WHT Filing Deadlines</CardTitle>
+          <CardTitle>Monthly Filing Deadlines</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">Month</TableHead>
-                {formTypes.map((ft) => (
-                  <TableHead key={ft}>{formatFormType(ft)}</TableHead>
-                ))}
+                {formColumns.map((column) => {
+                  const Icon = column.icon;
+                  return (
+                    <TableHead key={column.key}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon className={`size-4 ${column.tone}`} />
+                        {column.label}
+                      </span>
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -219,16 +327,16 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
                             ? `Due: ${cell.deadline.getDate()}/${cell.deadline.getMonth() + 1}/${toBuddhistYear(cell.deadline.getFullYear())}`
                             : "N/A"}
                         </span>
-                        {cell.totalWht && parseFloat(cell.totalWht) > 0 && (
+                        {cell.amount && parseFloat(cell.amount) > 0 && (
                           <span className="text-xs">
-                            WHT: {parseFloat(cell.totalWht).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                            {cell.amountLabel}: {parseFloat(cell.amount).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                           </span>
                         )}
                         <Link
-                          href={`/tax/monthly-filings?year=${selectedYear}&month=${row.month}`}
+                          href={cell.href}
                           className="text-xs text-primary hover:underline"
                         >
-                          View filing
+                          View {formLabel(cell.formType)}
                         </Link>
                       </div>
                     </TableCell>

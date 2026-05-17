@@ -33,7 +33,6 @@ export const backfillVendorTaxId = inngest.createFunction(
       let batches = 0;
 
       // Loop until no more rows to update
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const updated = await backfillVendorTaxIdBatch(BATCH_SIZE);
         totalUpdated += updated;

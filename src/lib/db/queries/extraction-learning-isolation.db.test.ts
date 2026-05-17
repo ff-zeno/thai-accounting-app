@@ -20,6 +20,8 @@ import * as schema from "@/lib/db/schema";
  *
  * Tables under test:
  *   - extraction_exemplars
+ *   - extraction_correction_sessions
+ *   - extraction_learning_candidates
  *   - vendor_tier
  *   - extraction_log
  *   - extraction_review_outcome
@@ -45,6 +47,14 @@ const { insertExtractionLog, getLatestExtractionLog, getRecentExtractionLogs } =
   await import("@/lib/db/queries/extraction-log");
 const { insertReviewOutcome, getReviewOutcomeByDocument, getReviewOutcomeByLog } =
   await import("@/lib/db/queries/extraction-review-outcome");
+const {
+  upsertDraftCorrectionSession,
+  getCorrectionSessionByDocument,
+} = await import("@/lib/db/queries/extraction-correction-sessions");
+const {
+  upsertLearningCandidate,
+  getCandidatesByCorrectionSession,
+} = await import("@/lib/db/queries/extraction-learning-candidates");
 
 beforeAll(async () => {
   await resetTestDb(pool);
@@ -58,7 +68,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean data between tests in FK-safe order
+  await testDb.delete(schema.extractionLearningCandidates);
   await testDb.delete(schema.extractionReviewOutcome);
+  await testDb.delete(schema.extractionCorrectionSessions);
   await testDb.delete(schema.extractionLog);
   await testDb.delete(schema.extractionExemplars);
   await testDb.delete(schema.vendorTier);
@@ -147,67 +159,116 @@ describe("extraction learning multi-tenant isolation", () => {
     });
     expect(reviewResult.id).toBeDefined();
 
+    // -----------------------------------------------------------------------
+    // 8. Write correction session + learning candidate for Org A
+    // -----------------------------------------------------------------------
+    const correctionSessionA = await upsertDraftCorrectionSession({
+      orgId: orgA.id,
+      documentId: docA.id,
+      extractionLogId: logResult!.id,
+      startedByUserId: "user_test123",
+      userExplanation: "Use GrandTotal, not Credit Amount.",
+    });
+    const candidateA = await upsertLearningCandidate({
+      orgId: orgA.id,
+      documentId: docA.id,
+      correctionSessionId: correctionSessionA.id,
+      vendorId: vendorA.id,
+      vendorKey: vendorA.taxId,
+      documentFamily: "payment_processor_settlement_receipt",
+      fieldName: "totalAmount",
+      fieldCriticality: "high",
+      candidateType: "field_rule",
+      aiValue: "100.00",
+      confirmedValue: "1000.00",
+      selectorHint: "GrandTotal",
+      rejectHint: "Credit Amount",
+      scope: "vendor_document_family",
+    });
+    expect(candidateA.id).toBeDefined();
+
     // =======================================================================
     // ISOLATION: Query with Org B -- everything must be empty/null
     // =======================================================================
 
-    // 8. Org B's vendor has no exemplars
+    // 9. Org B's vendor has no exemplars
     const orgBExemplars = await getTopExemplars(orgB.id, vendorB.id);
     expect(orgBExemplars).toHaveLength(0);
 
-    // 9. Org B cannot see Org A's document exemplars
+    // 10. Org B cannot see Org A's document exemplars
     const orgBDocExemplars = await getExemplarsByDocument(orgB.id, docA.id);
     expect(orgBDocExemplars).toHaveLength(0);
 
-    // 10. Org B's vendor was never tier-upserted
+    // 11. Org B's vendor was never tier-upserted
     const orgBVendorTier = await getVendorTier(orgB.id, vendorB.id);
     expect(orgBVendorTier).toBeNull();
 
-    // 11. Even passing Org A's vendor ID with Org B's org ID returns null
+    // 12. Even passing Org A's vendor ID with Org B's org ID returns null
     const orgBWithVendorA = await getVendorTier(orgB.id, vendorA.id);
     expect(orgBWithVendorA).toBeNull();
 
-    // 12. Org B cannot see Org A's extraction log by document
+    // 13. Org B cannot see Org A's extraction log by document
     const orgBLog = await getLatestExtractionLog(orgB.id, docA.id);
     expect(orgBLog).toBeNull();
 
-    // 13. Org B cannot see Org A's extraction logs by vendor
+    // 14. Org B cannot see Org A's extraction logs by vendor
     const orgBLogs = await getRecentExtractionLogs(orgB.id, vendorB.id);
     expect(orgBLogs).toHaveLength(0);
 
-    // 14. Org B cannot see Org A's review outcome by document
+    // 15. Org B cannot see Org A's review outcome by document
     const orgBReview = await getReviewOutcomeByDocument(orgB.id, docA.id);
     expect(orgBReview).toBeNull();
 
-    // 15. Org B cannot see Org A's review outcome by log ID
+    // 16. Org B cannot see Org A's review outcome by log ID
     const orgBReviewByLog = await getReviewOutcomeByLog(orgB.id, logResult!.id);
     expect(orgBReviewByLog).toBeNull();
+
+    // 17. Org B cannot see Org A's correction session by document
+    const orgBSession = await getCorrectionSessionByDocument(orgB.id, docA.id);
+    expect(orgBSession).toBeNull();
+
+    // 18. Org B cannot see Org A's candidates by session ID
+    const orgBCandidates = await getCandidatesByCorrectionSession(
+      orgB.id,
+      correctionSessionA.id
+    );
+    expect(orgBCandidates).toHaveLength(0);
 
     // =======================================================================
     // SANITY: Org A can still see all its own data
     // =======================================================================
 
-    // 16. Org A sees its exemplar
+    // 19. Org A sees its exemplar
     const orgAExemplars = await getTopExemplars(orgA.id, vendorA.id);
     expect(orgAExemplars).toHaveLength(1);
     expect(orgAExemplars[0].fieldName).toBe("totalAmount");
     expect(orgAExemplars[0].userValue).toBe("1000.00");
 
-    // 17. Org A sees its vendor tier at tier 1
+    // 20. Org A sees its vendor tier at tier 1
     const orgATier = await getVendorTier(orgA.id, vendorA.id);
     expect(orgATier).not.toBeNull();
     expect(orgATier!.tier).toBe(1);
 
-    // 18. Org A sees its extraction log
+    // 21. Org A sees its extraction log
     const orgALog = await getLatestExtractionLog(orgA.id, docA.id);
     expect(orgALog).not.toBeNull();
     expect(orgALog!.modelUsed).toBe("gpt-4o");
     expect(orgALog!.tierUsed).toBe(1);
 
-    // 19. Org A sees its review outcome
+    // 22. Org A sees its review outcome
     const orgAReview = await getReviewOutcomeByDocument(orgA.id, docA.id);
     expect(orgAReview).not.toBeNull();
     expect(orgAReview!.userCorrected).toBe(true);
     expect(orgAReview!.correctionCount).toBe(1);
+
+    // 23. Org A sees its correction session and learning candidate
+    const orgASession = await getCorrectionSessionByDocument(orgA.id, docA.id);
+    expect(orgASession?.id).toBe(correctionSessionA.id);
+    const orgACandidates = await getCandidatesByCorrectionSession(
+      orgA.id,
+      correctionSessionA.id
+    );
+    expect(orgACandidates).toHaveLength(1);
+    expect(orgACandidates[0].fieldName).toBe("totalAmount");
   });
 });

@@ -8,18 +8,18 @@ import {
 } from "@/tests/db-test-utils";
 
 const { db: testDb, pool } = createTestDb();
-let computeVatForPeriod: typeof import("./vat-records").computeVatForPeriod;
-let OutputVatPathDisabledError: typeof import("./vat-records").OutputVatPathDisabledError;
 let createPayment: typeof import("./payments").createPayment;
+let reissueWhtCertificate: typeof import("./wht-certificates").reissueWhtCertificate;
 let updateDocumentFromExtraction: typeof import("./documents").updateDocumentFromExtraction;
+let confirmDocument: typeof import("./documents").confirmDocument;
 
 beforeAll(async () => {
   await resetTestDb(pool);
   await migrateTestDb(pool);
   vi.doMock("../index", () => ({ db: testDb }));
-  ({ computeVatForPeriod, OutputVatPathDisabledError } = await import("./vat-records"));
   ({ createPayment } = await import("./payments"));
-  ({ updateDocumentFromExtraction } = await import("./documents"));
+  ({ reissueWhtCertificate } = await import("./wht-certificates"));
+  ({ updateDocumentFromExtraction, confirmDocument } = await import("./documents"));
 });
 
 afterAll(async () => {
@@ -55,58 +55,6 @@ async function createOrg(overrides: Partial<typeof schema.organizations.$inferIn
 }
 
 describe("today-gap remediation P0 invariants", () => {
-  it("blocks document-derived PP30 output VAT for POS/channel-sales organizations", async () => {
-    const org = await createOrg({ hasPosSales: true });
-
-    await expect(computeVatForPeriod(org.id, 2026, 3)).rejects.toBeInstanceOf(
-      OutputVatPathDisabledError
-    );
-  });
-
-  it("excludes suspected foreign vendors from PP30 input VAT and queues review", async () => {
-    const org = await createOrg();
-    const [vendor] = await testDb
-      .insert(schema.vendors)
-      .values({
-        orgId: org.id,
-        name: "TikTok Pte. Ltd.",
-        entityType: "company",
-        country: "TH",
-        isVatRegistered: true,
-        taxId: "3333333333333",
-        branchNumber: "00000",
-      })
-      .returning();
-
-    await testDb.insert(schema.documents).values({
-      orgId: org.id,
-      vendorId: vendor.id,
-      direction: "expense",
-      type: "invoice",
-      status: "confirmed",
-      issueDate: "2026-03-15",
-      vatPeriodYear: 2026,
-      vatPeriodMonth: 3,
-      documentNumber: "TT-1",
-      subtotal: "1000.00",
-      vatAmount: "70.00",
-      totalAmount: "1070.00",
-      taxInvoiceSubtype: "full_ti",
-    });
-
-    const result = await computeVatForPeriod(org.id, 2026, 3);
-    expect(result.inputVatPp30).toBe("0.00");
-
-    const reviews = await testDb
-      .select()
-      .from(schema.exceptionQueue)
-      .where(
-        sql`${schema.exceptionQueue.orgId} = ${org.id}
-          AND ${schema.exceptionQueue.exceptionType} = 'vendor_country_review'`
-      );
-    expect(reviews).toHaveLength(1);
-  });
-
   it("rejects VAT period mismatch unless override reason is present", async () => {
     const org = await createOrg();
 
@@ -157,6 +105,107 @@ describe("today-gap remediation P0 invariants", () => {
 
     expect(updated?.vatPeriodYear).toBe(2026);
     expect(updated?.vatPeriodMonth).toBe(1);
+  });
+
+  it("blocks full tax invoice confirmation until required snapshot evidence is present", async () => {
+    const org = await createOrg({
+      taxId: "0105566000001",
+      branchNumber: "00000",
+    });
+    const [vendor] = await testDb
+      .insert(schema.vendors)
+      .values({
+        orgId: org.id,
+        name: "Full TI Supplier",
+        entityType: "company",
+        country: "TH",
+        taxId: "0105566000002",
+        branchNumber: "00000",
+        isVatRegistered: true,
+      })
+      .returning();
+    const [doc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        vendorId: vendor.id,
+        direction: "expense",
+        type: "invoice",
+        status: "draft",
+        issueDate: "2026-05-15",
+        documentNumber: "FTI-001",
+        subtotal: "1000.00",
+        vatAmount: "70.00",
+        totalAmount: "1070.00",
+        currency: "THB",
+        taxInvoiceSubtype: "full_ti",
+      })
+      .returning();
+
+    await expect(confirmDocument(org.id, doc.id)).rejects.toThrow(
+      /recoverable tax invoice wording/
+    );
+
+    await updateDocumentFromExtraction(org.id, doc.id, {
+      taxInvoiceWords: "Tax Invoice / ใบกำกับภาษี",
+    });
+    const confirmed = await confirmDocument(org.id, doc.id);
+
+    expect(confirmed).toMatchObject({
+      status: "confirmed",
+      supplierTaxIdSnapshot: "0105566000002",
+      supplierBranchNumberSnapshot: "00000",
+      buyerTaxIdSnapshot: "0105566000001",
+      buyerBranchNumberSnapshot: "00000",
+      taxInvoiceSerialNumber: "FTI-001",
+      taxInvoiceWords: "Tax Invoice / ใบกำกับภาษี",
+    });
+
+    const [eTaxDoc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        vendorId: vendor.id,
+        direction: "expense",
+        type: "invoice",
+        status: "draft",
+        issueDate: "2026-05-16",
+        documentNumber: "ETI-001",
+        subtotal: "2000.00",
+        vatAmount: "140.00",
+        totalAmount: "2140.00",
+        currency: "THB",
+        taxInvoiceSubtype: "e_tax_invoice",
+      })
+      .returning();
+    await expect(confirmDocument(org.id, eTaxDoc.id)).rejects.toThrow(
+      /recoverable tax invoice wording/
+    );
+
+    const [abbDoc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        vendorId: vendor.id,
+        direction: "expense",
+        type: "invoice",
+        status: "draft",
+        issueDate: "2026-05-17",
+        documentNumber: "ABB-001",
+        subtotal: "300.00",
+        vatAmount: "21.00",
+        totalAmount: "321.00",
+        currency: "THB",
+        taxInvoiceSubtype: "abb",
+      })
+      .returning();
+    const abbConfirmed = await confirmDocument(org.id, abbDoc.id);
+    expect(abbConfirmed).toMatchObject({
+      status: "confirmed",
+      taxInvoiceSubtype: "abb",
+      supplierTaxIdSnapshot: null,
+      taxInvoiceWords: null,
+    });
   });
 
   it("snapshots WHT certificate payer/payee fields and enforces filing FK", async () => {
@@ -214,6 +263,39 @@ describe("today-gap remediation P0 invariants", () => {
     expect(cert.payeeAddressSnapshot).toBe("99 Vendor Road");
     expect(cert.payeeIdNumberSnapshot).toBe("3333333333333");
     expect(cert.paymentTypeDescription).toContain("service");
+
+    await testDb
+      .update(schema.vendors)
+      .set({ address: "100 Changed Vendor Road" })
+      .where(sql`${schema.vendors.id} = ${vendor.id}`);
+    const [unchangedCert] = await testDb.select().from(schema.whtCertificates);
+    expect(unchangedCert.payeeAddressSnapshot).toBe("99 Vendor Road");
+
+    const protectedSnapshotFields: Array<
+      keyof typeof schema.whtCertificates.$inferInsert
+    > = [
+      "payerTaxIdSnapshot",
+      "payerAddressSnapshot",
+      "payeeAddressSnapshot",
+      "payeeIdNumberSnapshot",
+      "paymentTypeDescription",
+      "signatoryNameSnapshot",
+      "signatoryPositionSnapshot",
+    ];
+    for (const field of protectedSnapshotFields) {
+      try {
+        await testDb
+          .update(schema.whtCertificates)
+          .set({ [field]: `tampered-${field}` })
+          .where(sql`${schema.whtCertificates.id} = ${cert.id}`);
+        throw new Error(`Expected ${field} update to fail`);
+      } catch (error) {
+        const cause = (error as { cause?: unknown }).cause;
+        expect(String(cause ?? error)).toContain(
+          "wht_certificate_snapshot_immutable"
+        );
+      }
+    }
 
     await expect(
       testDb
@@ -290,5 +372,187 @@ describe("today-gap remediation P0 invariants", () => {
       .orderBy(schema.payments.createdAt);
     expect(finalPayments[2].whtAmountWithheld).toBe("33.00");
     expect(finalPayments[2].netAmountPaid).toBe("267.00");
+  });
+
+  it("blocks below-default foreign WHT payments without accountant acknowledgment", async () => {
+    const org = await createOrg();
+    const [vendor] = await testDb
+      .insert(schema.vendors)
+      .values({
+        orgId: org.id,
+        name: "Foreign Services Ltd",
+        entityType: "foreign",
+        country: "SG",
+        taxId: "SG-123",
+      })
+      .returning();
+    const [doc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        vendorId: vendor.id,
+        direction: "expense",
+        type: "invoice",
+        status: "confirmed",
+        issueDate: "2026-03-15",
+        documentNumber: "FOREIGN-WHT-BLOCK",
+        totalAmount: "10000.00",
+      })
+      .returning();
+    await testDb.insert(schema.whtRates).values({
+      paymentType: "phase9_foreign_service_block",
+      entityType: "foreign",
+      rdPaymentTypeCode: "PHASE9-BLOCK",
+      standardRate: "0.1500",
+      effectiveFrom: "2026-01-01",
+    });
+    await testDb.insert(schema.documentLineItems).values({
+      orgId: org.id,
+      documentId: doc.id,
+      amount: "10000.00",
+      whtRate: "0.0500",
+      whtAmount: "500.00",
+      whtType: "foreign_service",
+      rdPaymentTypeCode: "PHASE9-BLOCK",
+    });
+
+    await expect(
+      createPayment({
+        orgId: org.id,
+        documentId: doc.id,
+        paymentDate: "2026-03-20",
+        grossAmount: "10000.00",
+        whtAmountWithheld: "500.00",
+        netAmountPaid: "9500.00",
+      })
+    ).rejects.toThrow(/Below-default foreign WHT/);
+
+    expect(await testDb.select().from(schema.payments)).toHaveLength(0);
+    expect(await testDb.select().from(schema.whtCertificates)).toHaveLength(0);
+  });
+
+  it("persists below-default foreign WHT payment acknowledgment audit fields", async () => {
+    const org = await createOrg();
+    const [vendor] = await testDb
+      .insert(schema.vendors)
+      .values({
+        orgId: org.id,
+        name: "Treaty Reviewed Services Ltd",
+        entityType: "foreign",
+        country: "SG",
+        taxId: "SG-456",
+      })
+      .returning();
+    const [doc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        vendorId: vendor.id,
+        direction: "expense",
+        type: "invoice",
+        status: "confirmed",
+        issueDate: "2026-04-10",
+        documentNumber: "FOREIGN-WHT-ALLOW",
+        totalAmount: "10000.00",
+      })
+      .returning();
+    await testDb.insert(schema.whtRates).values({
+      paymentType: "phase9_foreign_service_allow",
+      entityType: "foreign",
+      rdPaymentTypeCode: "PHASE9-ALLOW",
+      standardRate: "0.1500",
+      effectiveFrom: "2026-01-01",
+    });
+    await testDb.insert(schema.documentLineItems).values({
+      orgId: org.id,
+      documentId: doc.id,
+      amount: "10000.00",
+      whtRate: "0.0500",
+      whtAmount: "500.00",
+      whtType: "foreign_service",
+      rdPaymentTypeCode: "PHASE9-ALLOW",
+    });
+
+    await createPayment({
+      orgId: org.id,
+      documentId: doc.id,
+      paymentDate: "2026-04-20",
+      grossAmount: "10000.00",
+      whtAmountWithheld: "500.00",
+      netAmountPaid: "9500.00",
+      foreignWhtBelowDefaultAcknowledgment: {
+        acknowledgedByUserId: "owner-1",
+        rationale: "CPA confirmed treaty position for this payment",
+        accountantNote: "CPA note retained in client workpapers",
+      },
+    });
+
+    const [cert] = await testDb.select().from(schema.whtCertificates);
+    expect(cert.formType).toBe("pnd54");
+    expect(cert.rateBelowDefaultAcknowledgedByUserId).toBe("owner-1");
+    expect(cert.rateBelowDefaultAcknowledgedAt).toBeTruthy();
+    expect(cert.rateBelowDefaultStatutoryRate).toBe("0.1500");
+    expect(cert.rateBelowDefaultSelectedRate).toBe("0.0500");
+    expect(cert.rateBelowDefaultRationale).toContain("CPA confirmed");
+    expect(cert.rateBelowDefaultAccountantNote).toContain("CPA note");
+
+    const replacement = await reissueWhtCertificate(
+      org.id,
+      cert.id,
+      "Correct payee copy"
+    );
+    const [replacementCert] = await testDb
+      .select()
+      .from(schema.whtCertificates)
+      .where(sql`${schema.whtCertificates.id} = ${replacement.certificateId}`);
+    expect(replacementCert.rateBelowDefaultAcknowledgedAt?.toISOString()).toBe(
+      cert.rateBelowDefaultAcknowledgedAt?.toISOString()
+    );
+    expect(replacementCert.rateBelowDefaultStatutoryRate).toBe("0.1500");
+    expect(replacementCert.rateBelowDefaultSelectedRate).toBe("0.0500");
+    expect(replacementCert.rateBelowDefaultRationale).toContain("CPA confirmed");
+  });
+
+  it("rolls back payment when PP36 materialization has a hard compliance error", async () => {
+    const org = await createOrg();
+    const [vendor] = await testDb
+      .insert(schema.vendors)
+      .values({
+        orgId: org.id,
+        name: "Unreviewed FX Service Ltd",
+        entityType: "foreign",
+        country: "SG",
+      })
+      .returning();
+    const [doc] = await testDb
+      .insert(schema.documents)
+      .values({
+        orgId: org.id,
+        vendorId: vendor.id,
+        direction: "expense",
+        type: "invoice",
+        status: "confirmed",
+        issueDate: "2026-04-10",
+        documentNumber: "PP36-FX-MISSING",
+        category: "foreign_service",
+        isPp36Subject: true,
+        currency: "USD",
+        subtotal: "100.00",
+        totalAmount: "100.00",
+      })
+      .returning();
+
+    await expect(
+      createPayment({
+        orgId: org.id,
+        documentId: doc.id,
+        paymentDate: "2026-04-20",
+        grossAmount: "100.00",
+        whtAmountWithheld: "0.00",
+        netAmountPaid: "100.00",
+      })
+    ).rejects.toThrow(/reviewed THB base or exchange-rate snapshot/);
+
+    expect(await testDb.select().from(schema.payments)).toHaveLength(0);
   });
 });

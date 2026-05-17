@@ -1,6 +1,6 @@
 # Phase 8 — Corrective Extraction Learning Loop
 
-**Status:** Active redesign — Tier 1/Tier 2 scaffolding exists, but dogfood showed naive exemplar prompting is insufficient
+**Status:** Active implementation — correction-session/candidate loop exists; confirmed-candidate dogfood replay shows weighted lift, deterministic party identity anchors and anchor-aware replay landed, but richer assistant and broader held-out validation remain
 **Author:** Claude Opus 4.6
 **Date:** 2026-04-15
 **Depends on:** Phase 3 (documents-ai), Phase 4 (reconciliation), Phase 7 (ai-batch-matching)
@@ -45,11 +45,37 @@ Implemented and verified in code:
 - Tier 2 consensus scaffolding exists: org reputation, consensus recompute, global exemplar pool, admin extraction-health dashboard.
 - Compiled-pattern scaffolding exists: schema, AST validator, isolated-vm runner, compiler/shadow validation jobs.
 
+## 2026-05-16 Implementation Update
+
+New Phase 8 corrective-learning slice is now implemented and verified:
+
+- Review save path records draft `extraction_correction_sessions` with optional correction note and structured `ai_interpretation`.
+- Confirming a reviewed document marks the latest correction session confirmed and emits `learning/review-confirmed`.
+- Confirmed sessions promote rule candidates to `shadow`, not active, so no unvalidated user explanation can affect future prompts.
+- `activateValidatedLearningCandidates()` is the explicit validation gate from `shadow` to `active`; it records validation evidence and audit log metadata.
+- Extraction prompt context loads only active candidates by default; shadow candidates are excluded from runtime prompt injection.
+- Tenant-isolation tests now include correction sessions and learning candidates, including write-side cross-org conflict coverage.
+- Review findings fixed: unexpected confirm errors propagate, payment + WHT + PP36 materialization are transaction-scoped, and structured candidate upserts guard against cross-org conflict updates.
+- Dogfood harness now models the confirmed-correction product loop: `seed-tier1.ts` creates synthetic extraction evidence, confirmed correction sessions, validation-backed active learning candidates, and `run-tier1.ts` injects active candidates into Tier 1 replay context.
+- Confirmed-candidate replay was run against `benchmarks/dogfood/output/2026-04-30T12-25-17-333Z`: 4 vendors seeded, 68 exemplars, 8 correction sessions, 15 active candidates, and 6/6 held-out re-extractions succeeded. Weighted accuracy improved `87.0% -> 91.2%`; raw accuracy moved `90.2% -> 89.2%`.
+
+Verified on 2026-05-16:
+
+- `pnpm tsc --noEmit`
+- `pnpm vitest run src/lib/ai/correction-interpreter.test.ts src/lib/ai/extract-document.test.ts`
+- `pnpm vitest run src/lib/db/queries/payments.test.ts src/lib/db/queries/wht-certificates.test.ts src/lib/tax/foreign-vendor-tax.test.ts src/lib/ai/correction-interpreter.test.ts src/lib/ai/extract-document.test.ts`
+- `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/extraction-correction-learning.db.test.ts src/lib/db/queries/extraction-learning-isolation.db.test.ts`
+- `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/foreign-vendor-tax.db.test.ts`
+- `pnpm test:e2e e2e/documents/review-learning.spec.ts`
+- `pnpm tsx benchmarks/dogfood/seed-tier1.ts benchmarks/dogfood/output/2026-04-17T07-05-33-418Z --org-id 95aead7c-9942-474f-b48e-2ec5b46f10c9 --dry-run`
+- Claude Companion adversarial review completed; high findings fixed in this slice.
+
 Known gaps before Phase 8 can be called complete:
 
 - **Naive Tier 1 lift is not proven.** The 2026-04-30 dogfood cycle produced only +0.5pp weighted improvement and raw-score regression. Treat this as a stop-and-redesign signal, not a ship-forward signal.
-- **No correction conversation exists.** Users can save corrected fields, but cannot explain "why" in natural language and cannot confirm AI-proposed structured rules.
-- **No structured learning artifact exists beyond field exemplars.** We need vendor/document-family correction rules with scoped applicability and provenance.
+- **UI coverage remains partial.** Users can save a correction note in the review form, and Playwright now verifies that the save creates a draft correction session. There is still no rich review-chat assistant.
+- **Broader dogfood validation still required.** Anchor-aware replay on the available held-out set improved raw `90.2% -> 96.1%` and weighted `87.0% -> 97.2%`, with Ksher `88.2% -> 95.6%` and TikTok `94.1% -> 97.1%`. The fixture still only has held-out Ksher and TikTok docs. FedEx and Photoism have only one local sample each, so they need additional samples before the 2-of-3 repeated-vendor closeout gate can be claimed.
+- **Residual regressions are narrowed but not zero.** Deterministic vendor/customer identity anchoring cleared the high-criticality `vendorTaxId` and `buyerTaxId` regressions. Current anchor-aware replay has three lower-criticality regressions: two noisy Ksher `vendorAddress` OCR/language variants and one TikTok `detectedLanguage` classification.
 - **Canonical vendor resolver is not the design from this document.** Current path is PDF text-layer `probeVendorIdentity()` plus DB lookup. This is enough for dogfood, but not the full resolver contract.
 - **Tier 3 is not product-active.** Compiled pattern code exists, but the extraction path still calls the vision model and does not execute compiled output as the primary extractor.
 - **Tier 4 remains deferred.** Do not implement Tier 4 until corrective learning proves lift and Tier 3 has a separate security pass.
@@ -58,12 +84,18 @@ Known gaps before Phase 8 can be called complete:
 
 Tier 4 stays explicitly deferred. The next task is not more prompt tuning; it is a corrective-learning slice:
 
-1. Add a correction-review model that distinguishes **field value corrections**, **natural-language explanations**, **AI-proposed rules**, and **user-confirmed final document correctness**.
-2. Add structured learning candidates scoped by org, vendor, document family, field, and confidence/provenance.
-3. Add a review-chat affordance or equivalent correction assistant: the user can say what is wrong, AI proposes field/rule updates, and the user confirms.
-4. Promote only confirmed candidates into extraction context after validation. Use private scoped rules before global consensus.
-5. Rerun dogfood with Ksher/FedEx/TikTok, measuring whether confirmed correction rules reduce subsequent corrections without causing high-criticality regressions.
-6. If corrective learning improves at least 2 of 3 repeated vendors and no high-criticality field repeatedly regresses, Phase 8 can move to Phase 2 hardening. If not, fix correction artifact design before more infrastructure.
+1. [x] Add a correction-review model that distinguishes **field value corrections**, **natural-language explanations**, **AI-proposed rules**, and **user-confirmed final document correctness**.
+2. [x] Add structured learning candidates scoped by org, vendor, document family, field, and confidence/provenance.
+3. [ ] Add a richer review-chat affordance or equivalent correction assistant beyond the current correction-note field. Current v1 correction-note save path has Playwright coverage in `e2e/documents/review-learning.spec.ts`.
+4. [x] Promote only confirmed candidates into extraction context after validation. Use private scoped rules before global consensus.
+5. [x] Rerun confirmed-candidate dogfood for the current fixture. Result: weighted lift `+4.2pp`, raw `-1.0pp`, 6 regressions remain.
+6. [x] Fix benchmark harness bugs found by Claude Companion: representative seed selection, shared seed/replay family inference, per-field hint extraction, no `field_exemplar` prompt injection, rationale sanitization, dogfood file cleanup, and tolerant `vendorCountry` parsing.
+7. [x] Rerun hardened live Tier 1 replay after reseeding and compare the new delta report. Result: weighted `87.0% -> 91.7%`, raw `90.2% -> 90.2%`, 6 regressions remain.
+8. [x] Add deterministic vendor/customer identity anchoring for bilingual Thai tax invoices before more prompt tuning. Evidence: `ExtractionContext.identityAnchor` now carries matched vendor and tenant organization names, tax IDs, branch numbers, and bilingual addresses into extraction prompts; prompt tests verify Tier 0 anchor behavior, quote-safe formatting, malformed tax/branch filtering, and injection-like value filtering. Claude Companion blocker findings around 50 Tawi buyer semantics and quote-safe anchor formatting were fixed.
+9. [x] Rerun anchor-aware held-out replay for the existing fixture. Result: `benchmarks/dogfood/output/2026-04-30T12-25-17-333Z`; 6/6 Tier 1 re-extractions succeeded, raw `90.2% -> 96.1%`, weighted `87.0% -> 97.2%`, Ksher `88.2% -> 95.6%`, TikTok `94.1% -> 97.1%`.
+10. [x] Mark the broader FedEx/Photoism held-out closeout gate data-blocked. Current local corpus has only one FedEx and one Photoism sample, so the 2-of-3 repeated-vendor validation gate cannot be proven from local data.
+11. [ ] Add more FedEx/Photoism held-out samples when available, then rerun the repeated-vendor validation gate.
+12. [ ] If corrective learning improves at least 2 of 3 repeated vendors and no high-criticality field repeatedly regresses, Phase 8 can move to Phase 2 hardening. If not, fix correction artifact design before more infrastructure.
 
 ## Review history
 

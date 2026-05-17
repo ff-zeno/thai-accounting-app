@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Force disabled mode for tests (no isolated-vm dependency needed)
 vi.stubEnv("SANDBOX_MODE", "disabled");

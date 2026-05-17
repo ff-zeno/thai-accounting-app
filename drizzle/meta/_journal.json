@@ -211,6 +211,300 @@
       "when": 1778496000000,
       "tag": "0029_extraction_correction_learning",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1778582400000,
+      "tag": "0030_vat_operations_ledger_dark_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1778668800000,
+      "tag": "0031_vat_operations_ledger_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1778755200000,
+      "tag": "0032_vat_operations_ledger_immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1778841600000,
+      "tag": "0033_drop_legacy_vat_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1778928000000,
+      "tag": "0034_vat_ledger_cutover_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1779014400000,
+      "tag": "0035_gl_primitives",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779100800000,
+      "tag": "0036_pos_sales_ledger_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779187200000,
+      "tag": "0037_imports_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1779273600000,
+      "tag": "0038_inventory_cogs_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1779360000000,
+      "tag": "0039_payroll_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1779446400000,
+      "tag": "0040_fixed_assets_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1779532800000,
+      "tag": "0041_fixed_asset_tax_life_source_correction",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1779619200000,
+      "tag": "0042_phase14_analytics_close_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1779705600000,
+      "tag": "0043_cit_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1779792000000,
+      "tag": "0044_copilot_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1779878400000,
+      "tag": "0045_phase14_close_closed_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1779964800000,
+      "tag": "0046_phase14_allocation_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1780051200000,
+      "tag": "0047_transfer_pricing_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780137600000,
+      "tag": "0048_cit_loss_consumption_payload",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1780224000000,
+      "tag": "0049_transfer_pricing_disclosures",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1780310400000,
+      "tag": "0050_cit_filing_uniqueness_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1780396800000,
+      "tag": "0051_full_tax_invoice_confirmation_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1780483200000,
+      "tag": "0052_wht_certificate_snapshot_immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1780569600000,
+      "tag": "0053_wht_certificate_received_document_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1780656000000,
+      "tag": "0054_wht_credit_received_document_uniqueness",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1780742400000,
+      "tag": "0055_posting_outbox_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1780828800000,
+      "tag": "0056_posting_outbox_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1780915200000,
+      "tag": "0057_import_payments_bank_transaction_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1781001600000,
+      "tag": "0058_inventory_document_purchase_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1781088000000,
+      "tag": "0059_payroll_salary_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1781174400000,
+      "tag": "0060_allocation_rule_source_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1781260800000,
+      "tag": "0061_copilot_ai_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1781347200000,
+      "tag": "0062_posting_outbox_posting_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1781433600000,
+      "tag": "0063_posting_kind_enum",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1781520000000,
+      "tag": "0064_fixed_asset_disposal_posting_enums",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1781606400000,
+      "tag": "0065_audit_log_read_pii_action",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1781692800000,
+      "tag": "0066_fixed_asset_depreciation_outbox_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1781779200000,
+      "tag": "0067_fixed_asset_depreciation_period_requeue",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1781865600000,
+      "tag": "0068_sku_reorder_point",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1781952000000,
+      "tag": "0069_sso_filings_paid_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1782038400000,
+      "tag": "0070_vat_input_full_tax_invoice_claimable",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1782124800000,
+      "tag": "0071_journal_entries_active_source_unique",
+      "breakpoints": true
     }
   ]
 }

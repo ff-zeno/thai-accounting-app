@@ -18,9 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { ConfidenceBadge } from "@/components/reconciliation/confidence-badge";
-import { getSimplifiedExplanation, getLayerLabel } from "@/lib/reconciliation/match-display";
+import { getSimplifiedExplanation } from "@/lib/reconciliation/match-display";
 import type { MatchMetadata } from "@/lib/reconciliation/matcher";
 import { toast } from "sonner";
 import { getReconciliationDashboardData } from "./actions";

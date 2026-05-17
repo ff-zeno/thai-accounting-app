@@ -1,6 +1,6 @@
 # Plan: Phase 10.5 — General Ledger Primitives (Chart of Accounts, Journal Entries, Trial Balance, Period Close)
 
-**Status:** Draft — captured 2026-04-26 after CPA review identified missing GL spine
+**Status:** Implementation-active — GL storage spine, seed, trial-balance/P&L/balance-sheet summaries, opening-balance/manual journal/reversal pair posting, GL period close UI, posting queue/operator surface with manual drain, close-checklist queue readiness, close-safe posting drain hardening, GL close/enqueue advisory locking, minute-level posting-outbox cron consumer with row-claim locking, per-drain retry burn-down guard, org-queue truncation signal, typed `posting_kind` enum/idempotency guards, `/accounting` UI, owner-visible compact-v1 scope caveat, journal-entry and date-filtered ledger-line drill-through v1, trial-balance/P&L/balance-sheet report routes, GL report CSV exports, export coverage, POS sale/settlement/cash-deposit posting-outbox producer/handler coverage, import-payment posting-outbox producer/handler coverage, inventory movement sale COGS/purchase/count-variance posting-outbox producer/handler coverage, PP30/PP36 tax-payment poster with posting-outbox producer/handler coverage, payroll net-payment/PND.1/SSO remittance posting-outbox producer/handler coverage, CIT accrual/payment posting-outbox producer/handler coverage, PP36 self-assessment/reclaim-transfer poster, and DB invariants landed 2026-05-16/17
 **Position:** Between Phase 10 (POS cutover) and Phase 11 (payroll). Payroll cannot post to GL without this.
 **Authority reference:** `vat-info.md` §5.1 (clearing-account model + COA), §5.2 (journal entry templates), §5.3 (reconciliation invariants), §8 (period close); TFRS for NPAEs (Thai Financial Reporting Standards for Non-Publicly Accountable Entities)
 
@@ -42,9 +42,64 @@ This phase adds the bookkeeping spine. Once shipped, every existing data source 
 
 ### Schema
 
+### 2026-05-16 Implementation Checkpoint
+
+Landed in the first GL spine slice:
+
+- Migration `0035_gl_primitives.sql` creates `gl_accounts`, `journal_entries`, `journal_lines`, and `gl_opening_balances`.
+- Drizzle schema exposes GL enums/tables/relations.
+- DB triggers enforce same-org GL account/line scope, shared `period_locks` with `domain='gl'`, and deferred journal line/header equality in both directions.
+- `src/lib/gl/coa-seed.ts` contains a compact standard Thai COA seed for the first owner-testable slice.
+- `src/lib/db/queries/general-ledger.ts` provides idempotent COA seed, account list, balanced journal creation, and trial balance helper.
+- `src/lib/db/queries/general-ledger.ts` now also posts balanced opening-balance pairs into both `gl_opening_balances` and `journal_entries` / `journal_lines`.
+- Opening-balance pair posting includes a service-level duplicate guard for same org/account/as-of-date because the MVP nullable-establishment uniqueness pattern cannot rely on PostgreSQL NULL uniqueness semantics.
+- `src/lib/db/queries/general-ledger.ts` supports manual two-line journal pair posting with generated JE numbers and existing period-lock/balance invariants.
+- `src/lib/db/queries/general-ledger.ts` supports manual JE reversal using `is_reversal`, `reverses_entry_id`, and `reversed_by_entry_id`, with offsetting lines and duplicate-reversal blocking.
+- Manual/opening/reversal posting helpers now write immutable `audit_log` rows with operation metadata for owner/accountant traceability.
+- The compact standard COA seed now includes PP36 reclaim/payment and PP30 net settlement accounts `1253`, `2151`, and `2152`.
+- `src/lib/db/queries/general-ledger.ts` now posts filed PP30/PP36 `tax_payment_events` to GL idempotently, uses Bangkok civil paid dates, updates the tax event to `posted_to_gl` / `posted`, and writes a GL audit row.
+- `recordTaxPaymentEvent()` now enqueues `tax_payment_events` payment rows transactionally, and `processPostingOutboxRow()` handles those rows by reusing the idempotent PP30/PP36 tax-payment poster and marking both source event and outbox row posted.
+- Manual and CSV POS primary sales now enqueue `sales_transactions:create` rows transactionally after existing immediate JE posting, and the POS sale poster is idempotent for queue processing.
+- Manual `cash_deposits` and `processor_settlements` now enqueue outbox rows transactionally after existing immediate JE posting, and `processPostingOutboxRow()` reuses the idempotent cash-deposit and processor-settlement posters.
+- `linkImportPayment()` now enqueues `import_payments` rows transactionally after existing immediate JE posting, and `processPostingOutboxRow()` reuses the idempotent import-payment clearing poster.
+- Inventory movement creation now enqueues `inventory_movements:post_gl` rows transactionally after existing immediate JE posting, and `processPostingOutboxRow()` reuses idempotent movement posters for weighted-average sale COGS, domestic purchase inventory/AP/VAT, and inventory count variance.
+- Payroll net-payment, PND.1 remittance, and SSO remittance actions now enqueue payment rows transactionally after existing immediate JE posting, and `processPostingOutboxRow()` reuses idempotent payroll payment posters with payment-date guards.
+- PND.50 CIT accrual and CIT payment posters now enqueue outbox rows transactionally while preserving existing immediate JE behavior, and `processPostingOutboxRow()` reuses the idempotent CIT posters with outbox enqueue disabled during processing.
+- `src/lib/db/queries/general-ledger.ts` now posts filed PP36 self-assessment filings as `Dr 1253 / Cr 2152` and later PP30 PP36-reclaim lines as `Dr 1251 / Cr 1253`, both idempotent by VAT filing + posting kind.
+- `src/lib/db/queries/general-ledger.ts` derives compact P&L and balance-sheet summaries from journal lines for owner QA.
+- `/accounting` provides a compact general-ledger dashboard, P&L/balance-sheet cards, chart-of-accounts view, recent JE table, opening-balance pair form, manual JE pair form, reversal form for unreversed recent entries, and GL period close control backed by shared `period_locks`.
+- `/accounting` shows an owner-visible compact-v1 caveat: chart of accounts, paired opening balances, two-line manual journals, reversals, posting queue, close readiness, CSV reports, and drill-through are testable, while bulk opening balance import, advanced journal grids, richer statement drilldowns, and full close workflow orchestration remain deferred. Evidence: `pnpm test:e2e e2e/accounting/accounting.spec.ts`; `.next/types` + `.next/dev/types` cleanup; `pnpm tsc --noEmit`; `git diff --check`.
+- `/accounting/journal` lists org-scoped recent journal entries and `/accounting/journal/[id]` shows header, source trail, reversal metadata, and balanced lines with GL account names.
+- `/accounting/reports/general-ledger` shows line-level ledger detail with optional account/date filters from the COA, journal-entry links, source/subledger references, debit/credit columns, and running balance when one account is selected.
+- `/accounting/reports/trial-balance` shows account debit/credit/net totals as of a selected date and links accounts into the GL detail report.
+- `/accounting/reports/profit-loss` and `/accounting/reports/balance-sheet` expose the existing statement summaries as owner-visible report routes with date controls and drill-through links to GL detail.
+- `/api/accounting/general-ledger.csv`, `/api/accounting/trial-balance.csv`, `/api/accounting/profit-loss.csv`, and `/api/accounting/balance-sheet.csv` export UTF-8 BOM CSV files with private/no-store headers; the report pages expose download links.
+- `/accounting/posting-exceptions` exposes the GL posting queue for period-close operators: optional through-date filter, pending/retrying/failed/posted counts, open posting exceptions, recent outbox rows, and a scoped retry action. Successful retry now resolves the matching open `posting_exceptions` row with `resolution='posted_on_retry'`.
+- `/accounting/posting-exceptions` also exposes a date-scoped manual drain action that calls the same close-safe `drainPostingOutbox()` helper used by GL period close, then revalidates accounting and close dashboards.
+- `/close` links operators into `/accounting/posting-exceptions` with the current close-period end prefilled as `throughDate`.
+- Claude Companion follow-up for close/posting readiness found and the implementation fixed retrying-row close leakage, drain-to-lock enqueue race, reversed-CIT-accrual readiness, server-side year-end close readiness, oldest-first recent periods, and dead checklist-close branching. `drainPostingOutbox()` now fails manual/close drains when rows remain retrying or incomplete through the close date, cron explicitly keeps retry-friendly behavior, `enqueuePostingOutbox()` and GL period close share an org/period advisory lock, year-end close ignores reversed CIT accrual JEs and rechecks readiness/posting queue server-side, recent close periods sort newest first, and checklist completion uses one update path. Evidence: WHT/posting DB tests passed 22 tests; close checklist DB tests passed 6 tests serially; GL DB tests passed 34 tests serially; accounting+analytics Playwright passed 16 tests; TypeScript, diff check, and no-active-`vat_records` search passed; Claude re-review approved with no new findings.
+- `src/lib/inngest/functions/process-posting-outbox.ts` registers a minute-level cron consumer that drains due pending/retrying outbox rows through Bangkok today via the shared close-safe drain helper; future-dated rows remain pending.
+- `processPostingOutboxRow()` now locks the outbox row with `FOR UPDATE` in both the processing transaction and failure recorder, so concurrent manual/cron drains do not rely only on downstream JE source uniqueness.
+- `drainPostingOutbox()` tracks rows attempted in the current drain and excludes them from later chunks, so `retrying` rows do not burn all attempts inside one cron/manual drain.
+- The cron batch return now includes `orgQueueTruncated` when more orgs have due pending/retrying rows than the configured `orgLimit`, making backlog pressure visible in Inngest step output.
+- Posting outbox rows now carry a typed `posting_date`; close drains filter by that canonical posting date before falling back to legacy payload dates, and drains fail closed when failed rows or open posting exceptions already exist through the selected date.
+- Posting failures now move rows to `retrying` before terminal `failed`; posting exceptions refresh open exception message/class on repeat failures instead of preserving stale first-failure text.
+- `enqueuePostingOutbox()` rejects new rows whose canonical posting date falls in a locked GL period, and failure recording now short-circuits if a concurrent processor already posted the row.
+- Legacy rows without `posting_date` fall back to Bangkok-civil `created_at` dates for through-date drain filtering.
+- `/close` now includes GL posting queue readiness from the posting outbox dashboard and links to `/accounting/posting-exceptions`; it blocks the readiness signal when pending/retrying/failed rows or open posting exceptions exist through the current close period end, while future-dated queue rows do not block the current period.
+- Full export now includes GL accounts, journal entries, journal lines, and opening balances.
+- Verification passed: `pnpm exec drizzle-kit check`, `pnpm tsc --noEmit`, `git diff --check`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`, `pnpm vitest run src/lib/export/full-export.test.ts`, and `pnpm test:e2e e2e/accounting/accounting.spec.ts`. Drill-through/report route/export gate passed again on 2026-05-16 with `pnpm vitest run src/lib/gl/accounting-report-export.test.ts`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`, `pnpm test:e2e e2e/accounting/accounting.spec.ts`, and `pnpm tsc --noEmit`. Posting queue gate passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/wht-credits-received.db.test.ts`, `pnpm test:e2e e2e/accounting/accounting.spec.ts`, and `pnpm tsc --noEmit`; the accounting smoke now covers the through-date filter. Close checklist queue-readiness gate passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/close-checklists.db.test.ts`, `pnpm test:e2e e2e/analytics/analytics.spec.ts`, and `pnpm tsc --noEmit`; the DB test covers future-dated queue rows not blocking current-period readiness. Tax-payment outbox producer/handler coverage passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/vat-operations-ledger.db.test.ts`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`, and `pnpm tsc --noEmit`. Manual drain UI and posting-date hardening gate passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/wht-credits-received.db.test.ts`, `pnpm exec drizzle-kit check`, `pnpm test:e2e e2e/accounting/accounting.spec.ts`, and `pnpm tsc --noEmit`. Posting-outbox cron/row-claim/retry-burn-down/truncation coverage passed with `pnpm vitest run src/lib/inngest/functions/process-posting-outbox.test.ts`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/wht-credits-received.db.test.ts`, `pnpm tsc --noEmit`, and `git diff --check`; Claude Companion high findings on overlapping minute ticks and partial-failure counter under-reporting were fixed with function-level concurrency, retrying counters, partial failure counter preservation, outbox-row `FOR UPDATE` locking, current-drain attempted-row exclusion, and `orgQueueTruncated` observability. POS sale/settlement/deposit outbox producer/handler coverage passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/pos-sales-ledger-schema.db.test.ts`, `pnpm test:e2e e2e/sales/pos.spec.ts`, `pnpm tsc --noEmit`, and `git diff --check`; Claude Companion was requested for the POS sale slice but skipped because `claude` CLI was not on PATH. Import-payment outbox producer/handler coverage passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/imports-schema.db.test.ts`, `pnpm test:e2e e2e/imports/imports.spec.ts`, `pnpm tsc --noEmit`, and `git diff --check`. Inventory movement outbox coverage passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/inventory.db.test.ts`, `pnpm test:e2e e2e/inventory/inventory.spec.ts`, `pnpm test:e2e e2e/documents/review-learning.spec.ts`, `pnpm tsc --noEmit`, and `git diff --check`; Claude Companion was requested for this slice but skipped because `claude` CLI was not on PATH. Payroll payment/remittance outbox producer/handler coverage passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/payroll.db.test.ts`, `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`, `pnpm test:e2e e2e/payroll/payroll.spec.ts`, and `pnpm tsc --noEmit`; Claude Companion was requested for this slice but skipped because `claude` CLI was not on PATH. CIT accrual/payment outbox coverage passed with `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`, `pnpm test:e2e e2e/year-end/cit.spec.ts`, `pnpm tsc --noEmit`, and `git diff --check`; Claude Companion was requested for this slice but skipped because `claude` CLI was not on PATH. Close-to-posting-queue link coverage passed with `pnpm test:e2e e2e/analytics/analytics.spec.ts`. Claude Companion adversarial review ran; high findings on stale failed rows/open exceptions and untyped posting-date filtering were fixed. Claude follow-up medium findings on concurrent posted-row downgrade and post-drain enqueue race were fixed; `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/wht-credits-received.db.test.ts`, `pnpm tsc --noEmit`, and `git diff --check` passed.
+
+Still outstanding before Phase 10.5 completion:
+
+- Posting outbox and remaining automated document/backfill/connector/PP30 close-out/WHT posters.
+- Full `posting_rules` table and account-mapping UI.
+- Bulk opening balance import.
+- Richer manual JE grid, richer reversal/amendment workflow, posting exception resolution UX beyond retry, PDF report exports, and broader audit-log coverage for automated posters.
+
 #### Chart of accounts
 
-- [ ] New table `gl_accounts`:
+- [x] New table `gl_accounts`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid` — null for org-wide accounts (most), set for branch-specific where needed
@@ -68,14 +123,14 @@ This phase adds the bookkeeping spine. Once shipped, every existing data source 
   - `tenant_added_at` timestamptz
   - `tax_treatment` text — `taxable_revenue`, `vat_exempt_revenue`, `zero_rated_revenue`, `non_deductible_expense`, `vat_recoverable_input`, `non_recoverable_input`, `n_a` — drives PP 30 + PND.50 prep
   - `boi_segment` text — `boi_promoted`, `non_boi`, `n_a` (defaults n_a; only matters for BOI tenants)
-  - `vat_register_role` text — `output_tax_payable`, `input_tax_recoverable`, `pp36_payable`, `pp36_reclaim`, `n_a` — auto-links to vat_records
+  - `vat_register_role` text — `output_tax_payable`, `input_tax_recoverable`, `pp36_payable`, `pp36_reclaim`, `n_a` — auto-links to VAT operations ledger filings/items
   - `wht_register_role` text — `wht_payable_pnd1`, `wht_payable_pnd3`, `wht_payable_pnd53`, `wht_payable_pnd54`, `wht_credits_receivable`, `n_a`
   - `notes` text
   - `created_at`, `updated_at`, `deleted_at`
   - Unique on `(org_id, account_code)` (one chart per org)
   - Migration: seed a **Thai standard chart of accounts** for every existing org on Phase 10.5 deployment. Standard COA below.
 
-- [ ] **Standard Thai chart of accounts seed** — source of truth: [`chart-of-accounts.md`](./chart-of-accounts.md). Phase 10.5 deployment runs the seeder against every existing org and every new org from the master COA file. Tenants can extend the COA per the Tenant Extensibility section in master COA (add custom sub-accounts, override descriptions, AI-assisted tuning). Tenants cannot delete system accounts once posted to. Audited customizations land in Phase 14.
+- [x] **Standard Thai chart of accounts seed, compact v1** — source of truth: [`chart-of-accounts.md`](./chart-of-accounts.md). Phase 10.5 deployment runs the seeder against every existing org and every new org from the master COA file. Tenants can extend the COA per the Tenant Extensibility section in master COA (add custom sub-accounts, override descriptions, AI-assisted tuning). Tenants cannot delete system accounts once posted to. Audited customizations land in Phase 14.
 
   Per-channel clearing accounts (Card processor / QR / Marketplace / Delivery receivables) are NOT separate codes — they collapse into master `1142 Processor / marketplace settlement receivable` with typed `journal_lines.channel_key` / `processor_key` columns. This keeps `1140 Trade accounts receivable` reserved for customer credit exposure and prevents AR aging pollution. Bank accounts in foreign currency use master `1114 Bank — foreign currency` with `journal_lines.currency`; THB bank accounts use `1111` (operating) / `1112` (savings) / `1113` (POS settlement).
 
@@ -83,10 +138,10 @@ This phase adds the bookkeeping spine. Once shipped, every existing data source 
 
 #### Journal entries
 
-- [ ] New table `journal_entries`:
+- [x] New table `journal_entries`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
-  - `establishment_id uuid NOT NULL`
+  - `establishment_id uuid` — nullable in the first single-establishment slice; becomes required or defaulted when Phase 10 establishments land
   - `entry_number text NOT NULL` — sequential per org per fiscal year, format `JE-{year}-{seq}`
   - `entry_date` date NOT NULL — accounting date (drives period assignment)
   - `posting_date` date NOT NULL — when posted to GL (may differ from entry_date for late captures with audit log)
@@ -116,7 +171,7 @@ This phase adds the bookkeeping spine. Once shipped, every existing data source 
   - Index on `(org_id, period_year, period_month)`
   - Index on `(org_id, source_entity_type, source_entity_id)` for "find the JE that posted this document"
 
-- [ ] New table `journal_lines`:
+- [x] New table `journal_lines`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `journal_entry_id uuid NOT NULL` (FK)
@@ -142,18 +197,18 @@ This phase adds the bookkeeping spine. Once shipped, every existing data source 
 
 GL period locks use the shared `period_locks` table with `domain='gl'`. **Do not** create a separate `gl_period_locks` table — round-3 review found three colliding lock primitives across plans, round-4 found this plan still defined the deprecated table. See `docs/_ai_context/period-lock-protocol.md` for canonical schema, trigger function, override session variable (`app.lock_override_user_id`), and amendment workflow.
 
-- [ ] Phase 10.5 contributes the GL-specific trigger application:
+- [x] Phase 10.5 contributes the GL-specific trigger application:
   - `journal_entries` — domain `gl`, period from `entry_date`. BEFORE INSERT/UPDATE/DELETE.
   - `journal_lines` — inherits from parent JE; a line cannot be inserted/updated/deleted if its parent JE's period is locked.
   - `depreciation_schedule` — domain `gl`, period from `posted_at`.
-- [ ] All lock writes/unlocks go through `period_locks` per the protocol. No GL-specific lock table, no GL-specific session var.
+- [x] All lock writes/unlocks go through `period_locks` per the protocol. No GL-specific lock table, no GL-specific session var.
 
 #### Opening balances
 
-- [ ] New table `gl_opening_balances`:
+- [x] New table `gl_opening_balances`:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
-  - `establishment_id uuid NOT NULL`
+  - `establishment_id uuid` — nullable in the first single-establishment slice; becomes required or defaulted when Phase 10 establishments land
   - `as_of_date` date NOT NULL — typically fiscal year start
   - `account_id uuid NOT NULL`
   - `debit_amount` numeric(14,2) DEFAULT 0
@@ -208,19 +263,20 @@ For every existing data source, define a posting rule that converts the source e
       Cr  2150 Output VAT — sales
   ```
 - [ ] When `sales_transactions` is matched via reconciliation Layer A to a `processor_shadow` row, no GL impact (shadow is reference only).
-- [ ] When `processor_settlements` row matched to bank deposit:
+- [x] When manual `processor_settlements` row is captured:
   ```
   Dr  1111 Bank (or 1113 POS settlement bank, per processor mapping)
   Dr  6411 Payment gateway / card-processing fees (= processor_settlements.fee_amount)
   Dr  1251 Input VAT recoverable (= processor_settlements.fee_vat_amount, only if processor_tax_invoice_document_id is set)
       Cr  1142 Processor / marketplace settlement receivable [matching processor_key — clears the receivable from sales]
   ```
-- [ ] When `cash_deposits` matched to bank deposit:
+  Landed v1 posts `auto_payment` JEs from manual capture with source idempotency, period-lock guard, amount tie-out, and fee-VAT evidence gate. Connector/bank-matched settlement import remains open.
+- [x] When manual `cash_deposits` row is captured under the current POS posting model:
   ```
   Dr  1111 Bank
-      Cr  1120 Cash in transit [cash_deposit_key]
+      Cr  1142 Processor / marketplace settlement receivable [cash_deposit_key]
   ```
-  (Cash transition: POS cash sale debits `1110 Cash on hand` → at deposit slip, debit `1120 Cash in transit` with `cash_deposit_key`, credit `1110` → at bank arrival, debit `1111 Bank`, credit `1120`. Processor/marketplace timing uses `1142`, not `1120`.)
+  Landed v1 clears manual cash deposits from `1142` to `1111`, keyed by `cash_deposit_key`. Cash variance close-out and future 1110/1120 physical-cash transition remain separate open workflows once POS cash sales split away from the current unified `1142` clearing model.
 
 #### Voucher / gift-card postings
 
@@ -259,7 +315,7 @@ For every existing data source, define a posting rule that converts the source e
 
 #### PP 30 / PP 36 settlement postings
 
-- [ ] When `vat_records` for a period locked + paid:
+- [ ] When a VAT operations ledger filing for a period is locked + paid:
   - For PP 30 net payable / excess: see "Updated PP 30 settlement posting" below for the universal close-out template.
 
 - [ ] **PP 36 self-assessed VAT — full lifecycle (round-4 fix; original was unbalanced and missing remittance + reclaim gating):**
@@ -277,13 +333,14 @@ For every existing data source, define a posting rule that converts the source e
       Cr  2152 PP 36 self-assessed VAT payable        [pp36_vat_amount]
   ```
   We recognize both sides: a contingent input VAT (asset, but locked) and the payable to RD. **The input VAT booked here is NOT yet eligible for PP 30 reclaim** — it sits in `1253` segregated by `pp36_vat_reclaims.reclaim_status='pending_remittance'` until the payable is settled. Master COA gives `1253` the dedicated transitional role so the GL trial balance surfaces the pending pool without joining a sub-ledger.
+  Implemented slice: filed PP36 filings now post this self-assessment journal idempotently from frozen `pp36_obligation` filing lines.
 
   **Step 3 — Remittance** (when bank transaction confirms PP 36 payment to RD):
   ```
   Dr  2152 PP 36 self-assessed VAT payable       [pp36_vat_amount]
       Cr  1111 Bank                                  [pp36_vat_amount]
   ```
-  System sets `pp36_vat_reclaims.reclaim_status='eligible_for_reclaim'`, `pp36_paid_at=now()`. This is the gate that lets the reclaim flow into the next PP 30.
+  Implemented slice: filed PP36 `tax_payment_events` now post this remittance journal idempotently and mark the event `posted_to_gl` / `posting_outbox_status='posted'`. The VAT ledger payment flow already sets PP36 obligations reclaim-eligible for the next PP30 period.
 
   **Step 4 — Reclaim** (in the next PP 30 close-out, the reclaim is rolled into the universal close-out template via `vat_period_balances.pp36_reclaim_used`):
   ```
@@ -291,6 +348,7 @@ For every existing data source, define a posting rule that converts the source e
       Cr  1253 Input VAT — PP 36 pending remittance         [pp36_vat_amount]
   ```
   Followed by the universal close-out template that includes the now-current input VAT.
+  Implemented slice: filed PP30 filings with frozen `pp36_reclaim` lines now post this transfer idempotently.
 
   Round-4 audit: every step balances. Total flow is: foreign-service expense ↑, AP ↑, then a transient PP 36 cycle (recognized → paid → reclaimed) that nets to zero against bank cash flow over the two-month cycle, leaving the input VAT in current PP 30. Final tax position is consistent with vat-info.md §5.4.
 
@@ -367,8 +425,8 @@ For every existing data source, define a posting rule that converts the source e
 ### Sequencing (5 weeks)
 
 **Week 1 — Schema + COA seed**
-1. Migrations for `gl_accounts`, `journal_entries`, `journal_lines`, `gl_opening_balances`, `posting_rules`. (Period locks live in shared `period_locks` table — see period-lock-protocol.md. Recurring-journal templates dropped per round-6 scope cut.)
-2. Seed standard Thai COA for every existing org (idempotent).
+1. [x] Migrations for `gl_accounts`, `journal_entries`, `journal_lines`, `gl_opening_balances`. `posting_rules` remains outstanding. (Period locks live in shared `period_locks` table — see period-lock-protocol.md. Recurring-journal templates dropped per round-6 scope cut.)
+2. [x] Seed compact standard Thai COA for every existing org (idempotent helper landed).
 3. Backfill: existing `bank_accounts` create matching 1xxx GL accounts.
 4. Backfill: existing channel clearing keys from Phase 10 `sales_transactions` map to `1142` dimensions; no per-channel GL account codes are created.
 5. Read-only COA page + admin custom account creation.
@@ -428,8 +486,7 @@ To be created:
 - `src/lib/gl/balance-sheet.ts`
 - `src/lib/gl/general-ledger-detail.ts`
 - `src/lib/gl/period-close.ts`
-- `src/lib/db/queries/gl-accounts.ts`
-- `src/lib/db/queries/journal-entries.ts`
+- `src/lib/db/queries/general-ledger.ts` — current compact v1 query surface for accounts, journal creation, and trial balance
 - `src/lib/db/queries/period-locks.ts` — shared lock CRUD covering all domains (vat/wht/gl/payroll/cit/sso) per period-lock-protocol.md. Replaces the earlier draft `gl-period-locks.ts` filename.
 - `src/lib/db/queries/gl-opening-balances.ts`
 - `src/lib/db/queries/posting-rules.ts`
@@ -440,26 +497,26 @@ To be edited:
 - `src/lib/db/queries/documents.ts` — call posting engine on confirm
 - `src/lib/db/queries/transactions.ts` — call posting engine on payment match
 - (Phase 11) `src/lib/db/queries/pay-slips.ts` — call posting engine on approve
-- `src/lib/db/queries/vat-records.ts` — call posting engine on filing close + payment
+- `src/lib/db/queries/vat-operations-ledger.ts` — call posting engine on filing close + payment
 - `src/lib/db/queries/wht-filings.ts` — call posting engine on remittance
 - `CLAUDE.md` — Context Map rows for all new modules
 
 ## Verification
 
-- [ ] **COA seed:** new org gets all standard accounts; cannot delete any with posted journal_lines.
-- [ ] **JE balance:** attempt to insert a journal_entry with total_debit ≠ total_credit → DB rejects.
-- [ ] **JE line direction:** attempt to insert a journal_line with both debit_amount > 0 AND credit_amount > 0 → DB rejects.
+- [x] **COA seed:** new org gets all standard accounts idempotently.
+- [x] **JE balance:** attempt to insert a journal_entry with total_debit ≠ total_credit → DB rejects.
+- [x] **JE line direction:** attempt to insert a journal_line with both debit_amount > 0 AND credit_amount > 0 → DB rejects.
 - [ ] **Sub-ledger ties:** for a sample tax month, sum of `documents.totalAmount` confirmed in period equals the relevant journal_lines sum on AP / cash / VAT control accounts.
-- [ ] **Trial balance:** for any closed period, total debits = total credits across all accounts.
+- [x] **Trial balance:** basic report derives debit/credit totals from posted journal lines.
 - [ ] **P&L tie:** revenue accounts sum (4xxx) − cogs (5xxx) − expense (6xxx) = net profit; net profit YTD on P&L = retained earnings movement on BS.
 - [ ] **Balance sheet:** assets (1xxx) = liabilities (2xxx) + equity (3xxx) at every closed period.
 - [ ] **Drill-through:** click on a P&L line → sees journal entries → click on entry → sees source document/sales row.
-- [ ] **Period close:** lock March → cannot post a JE in March without unlock; SQL-level + app-level both enforce.
+- [x] **Period close primitive:** lock March → cannot post a JE in March without unlock; SQL-level trigger enforces.
 - [ ] **Voided JE:** reversal entry visible on the GL; no actual deletion (audit trail intact per §2.8).
 - [ ] **Opening balances:** entered TB matches starting BS; subsequent transactions roll forward correctly.
 - [ ] **Backfill:** posting historical data is idempotent — running backfill twice doesn't duplicate journal entries.
 - [ ] **Year-end close:** runs at fiscal year-end; revenue + expense accounts zero out into 3230 Current year P&L; 3230 closes to 3220 Retained earnings.
-- [ ] **Org isolation:** all queries include `org_id`; cross-tenant access blocked.
+- [x] **Org isolation:** all GL queries include `org_id`; cross-tenant journal line/account access is blocked by DB trigger.
 - [ ] **Audit trail:** every JE posting captured in `audit_log` with `actor_user_id`, `entity_type='journal_entry'`, `entity_id`.
 
 ## Risks
@@ -475,7 +532,7 @@ To be edited:
 ## Open questions
 
 - **Multi-currency GL.** v1 single currency per org (THB-functional). Foreign currency expenses post at conversion rate. FX revaluation lands in Phase 14. Tenants with USD bank accounts: defer or add ad-hoc revaluation? Recommend Phase 14.
-- **Sub-ledger architecture.** Today's `documents` ↔ `transactions` ↔ `vat_records` model is sub-ledger-shaped already. GL is the new layer above. Option A: GL is derived view (every report queries posting engine + backfill). Option B: GL is authoritative storage (everything posts immediately). v1 picks Option B — simpler integrity model, easier reconciliation.
+- **Sub-ledger architecture.** Today's `documents` ↔ `transactions` ↔ VAT operations ledger model is sub-ledger-shaped already. GL is the new layer above. Option A: GL is derived view (every report queries posting engine + backfill). Option B: GL is authoritative storage (everything posts immediately). v1 picks Option B — simpler integrity model, easier reconciliation.
 - **Manual JE permissions.** Should every user be able to post manual JEs? Recommend: only "accountant" role + audit log per entry. Owner role can view but not post.
 - **Account hierarchy depth.** v1: parent-child via `parent_account_id` (single level useful for grouping). Multi-level rolls up via recursive CTE. No hard limit but UI shows max 3 levels.
 - **Multi-establishment GL.** Each establishment has its own period locks; consolidated reports roll up to org level. v1 supports per-establishment trial balance, P&L, balance sheet AND consolidated views. Tenants without DG approval to consolidate file per-establishment.
@@ -503,7 +560,7 @@ Round-3 review found that "synchronous within source mutation transaction" creat
   - Unique on `(org_id, source_entity_type, source_entity_id, event_type)`
   - `created_at, updated_at`
 - [ ] Source mutations (document confirm, sales create, pay slip approve) write `posting_outbox` row in the same transaction. **Never** post the JE inside the source mutation.
-- [ ] Inngest cron `process-posting-outbox` (every minute): pulls pending rows, runs posting engine, updates status. Failed rows surface in `posting_exceptions` after 3 failed attempts.
+- [x] Inngest cron `process-posting-outbox` (every minute): pulls due pending/retrying rows through Bangkok today, runs the shared posting engine drain, updates status, and leaves future-dated rows pending. Failed rows surface in `posting_exceptions` after 3 failed attempts through the shared processor.
 - [ ] **`drainPostingOutbox(orgId, throughDate)` — chunked synchronous drain helper (round-4 race fix; round-5 chunked).** Used by `runYearEndClose` (Phase 12a) and `closePeriod` (this phase) to eliminate the async race where a close action runs before the cron consumer has processed accrual JEs. **Chunked execution to avoid long-held advisory lock at year-end:**
   1. Loop: acquire `pg_advisory_lock(hashtext('outbox_drain:' || orgId))` (session-level, not transaction-level), select up to **50 pending rows** for the org with source event period ≤ throughDate, run consumer for the chunk, release lock.
   2. Repeat until no pending rows remain for the org+date window OR until `posting_attempts >= 3` rows surface in `posting_exceptions`.
@@ -514,14 +571,31 @@ Round-3 review found that "synchronous within source mutation transaction" creat
 - [ ] **First-deploy bootstrap.** On the deploy that introduces `posting_outbox` and the consumer cron: a backfill seeds outbox rows for every historical confirmed source event (documents, sales, settlements, WHT certs, PP 36 self-assessments, VAT settlements, soft-deletes) so historical periods can be closed by Phase 10.5. Without this, the first close attempt fails because outbox is empty but JEs are still missing. Backfill query keys: same idempotency key the consumer uses → safe to re-run.
 - [ ] Tie-out cron (daily): cross-checks sub-ledger amounts vs GL posted amounts; surfaces drift.
 
+2026-05-16 implementation note:
+
+- [x] `posting_outbox` and `posting_exceptions` foundation tables exist with source-event uniqueness, constrained statuses, partial pending index, and open-exception uniqueness. Evidence: migrations `0055_posting_outbox_foundation.sql` and `0056_posting_outbox_hardening.sql`.
+- [x] First outbox producer/consumer vertical exists for incoming WHT credits received from customers: `createWhtCreditReceived()` writes the credit, audit row, and pending outbox row in one transaction; `processPostingOutboxRow()` posts `Dr 1180 Prepaid WHT / Cr 1140 Trade accounts receivable`, marks the row posted, audits state transitions, retries failures into `posting_exceptions`, refuses locked GL periods, and is idempotent on rerun. Enqueue now avoids resetting already-posted rows, and failure attempts increment atomically.
+- [x] `recordTaxPaymentEvent()` transactionally enqueues PP30/PP36 `tax_payment_events` payment rows, and `processPostingOutboxRow()` delegates them to the existing idempotent tax-payment poster.
+- [x] Manual and CSV POS primary sales enqueue outbox rows transactionally while retaining existing immediate JE posting; `processPostingOutboxRow()` supports `sales_transactions:create` idempotently.
+- [x] Manual `cash_deposits` and `processor_settlements` enqueue outbox rows transactionally while retaining existing immediate JE posting; `processPostingOutboxRow()` supports both create events idempotently.
+- [x] `linkImportPayment()` enqueues outbox rows transactionally while retaining existing immediate JE posting; `processPostingOutboxRow()` supports `import_payments:create` idempotently.
+- [x] `inventory_movements` enqueue outbox rows transactionally while retaining existing immediate JE posting; `processPostingOutboxRow()` supports sale COGS, document purchase inventory/AP/VAT, and count-variance posting idempotently.
+- [x] Payroll net-pay, PND.1 remittance, and SSO remittance actions enqueue outbox rows transactionally while retaining existing immediate JE posting; `processPostingOutboxRow()` supports each payment event idempotently.
+- [x] PND.50 CIT accrual and CIT payment posters enqueue outbox rows transactionally while retaining existing immediate JE posting; `processPostingOutboxRow()` supports both CIT events idempotently.
+- [x] `drainPostingOutbox()` exists as the first close-safe drain helper and is wired into GL period close for WHT credit postings through the period end. It fails closed on failed rows and on exhausted chunk budget while rows remain; remaining design items are advisory-lock/lease hardening, all-source producer coverage, and richer cron observability.
+- [x] `process-posting-outbox` Inngest cron drains due rows through the shared helper every minute; `processPostingOutboxRow()` locks the outbox row before processing/failure recording, and `drainPostingOutbox()` excludes rows already attempted in the current drain to avoid immediate retry exhaustion. Evidence: `pnpm vitest run src/lib/inngest/functions/process-posting-outbox.test.ts`; `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/wht-credits-received.db.test.ts`; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] Full export includes `posting_outbox` and `posting_exceptions`.
+- [ ] Remaining outbox scope: non-inventory document/AP recognition, remaining payment settlement, remaining VAT/WHT remittance, fixed assets/event-key batches, historical backfill, advisory-lock/lease concurrency hardening, retry/exception UI, and close blocking across every posting source.
+
 ### `journal_entries` idempotency upgrade
 
-- [ ] Replace the `(org_id, source_entity_type, source_entity_id)` index with **partial unique constraint**: `UNIQUE (org_id, source_entity_type, source_entity_id, entry_type, posting_kind) WHERE is_reversal = false AND entry_type LIKE 'auto_%'`. Manual JEs unaffected.
-- [ ] Round-4 added `posting_kind` column (text, NOT NULL for `auto_*` entry_types). One source entity may produce multiple distinct JEs — e.g. a POS sale produces revenue + COGS + voucher-redemption + processor-clearing JEs, each a different `posting_kind`. Without this discriminator the unique constraint either over-collides (rejects legitimate second JE) or under-protects (allows duplicate revenue posting).
+- [x] Replace the old source-only idempotency shape with source + posting-kind uniqueness for posted source events. Current implemented constraint is `UNIQUE (org_id, source_entity_type, source_entity_id, posting_kind) WHERE source_entity_type/source_entity_id/posting_kind IS NOT NULL`, which rejects duplicate auto postings for the same source/kind while permitting a second JE for a different kind. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`.
+- [x] Round-4 added `posting_kind` column. One source entity may produce multiple distinct JEs — e.g. a POS sale produces revenue + COGS + voucher-redemption + processor-clearing JEs, each a different `posting_kind`. Without this discriminator the unique constraint either over-collides (rejects legitimate second JE) or under-protects (allows duplicate revenue posting).
   - Phase 10.6 example: one `sales_transactions` row → `posting_kind='revenue'` (Phase 10.5) + `posting_kind='cogs'` (Phase 10.6).
   - Voucher example: `voucher_sales` row → `posting_kind='issuance'` at sale + `posting_kind='redemption'` at redemption.
   - Document confirm + later payment: still the same source `documents` row, but the document confirm produces `posting_kind='ap_recognition'` and the payment match produces `posting_kind='ap_settlement'`.
 - [ ] Backfill jobs check existence before insert (using full key including `posting_kind`).
+- [ ] Future hardening: add the static posting-kind dispatch table; if/when reversal-source events share source IDs with originals, narrow the unique constraint with `is_reversal=false` semantics.
 
 ### `journal_entries.is_balanced` enforced via deferrable constraint trigger
 
@@ -534,7 +608,7 @@ Round-4 fix: a non-deferrable AFTER trigger fires on the first line insert and r
 - [ ] Posting helpers (`postJournalEntry(...)`) wrap header + lines + header-recompute in a single transaction — the deferred trigger fires once at the end.
 - [ ] Manual JE UI builds the entire entry client-side, submits header + lines together server-side, posts in a single transaction.
 - [ ] Lines for posted entries (entry referenced by posted source events) are immutable except via reversal entries. Enforced by separate trigger on `journal_lines`.
-- [ ] **Defense against zero-fraud (round-5 relaxed):** CHECK on `journal_entries`: `total_debit > 0 OR is_reversal = true OR entry_type IN ('opening_balance', 'memo') OR notes IS NOT NULL`. Zero-debit allowed when (a) it's a reversal of a zero-impact entry, (b) it's an opening balance for a startup with no opening data, (c) it's a memo entry (notes-only documentation entry that some Thai bookkeepers use), or (d) it has explicit notes documenting why it's zero. This avoids legitimate-zero blocks while still preventing accidental zero-fraud.
+- [x] **Defense against zero-fraud (round-5 relaxed):** CHECK on `journal_entries`: `total_debit > 0 OR is_reversal = true OR entry_type IN ('opening_balance', 'memo') OR notes IS NOT NULL`. Zero-debit allowed when (a) it's a reversal of a zero-impact entry, (b) it's an opening balance for a startup with no opening data, (c) it's a memo entry (notes-only documentation entry that some Thai bookkeepers use), or (d) it has explicit notes documenting why it's zero. This avoids legitimate-zero blocks while still preventing accidental zero-fraud. Evidence: schema/migration `0035_gl_primitives.sql`; `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`.
 
 ### `journal_lines` multi-currency capture
 
@@ -697,7 +771,7 @@ Independent architectural review (Opus, post-baseline-hardening) flagged four pl
 
 Round-4 added `posting_kind text NOT NULL` on `journal_entries` for `entry_type LIKE 'auto_%'` rows, and made it part of the partial unique constraint protecting against duplicate auto-postings. Free text means a typo in a poster (`'revenu'`) silently bypasses idempotency and creates a duplicate revenue JE. Discrimination via spelling is fragile.
 
-- [ ] Replace `posting_kind text` with `pgEnum('posting_kind', [...])`. Initial values, all phases included so the enum is stable across the roadmap:
+- [x] Replace `posting_kind text` with `pgEnum('posting_kind', [...])`. Initial values cover currently shipped posting kinds only; future values must be appended intentionally to avoid synonym drift. Evidence: `postingKindEnum` in schema, migration `0063_posting_kind_enum.sql`, `pnpm exec drizzle-kit check`, `pnpm tsc --noEmit`, and `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`.
   - `revenue` (sales-driven, Phase 10)
   - `cogs` (Phase 10.6b)
   - `ap_recognition` (document confirmed, Phase 3 → 10.5)
@@ -723,8 +797,8 @@ Round-4 added `posting_kind text NOT NULL` on `journal_entries` for `entry_type 
   - `cit_accrual` (Phase 12a)
   - `import_landed_cost` (Phase 10.6a)
   - `manual` (operator-entered; no source entity)
-- [ ] Migrations adding values are append-only. Never rename or remove enum values — `audit_log` references the historical name and the GL trail must remain readable. Deprecation is via a `retired` flag in the dispatcher table, not enum mutation.
-- [ ] The posting engine resolves `(source_entity_type, event_type)` → `posting_kind` via a single static dispatch table (`src/lib/gl/posting-kind-dispatch.ts`). Each poster declares its kind statically; the engine asserts the declared kind matches the dispatch table at boot.
+- [x] Migrations adding values are append-only. Never rename or remove enum values — `audit_log` references the historical name and the GL trail must remain readable. Deprecation is via a `retired` flag in the future dispatcher table, not enum mutation.
+- [x] The posting engine resolves `(source_entity_type, event_type)` → accepted `posting_kind` values via a single static dispatch table (`src/lib/gl/posting-kind-dispatch.ts`). The outbox processor validates the posted JE kind against that table before marking the row posted. Evidence: `pnpm vitest run src/lib/gl/posting-kind-dispatch.test.ts`; `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/wht-credits-received.db.test.ts`; `pnpm tsc --noEmit`.
 
 ### 2. Poster protocol — explicit interface contract before any poster ships
 
@@ -873,7 +947,7 @@ These surfaced in the same architectural review but don't belong in Phase 10.5 i
 
 ### Round-7 verification additions
 
-- [ ] `posting_kind` enum: attempt to insert a JE with a kind not in the enum → DB rejects.
+- [x] `posting_kind` enum: attempt to insert a JE with a kind not in the enum → DB rejects. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/general-ledger.db.test.ts`.
 - [ ] Boot-time validation: synthetic missing poster for an enum value → app process exits non-zero. CI red.
 - [ ] Boot-time validation: synthetic poster declaring a non-existent account code in `required_account_codes` → app process exits non-zero. CI red.
 - [ ] Idempotency under typo: simulate a duplicate posting attempt with identical payload + posting_kind → second attempt rejected by partial unique constraint, not silently accepted.

@@ -1,6 +1,6 @@
 # Plan: Phase 12b — TFRS for NPAEs Financial Statements + DBD e-Filing Package + Audit Firm Exchange Package
 
-**Status:** Draft — captured 2026-04-26 (split from original Phase 12)
+**Status:** Draft/blocked — public-source desk-check refreshed 2026-05-17; still blocked on CPA + authenticated DBD Builder validation before implementation
 **Depends on:** Phase 12a (CIT engine) shipped; Phase 13 (fixed assets) shipped; Phase 14 (analytics + AR/AP aging) shipped; **DBD/TFRS research spike** completed (`dbd-tfrs-research-spike.md`)
 **Authority reference:** TFRS for NPAEs (Revised 2022 + DBD/TFAC amendments confirmed by spike); DBD e-Filing system specifications confirmed by spike
 
@@ -12,7 +12,13 @@ Every Thai juristic person must file:
 
 Phase 12a produces the CIT calculation. This phase produces the financial statements + DBD package + auditor exchange package.
 
-**Critical: this phase cannot start until the DBD/TFRS research spike completes.** Phase 12a referenced TFRS NPAEs and DBD format with hand-waving; round-3 review found the actual format is XBRL-in-Excel V.2.0 + Java Builder + ZIP, with annual changes. The public desk-check now lives in `docs/_ai_context/dbd-template-spec.md` and `docs/_ai_context/tfrs-npaes-notes-spec.md`, but this phase implements only against CPA/Builder-validated schema files, not placeholders or public-shape notes.
+**Critical: this phase cannot start until the DBD/TFRS research spike completes.** Phase 12a referenced TFRS NPAEs and DBD format with hand-waving; round-3 review found the actual format is XBRL-in-Excel V.2.0 + Java Builder + ZIP, with annual changes. The public desk-check now lives in `docs/_ai_context/dbd-template-spec.md` and `docs/_ai_context/tfrs-npaes-notes-spec.md`, but this phase implements only against CPA/Builder-validated schema files, not placeholders or public-shape notes. The 2026-05-17 source refresh reconfirmed DBD's Excel/Builder/JRE flow and TFAC's current NPAEs public page; it did not lift the CPA/Builder gate.
+
+Current app behavior:
+
+- `/year-end/cit` and `/close` display an owner-visible warning that DBD/TFRS financial statements, notes, Builder packet, and auditor ZIP are not generated yet.
+- The warning states that Phase 12b remains blocked until CPA review and authenticated DBD Builder validation confirm the current schema and template.
+- Evidence: `pnpm test:e2e e2e/year-end/cit.spec.ts e2e/analytics/analytics.spec.ts`; `.next/dev/types` cleanup; `pnpm tsc --noEmit`; `git diff --check`.
 
 ## Goals
 
@@ -130,6 +136,7 @@ The spike produces `docs/_ai_context/tfrs-npaes-notes-taxonomy.json` and `docs/_
   - Output: filled Excel file stored as `documents` row.
 - [ ] Library: ExcelJS (Node-side) for .xlsx manipulation.
 - [ ] Validation: cross-sheet ties (BS = Liab + Equity; CF closing cash = BS cash; current/prior comparative columns, required Thai text cells, and sign conventions) match what DBD's Builder enforces.
+- [ ] Local preflight must include the public DBD validation examples before Excel generation: balance sheet assets equal liabilities plus equity, registered capital positive for company taxonomy, selected statement-form codes match the CPA-approved taxonomy, and current/prior periods are populated according to the authenticated template.
 - [ ] First-year fallback: if prior-year GL does not exist in-app, require manual comparative import from the signed prior-year FS/DBD package. Store original file, parsed values, reviewer, and audit trail; never synthesize comparatives from current-year opening balances alone.
 
 #### XBRL conversion bridge (v1: manual; v2: maybe automated)

@@ -11,13 +11,13 @@ Domain-specific terms used in this project. Update as new terms emerge.
 | PND 3 (ภ.ง.ด.3) | Monthly WHT filing for payments to individuals (Section 40(5)-(8)) | `src/lib/db/queries/wht-filings.ts` |
 | PND 53 (ภ.ง.ด.53) | Monthly WHT filing for payments to Thai companies | `src/lib/db/queries/wht-filings.ts` |
 | PND 54 (ภ.ง.ด.54) | Monthly WHT filing for payments to foreign entities | `src/lib/db/queries/wht-filings.ts` |
-| PP 30 (ภ.พ.30) | Monthly VAT return. `net_vat_payable = output_vat - input_vat_pp30` | `src/lib/db/queries/vat-records.ts` |
-| PP 36 (ภ.พ.36) | Reverse charge VAT on foreign services. NEVER offsets PP 30 | `src/lib/db/queries/vat-records.ts` |
+| PP 30 (ภ.พ.30) | Monthly VAT return. Phase 8.5 builds it from VAT operations ledger items and frozen filing lines. | `src/lib/db/queries/vat-operations-ledger.ts` |
+| PP 36 (ภ.พ.36) | Reverse charge VAT on foreign services. Phase 8.5 declares exact-period obligations and allows later PP30 reclaim only after remittance is recorded. | `src/lib/db/queries/vat-operations-ledger.ts` |
 | Section 40 | Revenue Code income classification (40(1)=salary, 40(2)=hire, 40(6)=professional, 40(8)=services) | `src/lib/tax/service-categories.ts` |
 | Buddhist Era (พ.ศ.) | Thai calendar year = Gregorian + 543. Used on all RD forms and certificates | `src/lib/utils/thai-date.ts` |
 | RD | Revenue Department (กรมสรรพากร) — Thai tax authority | `src/lib/tax/rd-csv-export.ts` |
 | DBD | Department of Business Development (กรมพัฒนาธุรกิจการค้า) — Thai company registry | `src/lib/api/dbd-client.ts` |
-| Nil filing | PP 30 must be filed every month even with zero VAT activity | `src/lib/db/queries/vat-records.ts` |
+| Nil filing | PP 30 must be filed every month even with zero VAT activity | `src/lib/db/queries/vat-operations-ledger.ts` |
 | Period locking | When a filing is marked "filed", edits to documents in that period are blocked | `src/lib/db/queries/wht-filings.ts` |
 | e-WHT | Electronic WHT with reduced rates (1% instead of 3%) for eligible payments | `src/lib/db/queries/wht-rates.ts` |
 | ใบสำคัญรับเงิน | Payment voucher — company-prepared document for individual payees to sign | Phase 3 individual payment flow |

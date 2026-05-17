@@ -36,6 +36,6 @@ test.describe("Documents: Expenses", () => {
   });
 
   test("document count shown", async ({ page }) => {
-    await expect(page.getByText(/documents shown/)).toBeVisible();
+    await expect(page.getByText(/documents\+? shown/)).toBeVisible();
   });
 });

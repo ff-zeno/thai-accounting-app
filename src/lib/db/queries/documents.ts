@@ -1,5 +1,5 @@
 import { and, eq, isNull, desc, sql, or, like, lt, gte, lte, inArray, asc } from "drizzle-orm";
-import { db } from "../index";
+import { db, type DbConnection } from "../index";
 import {
   documents,
   documentFiles,
@@ -8,11 +8,23 @@ import {
   reconciliationMatches,
   transactions,
   bankAccounts,
+  organizations,
 } from "../schema";
 import { auditMutation } from "../helpers/audit-log";
 import { isPeriodLocked } from "./period-locks";
+import {
+  classifyForeignVendorTax,
+  isPp36ServiceCategory,
+} from "@/lib/tax/foreign-vendor-tax";
+import { materializeWhtCreditReceivedFromDocument } from "./wht-credits-received";
 
 type TaxInvoiceSubtype = "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti";
+type DocumentType =
+  | "invoice"
+  | "receipt"
+  | "debit_note"
+  | "credit_note"
+  | "wht_certificate_received";
 
 function moneyToNumber(value: string | null): number | null {
   if (value == null || value === "") return null;
@@ -63,27 +75,14 @@ function isRecoverableTaxInvoiceSubtype(subtype: TaxInvoiceSubtype | null) {
   return subtype === "full_ti" || subtype === "e_tax_invoice";
 }
 
-function isPp36Category(category: string | null) {
-  if (!category) return false;
-  const normalized = category.toLowerCase();
-  return [
-    "foreign_service",
-    "foreign services",
-    "online_ads",
-    "software",
-    "saas",
-    "royalty",
-    "professional_fee",
-    "professional fees",
-  ].some((token) => normalized.includes(token));
+function requiredText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
 }
 
-function isGoodsImportCategory(category: string | null) {
-  if (!category) return false;
-  const normalized = category.toLowerCase();
-  return ["goods_import", "import_goods", "inventory_import", "merchandise_import"].some(
-    (token) => normalized.includes(token)
-  );
+function hasTaxInvoiceWords(value: string | null | undefined) {
+  const text = value?.trim() ?? "";
+  return /tax\s*invoice/i.test(text) || text.includes("ใบกำกับภาษี");
 }
 
 export class DocumentConfirmationError extends Error {
@@ -93,20 +92,32 @@ export class DocumentConfirmationError extends Error {
   }
 }
 
-export async function validateDocumentForConfirmation(orgId: string, docId: string) {
-  const doc = await getDocumentWithDetails(orgId, docId);
+export async function validateDocumentForConfirmation(
+  orgId: string,
+  docId: string,
+  tx?: DbConnection
+) {
+  const doc = await getDocumentWithDetails(orgId, docId, tx);
   if (!doc) {
     throw new DocumentConfirmationError(["document not found"]);
   }
 
   const issues: string[] = [];
-  if (!doc.issueDate) issues.push("issue date is required");
+  const incomingWhtCertificate = doc.type === "wht_certificate_received";
+  if (incomingWhtCertificate && doc.direction !== "income") {
+    issues.push("incoming WHT certificate must be filed under income");
+  }
+  if (!doc.issueDate) {
+    issues.push(incomingWhtCertificate ? "payment date is required" : "issue date is required");
+  }
   if (!doc.vendorId || !doc.vendor) issues.push("vendor is required");
   if (!doc.documentNumber?.trim()) {
     issues.push("document number is required");
   }
-  if (doc.subtotal == null) issues.push("subtotal is required");
-  if (doc.vatAmount == null) issues.push("VAT amount is required, use 0.00 when none");
+  if (doc.subtotal == null && !incomingWhtCertificate) issues.push("subtotal is required");
+  if (doc.vatAmount == null && !incomingWhtCertificate) {
+    issues.push("VAT amount is required, use 0.00 when none");
+  }
   if (doc.totalAmount == null) issues.push("total amount is required");
   if (
     (doc.type === "credit_note" || doc.type === "debit_note") &&
@@ -159,29 +170,85 @@ export async function validateDocumentForConfirmation(orgId: string, docId: stri
     }
   }
 
-  const isForeignVendor =
-    doc.vendor &&
-    (doc.vendor.entityType === "foreign" || (doc.vendor.country ?? "TH") !== "TH");
-  const isPp36Subject =
-    Boolean(doc.isPp36Subject) ||
-    Boolean(isForeignVendor && isPp36Category(doc.category));
-  if (
-    doc.direction === "expense" &&
-    isForeignVendor &&
-    subtotal != null &&
-    subtotal > 0 &&
-    !isPp36Subject &&
-    !isGoodsImportCategory(doc.category)
-  ) {
-    issues.push(
-      "foreign expense must be marked PP36 service/royalty/professional fee or categorized as goods import"
-    );
+  const requiresFullTaxInvoiceEvidence =
+    vatAmount != null &&
+    vatAmount > 0 &&
+    isRecoverableTaxInvoiceSubtype(doc.taxInvoiceSubtype);
+  const [org] = requiresFullTaxInvoiceEvidence
+    ? await (tx ?? db)
+        .select({
+          taxId: organizations.taxId,
+          branchNumber: organizations.branchNumber,
+        })
+        .from(organizations)
+        .where(and(eq(organizations.id, orgId), isNull(organizations.deletedAt)))
+        .limit(1)
+    : [null];
+  const fullTaxInvoiceSnapshots = requiresFullTaxInvoiceEvidence
+      ? {
+          supplierTaxIdSnapshot: requiredText(
+            doc.supplierTaxIdSnapshot ?? doc.vendor?.taxId
+          ),
+          supplierBranchNumberSnapshot: requiredText(
+            doc.supplierBranchNumberSnapshot ?? doc.vendor?.branchNumber
+          ),
+          buyerTaxIdSnapshot: requiredText(doc.buyerTaxIdSnapshot ?? org?.taxId),
+          buyerBranchNumberSnapshot: requiredText(
+            doc.buyerBranchNumberSnapshot ?? org?.branchNumber
+          ),
+          taxInvoiceSerialNumber: requiredText(
+            doc.taxInvoiceSerialNumber ?? doc.documentNumber
+          ),
+          taxInvoiceWords: requiredText(doc.taxInvoiceWords),
+        }
+      : null;
+
+  if (requiresFullTaxInvoiceEvidence) {
+    if (!fullTaxInvoiceSnapshots?.supplierTaxIdSnapshot) {
+      issues.push("recoverable tax invoice requires supplier tax ID");
+    }
+    if (!fullTaxInvoiceSnapshots?.supplierBranchNumberSnapshot) {
+      issues.push("recoverable tax invoice requires supplier branch number");
+    }
+    if (!fullTaxInvoiceSnapshots?.buyerTaxIdSnapshot) {
+      issues.push("recoverable tax invoice requires buyer tax ID");
+    }
+    if (!fullTaxInvoiceSnapshots?.buyerBranchNumberSnapshot) {
+      issues.push("recoverable tax invoice requires buyer branch number");
+    }
+    if (!fullTaxInvoiceSnapshots?.taxInvoiceSerialNumber) {
+      issues.push("recoverable tax invoice requires tax invoice serial number");
+    }
+    if (!hasTaxInvoiceWords(fullTaxInvoiceSnapshots?.taxInvoiceWords)) {
+      issues.push('recoverable tax invoice wording must include "Tax Invoice" or "ใบกำกับภาษี"');
+    }
+  }
+
+  const foreignTax = classifyForeignVendorTax({
+    direction: doc.direction,
+    vendorCountry: doc.vendor?.country,
+    vendorEntityType: doc.vendor?.entityType,
+    category: doc.category,
+    isPp36Subject: doc.isPp36Subject,
+    issueDate: doc.issueDate,
+    subtotal: doc.subtotal,
+    totalAmount: doc.totalAmount,
+    totalAmountThb: doc.totalAmountThb,
+    exchangeRate: doc.exchangeRate,
+    currency: doc.currency,
+  });
+  const isPp36Subject = foreignTax.pp36Required;
+  if (doc.direction === "expense" && foreignTax.isForeignVendor && subtotal != null && subtotal > 0) {
+    issues.push(...foreignTax.blockingReasons);
   }
 
   const whtLineItems = doc.lineItems.filter(
     (line) => moneyToNumber(line.whtAmount) != null && moneyToNumber(line.whtAmount)! > 0
   );
-  if (whtLineItems.length > 0) {
+  if (incomingWhtCertificate && whtLineItems.length === 0) {
+    issues.push("incoming WHT certificate requires withheld amount");
+  }
+  if (whtLineItems.length > 0 && !incomingWhtCertificate) {
     for (const line of whtLineItems) {
       if (!line.rdPaymentTypeCode?.trim()) {
         issues.push("WHT line items require RD payment type code");
@@ -190,7 +257,7 @@ export async function validateDocumentForConfirmation(orgId: string, docId: stri
     }
   }
 
-  if (issues.length > 0 || !doc.vendor || vatAmount == null) {
+  if (issues.length > 0 || !doc.vendor || (!incomingWhtCertificate && vatAmount == null)) {
     throw new DocumentConfirmationError(issues);
   }
 
@@ -201,8 +268,20 @@ export async function validateDocumentForConfirmation(orgId: string, docId: stri
       needsReview: false,
       vatPeriodYear,
       vatPeriodMonth,
-      taxInvoiceSubtype: vatAmount > 0 ? doc.taxInvoiceSubtype : "not_a_ti",
-      isPp36Subject,
+      taxInvoiceSubtype:
+        vatAmount != null && vatAmount > 0 ? doc.taxInvoiceSubtype : "not_a_ti",
+      supplierTaxIdSnapshot: fullTaxInvoiceSnapshots?.supplierTaxIdSnapshot ?? null,
+      supplierBranchNumberSnapshot:
+        fullTaxInvoiceSnapshots?.supplierBranchNumberSnapshot ?? null,
+      buyerTaxIdSnapshot: fullTaxInvoiceSnapshots?.buyerTaxIdSnapshot ?? null,
+      buyerBranchNumberSnapshot:
+        fullTaxInvoiceSnapshots?.buyerBranchNumberSnapshot ?? null,
+      taxInvoiceSerialNumber:
+        fullTaxInvoiceSnapshots?.taxInvoiceSerialNumber ?? null,
+      taxInvoiceWords: fullTaxInvoiceSnapshots?.taxInvoiceWords ?? null,
+      isPp36Subject:
+        isPp36Subject ||
+        Boolean(foreignTax.isForeignVendor && isPp36ServiceCategory(doc.category)),
     },
   };
 }
@@ -247,8 +326,9 @@ export async function getDocumentsByOrg(
     .offset(offset);
 }
 
-export async function getDocumentById(orgId: string, id: string) {
-  const results = await db
+export async function getDocumentById(orgId: string, id: string, tx?: DbConnection) {
+  const conn = tx ?? db;
+  const results = await conn
     .select()
     .from(documents)
     .where(
@@ -262,12 +342,17 @@ export async function getDocumentById(orgId: string, id: string) {
   return results[0] ?? null;
 }
 
-export async function getDocumentWithDetails(orgId: string, id: string) {
-  const doc = await getDocumentById(orgId, id);
+export async function getDocumentWithDetails(
+  orgId: string,
+  id: string,
+  tx?: DbConnection
+) {
+  const conn = tx ?? db;
+  const doc = await getDocumentById(orgId, id, tx);
   if (!doc) return null;
 
   const [files, lineItems, vendor] = await Promise.all([
-    db
+    conn
       .select()
       .from(documentFiles)
       .where(
@@ -278,7 +363,7 @@ export async function getDocumentWithDetails(orgId: string, id: string) {
         )
       )
       .orderBy(documentFiles.pageNumber),
-    db
+    conn
       .select()
       .from(documentLineItems)
       .where(
@@ -289,7 +374,7 @@ export async function getDocumentWithDetails(orgId: string, id: string) {
         )
       ),
     doc.vendorId
-      ? db
+      ? conn
           .select()
           .from(vendors)
           .where(
@@ -310,7 +395,7 @@ export async function getDocumentWithDetails(orgId: string, id: string) {
 export async function createDocument(data: {
   orgId: string;
   direction: "expense" | "income";
-  type?: "invoice" | "receipt" | "debit_note" | "credit_note";
+  type?: DocumentType;
   status?: "draft" | "confirmed" | "partially_paid" | "paid" | "voided";
 }) {
   const [doc] = await db
@@ -331,7 +416,7 @@ export async function updateDocumentFromExtraction(
   docId: string,
   data: {
     vendorId?: string | null;
-    type?: "invoice" | "receipt" | "debit_note" | "credit_note";
+    type?: DocumentType;
     documentNumber?: string | null;
     issueDate?: string | null;
     dueDate?: string | null;
@@ -339,10 +424,18 @@ export async function updateDocumentFromExtraction(
     vatAmount?: string | null;
     totalAmount?: string | null;
     currency?: string | null;
+    exchangeRate?: string | null;
+    totalAmountThb?: string | null;
     category?: string | null;
     vatPeriodYear?: number | null;
     vatPeriodMonth?: number | null;
     taxInvoiceSubtype?: TaxInvoiceSubtype | null;
+    supplierTaxIdSnapshot?: string | null;
+    supplierBranchNumberSnapshot?: string | null;
+    buyerTaxIdSnapshot?: string | null;
+    buyerBranchNumberSnapshot?: string | null;
+    taxInvoiceSerialNumber?: string | null;
+    taxInvoiceWords?: string | null;
     isPp36Subject?: boolean | null;
     detectedLanguage?: string | null;
     aiConfidence?: string | null;
@@ -355,6 +448,22 @@ export async function updateDocumentFromExtraction(
     ...data,
     issueDate: data.issueDate === "" ? null : data.issueDate,
     dueDate: data.dueDate === "" ? null : data.dueDate,
+    currency: data.currency === "" ? null : data.currency,
+    exchangeRate: data.exchangeRate === "" ? null : data.exchangeRate,
+    totalAmountThb: data.totalAmountThb === "" ? null : data.totalAmountThb,
+    supplierTaxIdSnapshot:
+      data.supplierTaxIdSnapshot === "" ? null : data.supplierTaxIdSnapshot,
+    supplierBranchNumberSnapshot:
+      data.supplierBranchNumberSnapshot === ""
+        ? null
+        : data.supplierBranchNumberSnapshot,
+    buyerTaxIdSnapshot:
+      data.buyerTaxIdSnapshot === "" ? null : data.buyerTaxIdSnapshot,
+    buyerBranchNumberSnapshot:
+      data.buyerBranchNumberSnapshot === "" ? null : data.buyerBranchNumberSnapshot,
+    taxInvoiceSerialNumber:
+      data.taxInvoiceSerialNumber === "" ? null : data.taxInvoiceSerialNumber,
+    taxInvoiceWords: data.taxInvoiceWords === "" ? null : data.taxInvoiceWords,
   };
   if (Object.hasOwn(data, "issueDate")) {
     const issueDate = normalized.issueDate;
@@ -382,23 +491,35 @@ export async function updateDocumentFromExtraction(
   return doc;
 }
 
-export async function confirmDocument(orgId: string, docId: string) {
-  const { confirmationPatch } = await validateDocumentForConfirmation(orgId, docId);
+export async function confirmDocument(
+  orgId: string,
+  docId: string,
+  tx?: DbConnection
+): Promise<typeof documents.$inferSelect | undefined> {
+  if (!tx) {
+    return db.transaction((innerTx) => confirmDocument(orgId, docId, innerTx));
+  }
+  const conn = tx ?? db;
+  const { confirmationPatch } = await validateDocumentForConfirmation(orgId, docId, tx);
 
-  const [doc] = await db
+  const [doc] = await conn
     .update(documents)
     .set(confirmationPatch)
     .where(and(eq(documents.id, docId), eq(documents.orgId, orgId)))
     .returning();
 
   if (doc) {
-    await auditMutation({
-      orgId,
-      entityType: "document",
-      entityId: docId,
-      action: "update",
-      newValue: confirmationPatch,
-    });
+    await materializeWhtCreditReceivedFromDocument(orgId, docId, conn);
+    await auditMutation(
+      {
+        orgId,
+        entityType: "document",
+        entityId: docId,
+        action: "update",
+        newValue: confirmationPatch,
+      },
+      tx
+    );
   }
 
   return doc;

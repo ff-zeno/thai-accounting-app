@@ -57,7 +57,7 @@ pnpm db:studio    # Drizzle Studio
 | Schema reference | `docs/exec-plans/active/001-schema.md` |
 | Thai tax rules | `thai-tax-compliance.html` |
 | Database schema | `src/lib/db/schema.ts` |
-| DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-records, reconciliation, reconciliation-metrics, reconciliation-rules, wht-filings, wht-rates, dashboard, ai-suggestions, ai-settings, vendor-aliases, bank-accounts, organizations, document-files) |
+| DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-operations-ledger, reconciliation, reconciliation-metrics, reconciliation-rules, wht-filings, wht-rates, dashboard, ai-suggestions, ai-settings, vendor-aliases, bank-accounts, organizations, document-files) |
 | DB helpers | `src/lib/db/helpers/org-scope.ts` (org isolation), `src/lib/db/helpers/audit-log.ts` (mutation logging), `src/lib/db/helpers/learn-alias.ts` (batched alias learning from matches) |
 | AI extraction | `src/lib/ai/schemas/` (invoice + ID card), `src/lib/ai/extract-document.ts`, `src/lib/ai/extract-id-card.ts` |
 | AI reconciliation | `src/lib/ai/prompts/reconciliation-batch.ts` (prompt builder), `src/lib/ai/schemas/reconciliation-match.ts` (index-based schema), `src/lib/ai/reconciliation-cost-tracker.ts` (separate budget) |

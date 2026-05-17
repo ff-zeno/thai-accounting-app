@@ -1,6 +1,6 @@
 # Plan: Phase 15 — UI navigation refactor (two-tier Gamma-style)
 
-**Status:** Draft — captured 2026-04-27 (round-4 user direction, image reference attached)
+**Status:** Implementation-active — two-tier shell landed; DESIGN.md alignment documented; route namespace migration deferred until destination pages exist
 **Position:** Independent of all other plans. Ships when convenient. Should ship before Phase 10 / 10.5 land because nav real estate is already crowded; without this, every new phase compounds the problem.
 **Authority reference:** `DESIGN.md`; user-provided Gamma reference image; current sidebar implementation `src/components/layout/sidebar-nav.tsx`
 
@@ -66,17 +66,43 @@ User profile + org switcher live above the tier-1 strip, matching the Gamma patt
 
 ## Approach
 
+### 2026-05-16 implementation note
+
+The shell rewrite portion is already in place:
+
+- `src/components/layout/two-tier-sidebar.tsx`
+- `src/components/layout/tier1-icon-strip.tsx`
+- `src/components/layout/tier2-text-panel.tsx`
+- `src/components/layout/mobile-drawer.tsx`
+- shared typed config in `src/lib/nav/structure.ts`
+- app shell wired through `src/app/(app)/layout.tsx`
+
+Current v1 keeps existing canonical routes such as `/bank-accounts` and `/reconciliation` instead of forcing a broad namespace migration before Phase 10+ pages exist. This reduces route churn while still delivering the two-tier navigation model. The full `/sales`, `/accounting`, `/inventory`, `/payroll`, `/assets`, and `/reports` namespace expansion should happen as those product surfaces ship.
+
+Verified on 2026-05-16:
+
+- `pnpm tsc --noEmit`
+- `pnpm test:e2e e2e/sidebar/nav.spec.ts e2e/layout/header.spec.ts`
+
+Latest hardening:
+
+- VAT forecast route added to nav and i18n.
+- Playwright now covers desktop VAT Forecast nav and mobile drawer tier/category navigation.
+- Tier-1 keyboard support landed: ArrowUp/ArrowDown/ArrowLeft/ArrowRight switch adjacent categories, Home jumps first, End jumps last. Playwright covers keyboard switching.
+- DESIGN.md now documents the current two-tier desktop shell, mobile Sheet behavior, active-state expectations, and keyboard navigation contract.
+- Verification passed after DESIGN.md alignment: `pnpm test:e2e e2e/sidebar/nav.spec.ts`, `pnpm tsc --noEmit`, and `git diff --check`.
+
 ### Sequencing (2 weeks)
 
 **Week 1 — Shell rewrite + route grouping**
 
-- [ ] Create `src/components/layout/two-tier-sidebar.tsx`:
+- [x] Create `src/components/layout/two-tier-sidebar.tsx`:
   - Icon strip component (left, 64px).
   - Text panel component (right of strip, 240px).
   - Both consume one shared `navStructure` config (typed array of `{tier1, items: tier2[]}`).
   - Active-state detection by URL prefix matching.
-- [ ] Replace existing `src/components/layout/sidebar.tsx` and `sidebar-nav.tsx` usage in `src/app/(app)/layout.tsx`.
-- [ ] Mobile: replace `mobile-sidebar.tsx` with a tier-aware drawer that shows tier-1 → tier-2 stacked.
+- [x] Replace existing `src/components/layout/sidebar.tsx` and `sidebar-nav.tsx` usage in `src/app/(app)/layout.tsx`.
+- [x] Mobile: replace `mobile-sidebar.tsx` with a tier-aware drawer that shows tier-1 → tier-2 stacked.
 - [ ] **Route migration (back-compat):**
   - Add new route segments (`/sales/**`, `/accounting/**`, `/inventory/**`, `/payroll/**`, `/assets/**`).
   - Keep legacy URLs working via `next.config.ts` `redirects()`:
@@ -100,17 +126,18 @@ User profile + org switcher live above the tier-1 strip, matching the Gamma patt
     - `grep -rn "revalidatePath\|router\.push\|router\.replace\|redirect(" src/`
     - `grep -rn "/bank-accounts\|/reconciliation\|/tax\|/vendors\|/documents/expenses\|/documents/income" src/`
   - Verification matrix: after creating/updating each entity (vendor, document, WHT cert, monthly filing, reconciliation rule, etc.), navigate to the new-URL list page and verify the change reflects without manual reload. Catches missed `revalidatePath` calls.
-- [ ] Update `next-intl` `messages/<locale>.json` `nav` namespace with new tier-1 + tier-2 keys.
+- [x] Update `next-intl` `messages/<locale>.json` `nav` namespace with new tier-1 + tier-2 keys for implemented surfaces.
 
 **Week 2 — Polish + verification**
 
-- [ ] All existing pages render correctly inside new shell.
-- [ ] Active-state test matrix: navigate to each tier-2 destination, verify tier-1 icon + tier-2 item both highlight.
-- [ ] Keyboard nav: tab through icon strip → arrow keys to switch tier-1; tier-2 panel updates.
-- [ ] Mobile: drawer opens, tier-1 selection swaps tier-2 panel.
+- [x] All existing smoke-tested pages render correctly inside new shell.
+- [x] Active-state smoke matrix: dashboard, banking, VAT forecast, and desktop/mobile shell covered.
+- [x] Expanded all-pages smoke manifest after Phase 10+ routes landed: `ALL_ROUTES` now covers 61 static owner/admin routes including tax monthly filings, WHT certificate/credit pages, payroll employees, fixed-asset import/new/roll-forward, accounting journal/report/posting-exception pages, settings cost centers/projects/allocation rules, and admin extraction health. Evidence: `pnpm test:e2e e2e/smoke/all-pages.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] Keyboard nav: tab through icon strip → arrow keys switch tier-1; tier-2 panel updates. Evidence: `pnpm test:e2e e2e/sidebar/nav.spec.ts`.
+- [x] Mobile: drawer opens, tier-1 selection swaps tier-2 panel.
 - [ ] Visual regression check: take Playwright screenshots of dashboard, documents/upload, tax/wht-certificates, settings → compare to design spec.
-- [ ] DESIGN.md updated with new shell description.
-- [ ] Old sidebar files deleted (`sidebar.tsx`, `sidebar-nav.tsx`, `mobile-sidebar.tsx` replaced).
+- [x] DESIGN.md updated with new shell description: desktop 64px tier-1 icon strip + 240px tier-2 text panel, mobile Sheet parity, active-state and keyboard expectations. Evidence: `pnpm test:e2e e2e/sidebar/nav.spec.ts`; `pnpm tsc --noEmit`; `git diff --check`.
+- [x] Old sidebar files deleted (`sidebar.tsx`, `sidebar-nav.tsx`, `mobile-sidebar.tsx` replaced by the two-tier shell and mobile drawer).
 
 ### Critical files
 

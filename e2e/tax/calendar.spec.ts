@@ -29,8 +29,11 @@ test.describe("Filing Calendar", () => {
     await expect(page.getByText(/Dec 20\d{2}/).first()).toBeVisible();
   });
 
-  test("PND columns in table", async ({ page }) => {
+  test("VAT and PND columns in table", async ({ page }) => {
+    await expect(page.getByText("PP 30").first()).toBeVisible();
+    await expect(page.getByText("PP 36").first()).toBeVisible();
     await expect(page.getByText("PND 3").first()).toBeVisible();
     await expect(page.getByText("PND 53").first()).toBeVisible();
+    await expect(page.getByText("PND 54").first()).toBeVisible();
   });
 });

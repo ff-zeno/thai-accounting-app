@@ -61,15 +61,18 @@
 - **Philosophy:** Every component is designed for 320px viewport FIRST, then expanded with responsive utilities. Desktop is the progressive enhancement, not the default
 - **Grid:** Single column mobile, 2-column tablet, sidebar + content desktop
 - **Breakpoints:** `sm(640px)` `md(768px)` `lg(1024px)` `xl(1280px)`
-- **Sidebar:** Fixed 256px (w-64) on desktop (md+), sheet overlay on mobile
+- **Desktop shell:** Persistent two-tier left nav, 304px total width: 64px primary icon strip + 240px secondary text panel. Main content is fluid and scrolls independently.
+- **Mobile shell:** 56px header with hamburger + workspace actions. Navigation opens in a left Sheet that stacks the same tier-1 categories above the selected tier-2 section links.
 - **Max content width:** Fluid within the main area, tables scroll horizontally on mobile
 - **Border radius:** Hierarchical — sm: `calc(0.625rem * 0.6)`, md: `calc(0.625rem * 0.8)`, lg: `0.625rem`, full: `9999px`
 
 ## Navigation
-- **Desktop:** Persistent left sidebar with grouped nav items
-- **Mobile:** Hamburger menu triggering a Sheet (slide-from-left), same Sidebar component
+- **Desktop:** Gamma-style two-tier shell. Tier 1 is icon-first category navigation; Tier 2 shows grouped links for the active category. Workspace/org controls sit at the top of Tier 2.
+- **Mobile:** Hamburger menu opens a Sheet with tier categories and section links; it must expose the same destinations as desktop.
+- **Active state:** Category and item active states are route-derived. Use longest-prefix style behavior so sibling paths such as `/tax/vat` and `/tax/vat/forecast` do not mis-highlight.
+- **Keyboard:** Tier-1 navigation supports arrow keys plus Home/End. Focus states must remain visible and use the shared ring token.
 - **Heading hierarchy:** Section headings use `text-foreground/40` (subordinate labels), clickable items use `text-muted-foreground` (interactive), active items use `bg-accent text-accent-foreground font-semibold`
-- **Group separation:** Non-first nav groups have a subtle `border-t border-border/40` with spacing above and below
+- **Group separation:** Use subtle `border-border` separators between tier panels and section groups; avoid heavy background blocks.
 
 ## Motion
 - **Approach:** Minimal-functional — only transitions that aid comprehension
@@ -94,3 +97,4 @@
 | 2026-04-01 | Mobile-first as core layout principle | Prevent desktop-first debt accumulation |
 | 2026-04-01 | App renamed to Long Dtua (ลงตัว) | "Everything falls into place" — product identity |
 | 2026-04-01 | No left-border nav indicators | User preference — use bg highlight + font-weight for active state |
+| 2026-05-16 | Two-tier navigation shell adopted | Keeps 50+ accounting/tax destinations scannable while preserving existing route compatibility |

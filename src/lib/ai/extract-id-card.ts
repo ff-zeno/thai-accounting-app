@@ -29,6 +29,7 @@ export async function extractIdCard(
   image: { bytes: Uint8Array; contentType: string },
   _orgId?: string
 ): Promise<IdCardExtractionResult> {
+  void _orgId;
   const provider = getOpenRouterProvider();
   const model = provider(ID_CARD_MODEL_ID);
 

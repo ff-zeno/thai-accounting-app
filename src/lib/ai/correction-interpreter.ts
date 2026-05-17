@@ -28,7 +28,10 @@ const FIELD_SYNONYMS: Record<string, string[]> = {
   vatAmount: ["vat", "tax", "ภาษี", "ภาษีมูลค่าเพิ่ม"],
   documentNumber: ["invoice number", "document number", "เลขที่"],
   vendorName: ["vendor", "supplier", "seller", "ผู้ขาย"],
+  vendorAddress: ["vendor address", "supplier address", "seller address", "ที่อยู่ผู้ขาย"],
   vendorTaxId: ["tax id", "tax number", "เลขประจำตัวผู้เสียภาษี"],
+  buyerTaxId: ["buyer tax id", "customer tax id", "เลขประจำตัวผู้เสียภาษีลูกค้า"],
+  detectedLanguage: ["language", "detected language", "ภาษา"],
 };
 
 /**
@@ -53,19 +56,21 @@ export function interpretCorrectionExplanation({
     explanationMentionsField(cleaned, field.fieldName)
   );
   const fields = targetFields.length > 0 ? targetFields : correctedFields;
-  const { selectorHint, rejectHint } = extractSelectorRejectHints(cleaned);
-
   return {
     summary: summarize(cleaned),
-    rules: fields.map((field) => ({
-      fieldName: field.fieldName,
-      fieldCriticality: field.fieldCriticality,
-      rationale: buildRationale(cleaned, field),
-      selectorHint,
-      rejectHint,
-      appliesWhen: extractAppliesWhen(cleaned),
-      confidence: selectorHint || rejectHint ? "0.7000" : "0.5000",
-    })),
+    rules: fields.map((field) => {
+      const fieldText = findFieldClause(cleaned, field.fieldName) ?? cleaned;
+      const { selectorHint, rejectHint } = extractSelectorRejectHints(fieldText);
+      return {
+        fieldName: field.fieldName,
+        fieldCriticality: field.fieldCriticality,
+        rationale: buildRationale(fieldText, field),
+        selectorHint,
+        rejectHint,
+        appliesWhen: extractAppliesWhen(cleaned),
+        confidence: selectorHint || rejectHint ? "0.7000" : "0.5000",
+      };
+    }),
   };
 }
 
@@ -79,6 +84,20 @@ function phraseAppears(haystack: string, phrase: string) {
   const escaped = phrase.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "u").test(
     haystack
+  );
+}
+
+function findFieldClause(explanation: string, fieldName: string) {
+  const synonyms = FIELD_SYNONYMS[fieldName] ?? [fieldName];
+  const clauses = explanation
+    .split(/[;\n]+/)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+  return (
+    clauses.find((clause) => {
+      const lower = clause.toLowerCase();
+      return synonyms.some((synonym) => phraseAppears(lower, synonym));
+    }) ?? null
   );
 }
 
@@ -99,7 +118,11 @@ function extractSelectorRejectHints(explanation: string) {
 
   return {
     selectorHint: cleanHint(quoted[0] ?? useMatch?.[1] ?? null),
-    rejectHint: cleanHint(quoted[1] ?? notMatch?.[1] ?? insteadOfMatch?.[1] ?? null),
+    rejectHint: cleanHint(
+      notMatch?.[1] ??
+        insteadOfMatch?.[1] ??
+        (quoted.length > 1 ? quoted[quoted.length - 1] : null)
+    ),
   };
 }
 
@@ -124,7 +147,14 @@ function buildRationale(explanation: string, field: CorrectedFieldDiff) {
 function summarize(explanation: string) {
   const singleLine = explanation.replace(/\s+/g, " ").trim();
   if (!singleLine) return null;
+  if (hasInstructionLikeText(singleLine)) return null;
   return singleLine.length <= 240 ? singleLine : `${singleLine.slice(0, 237)}...`;
+}
+
+function hasInstructionLikeText(value: string) {
+  return /\b(ignore|system|assistant|developer|instruction|prompt|override)\b/i.test(
+    value
+  );
 }
 
 function cleanHint(value: string | null) {
@@ -135,7 +165,7 @@ function cleanHint(value: string | null) {
     .trim()
     .replace(/[.。;,]+$/, "")
     .trim();
-  if (/\b(ignore|system|assistant|developer|instruction|prompt)\b/i.test(cleaned)) {
+  if (hasInstructionLikeText(cleaned)) {
     return null;
   }
   return cleaned || null;

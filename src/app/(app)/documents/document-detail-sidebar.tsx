@@ -54,7 +54,12 @@ interface Props {
   onSave: (
     docId: string,
     data: {
-      type?: "invoice" | "receipt" | "debit_note" | "credit_note";
+      type?:
+        | "invoice"
+        | "receipt"
+        | "debit_note"
+        | "credit_note"
+        | "wht_certificate_received";
       documentNumber?: string | null;
       issueDate?: string | null;
       dueDate?: string | null;
@@ -273,7 +278,12 @@ export function DocumentDetailSidebar({
       extractionVerdict ?? (isDirty ? "needs_fixes" : "accurate");
     startSaveTransition(async () => {
       const result = await onSave(docId, {
-        type: form.type as "invoice" | "receipt" | "debit_note" | "credit_note",
+        type: form.type as
+          | "invoice"
+          | "receipt"
+          | "debit_note"
+          | "credit_note"
+          | "wht_certificate_received",
         documentNumber: form.documentNumber || null,
         issueDate: form.issueDate || null,
         dueDate: form.dueDate || null,

@@ -1,8 +1,13 @@
 # Plan: Phase 10.6a — Imports Module (mixed-treatment lines + paper-trail linkage)
 
-**Status:** Draft — captured 2026-04-27 (round-4 user direction)
+**Status:** Implementation-active — foundation schema, tenant/finalization guardrails, export coverage, DB tests, owner-testable UI, document/payment linkage, broker charge classifier, open-import aging, audit trail, open-packet header edit, empty open-packet delete, open goods/charge line delete, open document-link unlink, payment picker, unmatched-transaction payment-link guard, open payment-link unlink with GL reversal, finalize-to-inventory flow, broker/import charge GL posting with posting-outbox coverage, import payment clearing GL posting, owner-visible v1 scope caveat, and adversarial-review hardening landed.
 **Position:** Runs before `phase-10-6-inventory-cogs-imports.md` (now Phase 10.6b). Imports plan owns import-side documents, payments, mixed-treatment line classification, FX, import VAT/duty/brokerage postings, and paper-trail linkage. Inventory plan owns SKU-side movements, statutory overhead component tracking, and COGS posting after consuming this plan's finalized import outputs. Imports must still store per-import/per-lot landed-cost components from day 1, even if owner-facing daily UX expenses overhead until statutory true-up.
 **Authority reference:** `vat-info.md` §3 (import VAT recoverability), §5 (input VAT register); Thai Customs Code (import duty + import VAT computation on CIF + duty + excise); TFRS for NPAEs Section 8 (Inventories — when round-4 simplification permits)
+**Official source refresh (retrieved 2026-05-16):**
+- Revenue Department VAT overview: `https://www.rd.go.th/english/6043.html` — imported goods are VAT-taxable and VAT on imported goods is collected by Customs at import.
+- Revenue Code Section 86/14: `https://www.rd.go.th/5209.html` — Customs receipt can be treated as the tax invoice evidence for imported goods.
+- Thai Customs import/export duties overview: `https://www.customs.go.th/list_strc_simple_neted.php?ini_content=individual_160503_03_160922_01&lang=en&left_menu=menu_individual_submenu_01_160421_02` — import declaration/tax basis context; exact statutory calculations remain captured from official declaration, not recomputed.
+- Live-link check on 2026-05-17 returned HTTP 200 for all three import-source URLs above.
 
 ## Problem
 
@@ -44,9 +49,11 @@ The system needs to model each invoice line's tax treatment independently and li
 
 ### Schema
 
+**Implemented foundation:** `drizzle/0037_imports_foundation.sql` and Drizzle schema now cover import packets, document/goods/charge/payment child tables, same-org guardrails, import-VAT period/evidence checks, finalize-time import VAT aggregate check, finalized packet immutability, and full-export coverage. `/imports` and `/imports/[id]` now support manual packet creation, open-import aging visibility, open-packet header edit for non-tax reference fields, empty open-packet deletion, goods line capture, import VAT evidence-line capture, broker/service/pass-through charge classification, delete-with-confirmation for open goods and charge lines, document/evidence link capture and unlink, bank-payment candidate selection/link capture and unlink, chronological audit-trail view, finalize-to-inventory movement creation, broker/import charge GL posting with `posting_outbox` producer/handler coverage, and import payment clearing GL posting. `/imports` also shows an owner-visible v1 caveat so manual QA does not confuse deferred direct-clear customs depth, historical backfill/reversal tooling, and richer picker UX with regressions. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/imports-schema.db.test.ts`; `pnpm test:e2e e2e/imports/imports.spec.ts`; `.next/types` + `.next/dev/types` cleanup; `pnpm tsc --noEmit`; `git diff --check`. Claude Companion adversarial review hardening also landed: import VAT period is derived server-side from `imports.customs_clearance_date`, duplicate import-VAT lines are blocked per packet, finalize compares import-VAT totals numerically, inventory receipt movements use customs-clearance date, backdated inventory receipts are blocked when later SKU movements already exist, VAT/GL period locks block finalize, linked payment amount must match a debit-shaped unmatched bank transaction by SQL numeric comparison, each bank transaction can link to only one import payment, import payment links mark bank transactions matched, import mutations write `audit_log` rows, audit-log and journal-entry events render in the packet audit trail, and detail-page action errors surface to the owner. Local adversarial follow-up found the payment-link API still needed an explicit unmatched-transaction guard, so `linkImportPayment()` now locks the bank transaction row and rejects already matched transactions before insert. The open-line delete follow-up was also Claude-reviewed; orphan auto-created documents, locked-period bypass, thin delete audit, and missing confirmation findings were fixed. Open document unlink now blocks finalized/locked packets and charge-line-used documents, soft-deletes orphan draft source documents, and writes audit old-value snapshots. Open payment unlink now reverses the import-payment GL entry, releases the bank transaction, clears pending source outbox and linked posting exceptions, blocks locked clearance and bank-payment GL periods, clears reversal subledger refs to hard-deleted import payment rows, and writes audit old-value snapshots. Claude Companion follow-up found and these fixes closed the cross-month locked-GL reversal, posting-exception FK cleanup, and dangling reversal subledger-reference risks. Remaining work starts from direct-clear customs/backfill reversal depth, existing-document picker UX, and richer charge classifier UX.
+
 #### `imports` table (rewritten from v3)
 
-- [ ] Header table:
+- [x] Header table:
   - `id uuid PK`
   - `org_id uuid NOT NULL`
   - `establishment_id uuid NOT NULL`
@@ -70,7 +77,7 @@ The system needs to model each invoice line's tax treatment independently and li
 
 #### `import_documents` linkage
 
-- [ ] New table `import_documents`:
+- [x] New table `import_documents`:
   - `id uuid PK`
   - `import_id uuid NOT NULL`
   - `document_id uuid NOT NULL` — FK to existing `documents`
@@ -81,10 +88,11 @@ The system needs to model each invoice line's tax treatment independently and li
 
 #### `import_goods_lines` — what's in the box
 
-- [ ] New table `import_goods_lines`:
+- [x] New table `import_goods_lines`:
   - `id uuid PK`
   - `import_id uuid NOT NULL`
-  - `sku_id uuid NOT NULL`
+  - `sku_id uuid` — MVP nullable until inventory catalog is implemented; `sku_code` is required as the current stable owner-facing key.
+  - `sku_code text NOT NULL`
   - `quantity numeric(14,4) NOT NULL`
   - `unit_price_original numeric(14,4) NOT NULL` — supplier's invoice price per unit, in original currency
   - `goods_value_original numeric(14,2)` — `quantity × unit_price_original`
@@ -92,11 +100,11 @@ The system needs to model each invoice line's tax treatment independently and li
   - `weight_kg numeric(14,4)` — informational only (no longer drives allocation)
   - `lot_sequence integer NOT NULL DEFAULT 1` — round-5 fix: same SKU may appear at different unit prices on a single import (mid-shipment supplier price change, partial backorder fulfillment at higher cost). Each price-distinct shipment is its own lot; lot_sequence increments. Weighted-average COGS engine consumes each lot separately.
   - `notes text`
-  - Unique on `(import_id, sku_id, lot_sequence)` — multiple lots per SKU permitted.
+  - Unique on `(import_id, sku_code, lot_sequence)` — multiple lots per SKU permitted.
 
 #### `import_charge_lines` — every charge from every linked invoice (THE KEY TABLE)
 
-- [ ] New table `import_charge_lines`:
+- [x] New table `import_charge_lines`:
   - `id uuid PK`
   - `import_id uuid NOT NULL`
   - `source_document_id uuid NOT NULL` — FK to `documents` (the broker bill / shipper invoice / etc. this line came from)
@@ -136,7 +144,7 @@ The system needs to model each invoice line's tax treatment independently and li
 
 #### `import_payments` — bank-side linkage
 
-- [ ] New table `import_payments`:
+- [x] New table `import_payments`:
   - `id uuid PK`
   - `import_id uuid NOT NULL`
   - `bank_transaction_id uuid NOT NULL` — FK to existing `transactions`
@@ -146,7 +154,7 @@ The system needs to model each invoice line's tax treatment independently and li
 
 ### Posting engine
 
-The imports module emits multiple JEs at finalize time, all coordinated through one logical "import finalize" event. All go through `posting_outbox` per Phase 10.5 hardening (async; never blocks finalize).
+The imports module emits per-source JEs at finalize time while keeping inventory movements goods-value-only. Broker/import charge documents now also enqueue `posting_outbox` rows per source document, and the standard consumer reuses the idempotent `import_broker_invoice` poster. This preserves current synchronous owner feedback while giving the posting queue an auditable retry path.
 
 #### Foreign-supplier-invoice JE (when supplier invoice confirmed)
 
@@ -222,39 +230,41 @@ Balanced: 18,640 = 18,640. Inventory unchanged (goods JE separate from supplier 
 
 ### UI
 
-- [ ] `src/app/(app)/imports/page.tsx` — import list with status (`open`, `finalized`).
-- [ ] `src/app/(app)/imports/new/page.tsx` — start a new import packet:
+- [x] `src/app/(app)/imports/page.tsx` — import list with status (`open`, `finalized`) plus dashboard metrics and manual packet capture.
+- [ ] `src/app/(app)/imports/new/page.tsx` — richer guided packet wizard:
   1. Select foreign supplier (existing vendor or create new).
   2. Upload foreign supplier invoice (AI extracts goods + values + currency).
   3. Upload customs declaration (AI extracts CIF + duty + import VAT + customs ref).
   4. Add SKU lines (review extracted, fill quantity / unit price). Map to existing SKUs or create new.
   5. Save as `open` packet.
-- [ ] `src/app/(app)/imports/[id]/page.tsx` — packet detail view:
+- [x] `src/app/(app)/imports/[id]/page.tsx` — packet detail view foundation:
   - Foreign supplier invoice card (totals, FX rate, link to source doc).
   - Customs declaration card (CIF, duty, import VAT, link to source doc).
   - Goods lines table (SKU × qty × unit price × THB value).
-  - Broker / shipper invoices section (each invoice = one card with mixed-treatment line breakdown):
+  - Broker / shipper invoices section foundation (each invoice = one card with mixed-treatment line breakdown remains richer UI work):
     - Add invoice → upload doc → AI extracts lines → user classifies each line's `vat_treatment` (radio buttons: service+VAT / pass-through / IS the VAT / excise pass-through).
     - Inline preview of resulting JE.
-  - Payments section — link existing bank transactions to roles (foreign supplier / broker / etc.).
-  - Finalize button (only when foreign invoice + customs decl + at least one broker invoice are linked, and all packet lines are classified). Posts all JEs to outbox; emits `inventory_movements`.
+  - [x] Broker charge classifier v1 — owner can manually add broker service VAT, zero-rated service, VAT-exempt service, pass-through, and excise pass-through lines from `/imports/[id]`.
+  - [x] Payments section — link existing bank transactions to roles (foreign supplier / broker / etc.).
+  - [x] Finalize button emits goods-value-only `inventory_movements` at customs-clearance date, respects VAT/GL period locks, writes audit log, enqueues broker-charge posting rows, and locks the packet. Richer payment/document requirements remain.
   - **Pre-finalize period-lock guard (round-5):** before finalize, check `period_locks` for `(org_id, establishment_id, 'vat', customs_clearance_year, customs_clearance_month)`. If locked: block direct finalize and surface the **amendment workflow path** — owner must (a) acknowledge PP 30 ก amendment is required, (b) review surcharge/penalty estimate, (c) trigger unlock + re-lock per period-lock-protocol. This matches the same pattern Phase 10 uses for late-arriving sales transactions in locked VAT periods.
-- [ ] `src/app/(app)/imports/[id]/audit-trail.tsx` — show every linked document + every payment + every JE in chronological order. The "paper trail" view.
+- [x] `src/app/(app)/imports/[id]/audit-trail.tsx` — show every linked document + every payment + every JE in chronological order. The "paper trail" view.
+  - Landed v1 inline on `/imports/[id]`: chronological documents, charge lines, and payments. Remaining: dedicated route/component and JE events after import posting lands.
 
 ### Reports
 
 - [ ] **Import register** — every finalized import with totals (CIF, duty, VAT, broker fees, total period cost). Useful for tax-audit support.
 - [ ] **Per-import margin trace** — for each SKU sold from an import: revenue per unit − goods unit cost (no overhead allocated). Surfaces the round-4 simplification's impact: margin shown does NOT include period overhead from the import.
-- [ ] **Open imports aging** — packets in `open` status with foreign supplier invoice received but no broker bills yet → SLA breach alert.
+- [x] **Open imports aging** — `/imports` now lists open packets by clearance age with linked document, broker-charge, and payment counts so stale packets are visible before close. Evidence: `pnpm test:e2e e2e/imports/imports.spec.ts`; `pnpm tsc --noEmit`.
 
 ## Approach
 
 ### Sequencing (3 weeks, ships after Phase 10.5)
 
 **Week 1 — Schema + base UI**
-1. Migrations for `imports`, `import_documents`, `import_goods_lines`, `import_charge_lines`, `import_payments`.
-2. Read-only imports list page.
-3. New-packet wizard skeleton (steps 1-3: supplier + foreign invoice + customs declaration).
+1. [x] Migrations for `imports`, `import_documents`, `import_goods_lines`, `import_charge_lines`, `import_payments`.
+2. [x] Read-only imports list page.
+3. [x] Manual new-packet capture on `/imports`; richer wizard remains.
 
 **Week 2 — Mixed-treatment line classification**
 1. Broker invoice upload + AI line extraction.
@@ -263,9 +273,9 @@ Balanced: 18,640 = 18,640. Inventory unchanged (goods JE separate from supplier 
 4. Default expense-account suggestions per common line description (heuristic).
 
 **Week 3 — Finalize + posting + Lumera dogfood**
-1. Finalize action: emit foreign-supplier JE + per-broker-invoice JEs to `posting_outbox`.
-2. Inventory movement emission (consumed by Phase 10.6-inventory).
-3. Payment linkage UI.
+1. [x] Finalize action: emit per-broker-invoice JEs with `posting_outbox` producer/handler coverage. Foreign-supplier AP recognition remains deferred until the supplier-invoice document workflow lands.
+2. [x] Inventory movement emission at customs-clearance date (consumed by Phase 10.6-inventory).
+3. [x] Payment linkage UI.
 4. Audit-trail page.
 5. Run with Lumera's existing Japan imports as dogfood; iterate.
 
@@ -287,9 +297,10 @@ Balanced: 18,640 = 18,640. Inventory unchanged (goods JE separate from supplier 
 
 ## Verification
 
-- [ ] Worked example: ฿18,640 UPS bill posts the exact JE above; balanced; inventory untouched.
-- [ ] Finalize a Lumera Japan import end-to-end: foreign supplier invoice + customs declaration + UPS bill + bank payments all linked → `inventory_movements` lands → SKU `current_avg_cost` correctly reflects goods-value-only.
-- [ ] Audit trail page shows all 4-6 linked documents + their roles + every JE + every payment in time order.
+- [x] Worked example shape: mixed service VAT, pass-through duty, and import VAT broker lines post balanced `Dr 5160 / Dr 5150 / Dr 1251 / Cr 2110` lines, inventory untouched, with posting-outbox processing idempotently linking the existing JE. Evidence: `pnpm vitest run --config vitest.config.db.ts src/lib/db/queries/imports-schema.db.test.ts`.
+- [x] Finalize a Lumera-style Japan import backend path: customs/import VAT line + goods line → customs-date `inventory_movements` lands → SKU `current_avg_cost` correctly reflects goods-value-only. Foreign invoice/customs/broker document links and bank payment links are now owner-testable; richer document pickers and posting remain.
+- [x] Audit trail page shows all 4-6 linked documents + their roles + every JE + every payment in time order.
+  - Landed v1 for linked documents, charge lines, and payments; JE rows remain blocked on GL posting.
 - [ ] §87 input tax report includes the broker invoice's recoverable VAT (1251) for the correct VAT period (`customs_clearance_date`).
 - [ ] Period-lock trigger: attempting to edit a finalized import in a locked VAT period raises Postgres exception (per period-lock-protocol §"Source tables").
 - [ ] Reverse a finalized import (rare, but for genuine errors): generates reversal JEs per the soft-delete reversal date rule (open period default; locked period via amendment workflow).

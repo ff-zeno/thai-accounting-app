@@ -1,6 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 /**

@@ -1,12 +1,16 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "../index";
+import { db, type DbConnection } from "../index";
 import { payments, documents, documentLineItems, vendors } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import {
   createWhtCertificateDraft,
+  type ForeignWhtBelowDefaultAcknowledgment,
   getCertificatesByDocument,
   getFormTypeForEntity,
 } from "./wht-certificates";
+import {
+  materializePp36ObligationFromDocument,
+} from "./foreign-vendor-tax";
 
 // ---------------------------------------------------------------------------
 // Create payment
@@ -20,37 +24,49 @@ export async function createPayment(data: {
   whtAmountWithheld: string;
   netAmountPaid: string;
   paymentMethod?: "bank_transfer" | "promptpay" | "cheque" | "cash";
+  foreignWhtBelowDefaultAcknowledgment?: ForeignWhtBelowDefaultAcknowledgment;
 }): Promise<{ paymentId: string }> {
-  const [payment] = await db
-    .insert(payments)
-    .values({
+  return db.transaction(async (tx) => {
+    const conn = tx as DbConnection;
+    const [payment] = await conn
+      .insert(payments)
+      .values({
+        orgId: data.orgId,
+        documentId: data.documentId,
+        paymentDate: data.paymentDate,
+        grossAmount: data.grossAmount,
+        whtAmountWithheld: data.whtAmountWithheld,
+        netAmountPaid: data.netAmountPaid,
+        paymentMethod: data.paymentMethod ?? "bank_transfer",
+      })
+      .returning({ id: payments.id });
+
+    const whtResult = await createWhtDraftForPaymentEvent({
+      ...data,
+      paymentId: payment.id,
+      tx: conn,
+    });
+    if (whtResult && whtResult.totalWht !== data.whtAmountWithheld) {
+      const totalWht = parseFloat(whtResult.totalWht);
+      const gross = parseFloat(data.grossAmount);
+      await conn
+        .update(payments)
+        .set({
+          whtAmountWithheld: whtResult.totalWht,
+          netAmountPaid: (gross - totalWht).toFixed(2),
+        })
+        .where(and(eq(payments.id, payment.id), eq(payments.orgId, data.orgId)));
+    }
+
+    await materializePp36ObligationFromDocument({
       orgId: data.orgId,
       documentId: data.documentId,
-      paymentDate: data.paymentDate,
-      grossAmount: data.grossAmount,
-      whtAmountWithheld: data.whtAmountWithheld,
-      netAmountPaid: data.netAmountPaid,
-      paymentMethod: data.paymentMethod ?? "bank_transfer",
-    })
-    .returning({ id: payments.id });
+      actorId: "system",
+      tx: conn,
+    });
 
-  const whtResult = await createWhtDraftForPaymentEvent({
-    ...data,
-    paymentId: payment.id,
+    return { paymentId: payment.id };
   });
-  if (whtResult && whtResult.totalWht !== data.whtAmountWithheld) {
-    const totalWht = parseFloat(whtResult.totalWht);
-    const gross = parseFloat(data.grossAmount);
-    await db
-      .update(payments)
-      .set({
-        whtAmountWithheld: whtResult.totalWht,
-        netAmountPaid: (gross - totalWht).toFixed(2),
-      })
-      .where(and(eq(payments.id, payment.id), eq(payments.orgId, data.orgId)));
-  }
-
-  return { paymentId: payment.id };
 }
 
 async function createWhtDraftForPaymentEvent(data: {
@@ -58,15 +74,23 @@ async function createWhtDraftForPaymentEvent(data: {
   documentId: string;
   paymentDate: string;
   paymentId: string;
+  foreignWhtBelowDefaultAcknowledgment?: ForeignWhtBelowDefaultAcknowledgment;
+  tx?: DbConnection;
 }) {
-  const existingCerts = await getCertificatesByDocument(data.orgId, data.documentId);
+  const conn = data.tx ?? db;
+  const existingCerts = await getCertificatesByDocument(
+    data.orgId,
+    data.documentId,
+    conn
+  );
   if (existingCerts.length > 0) return;
 
-  const [doc] = await db
+  const [doc] = await conn
     .select({
       id: documents.id,
       vendorId: documents.vendorId,
       vendorEntityType: vendors.entityType,
+      vendorCountry: vendors.country,
     })
     .from(documents)
     .innerJoin(
@@ -83,7 +107,7 @@ async function createWhtDraftForPaymentEvent(data: {
 
   if (!doc?.vendorId || !doc.vendorEntityType) return;
 
-  const whtLineItems = await db
+  const whtLineItems = await conn
     .select()
     .from(documentLineItems)
     .where(
@@ -100,10 +124,13 @@ async function createWhtDraftForPaymentEvent(data: {
   return createWhtCertificateDraft({
     orgId: data.orgId,
     vendorId: doc.vendorId,
-    formType: getFormTypeForEntity(doc.vendorEntityType),
+    formType: getFormTypeForEntity(doc.vendorEntityType, doc.vendorCountry),
     paymentDate: data.paymentDate,
     paymentId: data.paymentId,
     applyAnnualThreshold: true,
+    foreignWhtBelowDefaultAcknowledgment:
+      data.foreignWhtBelowDefaultAcknowledgment,
+    tx: conn,
     lineItems: whtLineItems.map((li) => ({
       documentId: data.documentId,
       lineItemId: li.id,

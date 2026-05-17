@@ -75,7 +75,12 @@ export async function getFilterOptionsAction(direction: "expense" | "income") {
 export async function updateDocumentSidebarAction(
   docId: string,
   data: {
-    type?: "invoice" | "receipt" | "debit_note" | "credit_note";
+    type?:
+      | "invoice"
+      | "receipt"
+      | "debit_note"
+      | "credit_note"
+      | "wht_certificate_received";
     documentNumber?: string | null;
     issueDate?: string | null;
     dueDate?: string | null;

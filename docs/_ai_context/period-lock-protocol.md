@@ -7,7 +7,7 @@
 ## Problem this solves
 
 Round-3 review found three different period-lock concepts in the active plans:
-- `today-gap-remediation.md` P0-3: trigger on `vat_records` + `wht_monthly_filings` with session var `unlock_authorized_by_user_id`
+- `today-gap-remediation.md` P0-3: legacy trigger on `vat_records` + `wht_monthly_filings` with session var `unlock_authorized_by_user_id`; Phase 8.5 replaces the VAT side with ledger filing/source triggers.
 - `phase-10-pos-and-cash-flow.md`: per-org `pp30_data_source` flag with `period_locked` boolean
 - `phase-10-5-gl-primitives.md`: `gl_period_locks` table with session var `gl_lock_override_user_id`
 
@@ -57,13 +57,19 @@ This document is the canonical specification. **Every plan that touches period l
 - [ ] Apply via BEFORE INSERT/UPDATE/DELETE triggers on every table with period semantics. Mutations on locked periods raise an exception unless `app.lock_override_user_id` is set in the transaction.
 
   **Filing tables (domain matches the form):**
-  - `vat_records` — domain `vat`
+  - `vat_filings` — domain `vat`; period from filing period. Phase 8.5 ledger cutover removed legacy active `vat_records`.
+  - `vat_filing_lines` — domain `vat`; inherits from parent `vat_filings`
   - `wht_certificates` (issuance) — domain `wht`, period from `payment_date`
   - `pnd_filings` — domain `wht` (or `payroll` for PND.1 / PND.1 Kor)
   - `sso_filings` — domain `payroll`
   - `cit_filings` — domain `cit`
 
   **Sub-ledger / GL tables:**
+  - `vat_input_items` — domain `vat` (period from claim/eligible period); filed rows require amendment/reversal, not mutation
+  - `vat_output_items` — domain `vat` (period from output period); filed rows require credit/debit note or amendment
+  - `pp36_obligations` — domain `vat` (period from PP36 period); period cannot move except through amendment. If the implementation stores PP36 paid/reclaim-eligible state on this row, the PP36 period must not be locked until the remittance event and reclaim-eligibility window have been recorded; otherwise paid/reclaim state must be derived from append-only `tax_payment_events`.
+  - `vat_credit_carryforwards` — domain `vat` (period from originating/applying PP30 filing)
+  - `tax_payment_events` — domain `vat`, `wht`, `payroll`, or `cit` based on parent filing type
   - `journal_entries` — domain `gl` (period from `entry_date`)
   - `journal_lines` — inherits from parent JE; trigger blocks UPDATE/DELETE on lines whose JE falls in a locked GL period
   - `pay_runs` — domain `payroll`
@@ -72,6 +78,11 @@ This document is the canonical specification. **Every plan that touches period l
 
   **Source tables that feed filed numbers (CRITICAL — round-4 found these missing):**
   - `documents` — domain `vat` (period from `vat_period` or `issue_date`); blocks edits to documents whose VAT period is locked. Status transitions to `void`/`amended` allowed only via amendment workflow.
+  - `document_line_items` — domain `vat` or `wht`; inherits period from parent document and blocks tax-significant line edits when locked.
+  - `document_files` — domain `vat` or `wht`; blocks deletion/replacement of evidence files tied to filed tax lines.
+  - `transactions` — domain `vat`, `wht`, or `gl` when referenced by filed tax items, filing lines, reconciliation matches, or payment events.
+  - `payments` — domain `vat` or `wht` when referenced by filed tax/WHT items.
+  - `reconciliation_matches` — domain `vat`, `wht`, or `gl`; blocks deletion/rematching when match feeds a filed tax line or tax payment event.
   - `sales_transactions` — domain `vat` (period from `sold_at`); also domain `gl` if GL period for that month is locked
   - `processor_settlements` — domain `vat` (period from `settled_at`); processor fee TI dates can drag a settlement into a locked VAT period
   - `inventory_movements` — domain `gl` (period from `movement_date`); inventory directly affects COGS in P&L

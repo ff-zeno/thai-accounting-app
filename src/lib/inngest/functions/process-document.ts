@@ -19,6 +19,7 @@ import {
 } from "@/lib/ai/extract-document";
 import { detectLanguage, type DetectedLanguage } from "@/lib/ai/detect-language";
 import { translateVendorName } from "@/lib/ai/translate";
+import { normalizeIsoCountry } from "@/lib/tax/foreign-vendor-tax";
 import { estimateCost, isWithinBudget } from "@/lib/ai/cost-tracker";
 import { lookupCompany, mapBranchNumber } from "@/lib/api/dbd-client";
 import type { InvoiceExtraction } from "@/lib/ai/schemas/invoice-extraction";
@@ -33,13 +34,14 @@ const lazyExtractPdfText = () =>
 const lazyProbeVendorIdentity = () =>
   import("@/lib/vendor/probe-identity").then((m) => m.probeVendorIdentity);
 import { getVendorTier } from "@/lib/db/queries/vendor-tier";
+import { getVendorById } from "@/lib/db/queries/vendors";
+import { getOrganizationById } from "@/lib/db/queries/organizations";
 import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
 import { getActiveLearningCandidates } from "@/lib/db/queries/extraction-learning-candidates";
 import { getGlobalExemplars } from "@/lib/db/queries/global-exemplar-pool";
 import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
 import { suggestCategoryForVendor } from "@/lib/db/queries/category-suggest";
 import { getActivePattern } from "@/lib/db/queries/compiled-patterns";
-import { runCompiledPattern } from "@/lib/ai/compiled-patterns/sandbox-runner";
 
 // ---------------------------------------------------------------------------
 // Types for Inngest step serialization
@@ -273,9 +275,39 @@ export const processDocument = inngest.createFunction(
     const extractionContext = await step.run(
       "resolve-extraction-context",
       async (): Promise<ExtractionContext> => {
+        const buildIdentityAnchor = async (vendorId: string) => {
+          try {
+            const [vendor, org] = await Promise.all([
+              getVendorById(orgId, vendorId),
+              getOrganizationById(orgId),
+            ]);
+
+            return {
+              vendorName: vendor?.name ?? null,
+              vendorNameTh: vendor?.nameTh ?? null,
+              vendorTaxId: vendor?.taxId ?? null,
+              vendorBranchNumber: vendor?.branchNumber ?? null,
+              vendorAddress: vendor?.address ?? null,
+              vendorAddressTh: vendor?.addressTh ?? null,
+              buyerName: org?.name ?? null,
+              buyerNameTh: org?.nameTh ?? null,
+              buyerTaxId: org?.taxId ?? null,
+              buyerBranchNumber: org?.branchNumber ?? null,
+              buyerAddress: org?.address ?? null,
+              buyerAddressTh: org?.addressTh ?? null,
+            };
+          } catch (error) {
+            console.warn(
+              "[process-document] identity-anchor lookup failed; continuing without anchor:",
+              error
+            );
+            return undefined;
+          }
+        };
+
         const log = (ctx: ExtractionContext, reason: string) => {
           console.log(
-            `[process-document] tier=${ctx.tier} vendorId=${ctx.vendorId ?? "none"} exemplars=${ctx.exemplars.length} candidates=${ctx.learningCandidates?.length ?? 0} (${reason})`
+            `[process-document] tier=${ctx.tier} vendorId=${ctx.vendorId ?? "none"} exemplars=${ctx.exemplars.length} candidates=${ctx.learningCandidates?.length ?? 0} identityAnchor=${ctx.identityAnchor ? "yes" : "no"} (${reason})`
           );
           return ctx;
         };
@@ -312,6 +344,7 @@ export const processDocument = inngest.createFunction(
         }
 
         try {
+          const identityAnchor = await buildIdentityAnchor(probeResult.vendorId);
           const tierRow = await getVendorTier(orgId, probeResult.vendorId);
           const tier = (tierRow?.tier === 1 ? 1 : 0) as 0 | 1;
           console.log(
@@ -335,6 +368,7 @@ export const processDocument = inngest.createFunction(
                 {
                   tier: 1 as const,
                   vendorId: probeResult.vendorId,
+                  identityAnchor,
                   exemplarIds: exemplars.map((e) => e.id),
                   learningCandidates: learningCandidates.map((candidate) => ({
                     fieldName: candidate.fieldName,
@@ -367,6 +401,7 @@ export const processDocument = inngest.createFunction(
                 tier: 2 as const,
                 vendorId: probeResult.vendorId,
                 vendorKey: probeResult.taxIdFound,
+                identityAnchor,
                 exemplarIds: [],
                 globalExemplarIds: globalExemplars.map((e) => e.id),
                 exemplars: globalExemplars.map((e) => ({
@@ -387,6 +422,7 @@ export const processDocument = inngest.createFunction(
                   tier: 3 as const,
                   vendorId: probeResult.vendorId,
                   vendorKey: probeResult.taxIdFound,
+                  identityAnchor,
                   exemplarIds: [],
                   exemplars: [],
                   compiledPatternId: pattern.id,
@@ -402,6 +438,7 @@ export const processDocument = inngest.createFunction(
             {
               tier: 0 as const,
               vendorId: probeResult.vendorId,
+              identityAnchor,
               exemplarIds: [],
               exemplars: [],
             },
@@ -589,26 +626,59 @@ export const processDocument = inngest.createFunction(
       vendorId: string | null;
       vendorEntityType: "individual" | "company" | "foreign";
     } = await step.run("vendor-lookup", async () => {
-      if (!validated.vendorTaxId)
+      const vendorCountry = normalizeIsoCountry(validated.vendorCountry) ?? "TH";
+      const extractedForeignVendor =
+        vendorCountry !== "TH" &&
+        (!validated.vendorTaxId || !/^\d{13}$/.test(validated.vendorTaxId));
+
+      if (!validated.vendorTaxId && !extractedForeignVendor)
         return { vendorId: null, vendorEntityType: "company" as const };
 
-      // Look up by tax_id + branch
-      const existing = await db
-        .select()
-        .from(vendors)
-        .where(
-          and(
-            eq(vendors.orgId, orgId),
-            eq(vendors.taxId, validated.vendorTaxId),
-            eq(
-              vendors.branchNumber,
-              validated.vendorBranchNumber ?? "00000"
+      // Look up by tax_id + branch. Foreign vendors sometimes lack Thai-format
+      // IDs, so use name + country as a conservative fallback.
+      const existing = validated.vendorTaxId
+        ? await db
+            .select()
+            .from(vendors)
+            .where(
+              and(
+                eq(vendors.orgId, orgId),
+                eq(vendors.taxId, validated.vendorTaxId),
+                eq(
+                  vendors.branchNumber,
+                  validated.vendorBranchNumber ?? "00000"
+                )
+              )
             )
-          )
-        )
-        .limit(1);
+            .limit(1)
+        : await db
+            .select()
+            .from(vendors)
+            .where(
+              and(
+                eq(vendors.orgId, orgId),
+                eq(vendors.name, validated.vendorName ?? "Unknown Vendor"),
+                eq(vendors.country, vendorCountry)
+              )
+            )
+            .limit(1);
 
       if (existing.length > 0) {
+        if (
+          extractedForeignVendor &&
+          (existing[0].entityType !== "foreign" || existing[0].country !== vendorCountry)
+        ) {
+          await db
+            .update(vendors)
+            .set({ entityType: "foreign", country: vendorCountry })
+            .where(
+              and(eq(vendors.id, existing[0].id), eq(vendors.orgId, orgId))
+            );
+          return {
+            vendorId: existing[0].id,
+            vendorEntityType: "foreign" as const,
+          };
+        }
         return {
           vendorId: existing[0].id,
           vendorEntityType: existing[0].entityType,
@@ -616,7 +686,9 @@ export const processDocument = inngest.createFunction(
       }
 
       // Try DBD API verification before creating vendor
-      const dbdResult = await lookupCompany(validated.vendorTaxId);
+      const dbdResult = validated.vendorTaxId
+        ? await lookupCompany(validated.vendorTaxId)
+        : null;
 
       let nameTh: string | null;
       let nameEn: string | null;
@@ -678,7 +750,8 @@ export const processDocument = inngest.createFunction(
           taxId: validated.vendorTaxId,
           branchNumber,
           address: vendorAddress,
-          entityType: "company",
+          entityType: extractedForeignVendor ? "foreign" : "company",
+          country: vendorCountry,
           dbdVerified,
           dbdData,
         })
@@ -705,6 +778,8 @@ export const processDocument = inngest.createFunction(
             amount: li.amount,
             vatAmount: li.vatAmount,
             whtType: li.whtType,
+            whtRate: li.whtRate,
+            whtAmount: li.whtAmount,
           };
 
           // Only classify if the AI suggested a WHT type
@@ -797,6 +872,14 @@ export const processDocument = inngest.createFunction(
         vendorId,
         type: validated.documentType,
         documentNumber: validated.documentNumber,
+        taxInvoiceSubtype: validated.taxInvoiceSubtype,
+        taxInvoiceSerialNumber:
+          validated.taxInvoiceSerialNumber ?? validated.documentNumber,
+        taxInvoiceWords: validated.taxInvoiceWords,
+        supplierTaxIdSnapshot: validated.vendorTaxId,
+        supplierBranchNumberSnapshot: validated.vendorBranchNumber,
+        buyerTaxIdSnapshot: validated.buyerTaxId,
+        buyerBranchNumberSnapshot: validated.buyerBranchNumber,
         issueDate: validated.issueDate,
         dueDate: validated.dueDate,
         subtotal: validated.subtotal,

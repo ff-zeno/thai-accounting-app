@@ -8,6 +8,9 @@ const tabs = [
   { href: "/settings", label: "Organization" },
   { href: "/settings/ai", label: "AI Models & Usage" },
   { href: "/settings/reconciliation-rules", label: "Reconciliation Rules" },
+  { href: "/settings/cost-centers", label: "Cost Centers" },
+  { href: "/settings/projects", label: "Projects" },
+  { href: "/settings/allocation-rules", label: "Allocation Rules" },
 ];
 
 export default function SettingsLayout({

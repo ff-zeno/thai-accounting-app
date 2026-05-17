@@ -1,18 +1,21 @@
-import { getActiveOrgId } from "@/lib/utils/org-context";
+import { requireOrgOwnerOrAdmin } from "@/lib/utils/admin-guard";
 import { getOrgAiSettings } from "@/lib/db/queries/ai-settings";
 import { getBudgetStatus } from "@/lib/ai/cost-tracker";
 import { getAiAnalyticsAction } from "./actions";
 import { AiSettingsForm } from "./ai-settings-form";
 import { AiCostAnalytics } from "./ai-cost-analytics";
 
-export default async function AiSettingsPage() {
-  const orgId = await getActiveOrgId();
+export const dynamic = "force-dynamic";
 
-  if (!orgId) {
+export default async function AiSettingsPage() {
+  let orgId: string;
+  try {
+    ({ orgId } = await requireOrgOwnerOrAdmin());
+  } catch {
     return (
       <div className="py-20 text-center">
         <p className="text-muted-foreground">
-          Create or select an organization to configure AI settings.
+          Owner or admin access is required to configure AI settings.
         </p>
       </div>
     );

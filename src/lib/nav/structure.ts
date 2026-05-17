@@ -2,16 +2,29 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
+  Bot,
+  BookOpen,
+  Boxes,
   Calendar,
+  ClipboardList,
   FileText,
+  FolderKanban,
   GitCompareArrows,
   Home,
   Landmark,
+  Layers3,
   Lightbulb,
+  LineChart,
+  LockKeyhole,
+  PackageSearch,
   Receipt,
   Settings,
+  ShoppingCart,
+  SplitSquareVertical,
+  Store,
   Upload,
   Users,
+  UsersRound,
 } from "lucide-react";
 
 export interface NavItem {
@@ -91,28 +104,145 @@ export const navCategories: NavCategory[] = [
   {
     labelKey: "taxFiling",
     icon: Receipt,
-    href: "/tax/monthly-filings",
+    href: "/tax/vat",
     sections: [
       {
-        labelKey: "taxFiling",
+        labelKey: "taxVat",
         items: [
-          {
-            labelKey: "whtCertificates",
-            href: "/tax/wht-certificates",
-            icon: Receipt,
-          },
-          {
-            labelKey: "whtCreditsReceived",
-            href: "/tax/wht-credits-received",
-            icon: Receipt,
-          },
-          {
-            labelKey: "monthlyFilings",
-            href: "/tax/monthly-filings",
-            icon: FileText,
-          },
-          { labelKey: "vat", href: "/tax/vat", icon: Receipt },
-          { labelKey: "calendar", href: "/tax/calendar", icon: Calendar },
+          { labelKey: "vatDashboard", href: "/tax/vat", icon: BarChart3 },
+          { labelKey: "inputVat", href: "/tax/vat/input", icon: Receipt },
+          { labelKey: "outputVat", href: "/tax/vat/output", icon: Receipt },
+          { labelKey: "vatRegister", href: "/tax/vat/register", icon: FileText },
+          { labelKey: "vatFilings", href: "/tax/vat/filings", icon: FileText },
+          { labelKey: "vatForecast", href: "/tax/vat/forecast", icon: BarChart3 },
+        ],
+      },
+      {
+        labelKey: "withholdingTax",
+        items: [
+          { labelKey: "whtDashboard", href: "/tax/withholding", icon: BarChart3 },
+          { labelKey: "incomingWht", href: "/tax/withholding/incoming", icon: Receipt },
+          { labelKey: "outgoingWht", href: "/tax/withholding/outgoing", icon: Receipt },
+          { labelKey: "whtRegister", href: "/tax/withholding/register", icon: FileText },
+          { labelKey: "whtFilings", href: "/tax/withholding/filings", icon: FileText },
+        ],
+      },
+      {
+        labelKey: "taxPlanning",
+        items: [
+          { labelKey: "taxCalendar", href: "/tax/calendar", icon: Calendar },
+          { labelKey: "statutoryReports", href: "/tax/reports", icon: FileText },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "sales",
+    icon: Store,
+    href: "/sales",
+    sections: [
+      {
+        labelKey: "sales",
+        items: [
+          { labelKey: "salesControl", href: "/sales", icon: ShoppingCart },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "accounting",
+    icon: BookOpen,
+    href: "/accounting",
+    sections: [
+      {
+        labelKey: "accounting",
+        items: [
+          { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "inventory",
+    icon: Boxes,
+    href: "/inventory",
+    sections: [
+      {
+        labelKey: "inventory",
+        items: [
+          { labelKey: "inventoryControl", href: "/inventory", icon: Boxes },
+          { labelKey: "importsControl", href: "/imports", icon: PackageSearch },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "fixedAssets",
+    icon: ClipboardList,
+    href: "/fixed-assets",
+    sections: [
+      {
+        labelKey: "fixedAssets",
+        items: [
+          { labelKey: "fixedAssetRegister", href: "/fixed-assets", icon: ClipboardList },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "analytics",
+    icon: LineChart,
+    href: "/analytics/ar-aging",
+    sections: [
+      {
+        labelKey: "analytics",
+        items: [
+          { labelKey: "arAging", href: "/analytics/ar-aging", icon: LineChart },
+          { labelKey: "apAging", href: "/analytics/ap-aging", icon: LineChart },
+          { labelKey: "cashForecast", href: "/analytics/cash-flow", icon: LineChart },
+          { labelKey: "concentration", href: "/analytics/concentration", icon: BarChart3 },
+          { labelKey: "profitability", href: "/analytics/profitability", icon: BarChart3 },
+          { labelKey: "fxRates", href: "/analytics/fx-rates", icon: Landmark },
+          { labelKey: "closeChecklist", href: "/close", icon: LockKeyhole },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "yearEnd",
+    icon: Landmark,
+    href: "/year-end/cit",
+    sections: [
+      {
+        labelKey: "yearEnd",
+        items: [
+          { labelKey: "citWorkbench", href: "/year-end/cit", icon: Landmark },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "copilot",
+    icon: Bot,
+    href: "/copilot",
+    sections: [
+      {
+        labelKey: "copilot",
+        items: [
+          { labelKey: "accountingCopilot", href: "/copilot", icon: Bot },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "payroll",
+    icon: UsersRound,
+    href: "/payroll",
+    sections: [
+      {
+        labelKey: "payroll",
+        items: [
+          { labelKey: "payrollControl", href: "/payroll", icon: UsersRound },
         ],
       },
     ],
@@ -128,6 +258,9 @@ export const navCategories: NavCategory[] = [
           { labelKey: "vendors", href: "/vendors", icon: Users },
           { labelKey: "reports", href: "/reports", icon: BarChart3 },
           { labelKey: "settings", href: "/settings", icon: Settings },
+          { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
+          { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
+          { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },
         ],
       },
     ],

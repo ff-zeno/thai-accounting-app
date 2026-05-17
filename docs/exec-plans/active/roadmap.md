@@ -90,7 +90,7 @@ Use `docs/exec-plans/active/overnight-completion-control.md` as the operative ru
 Current post-gate order after the 2026-05-17 stabilization pass:
 
 1. Keep the branch reviewable before more feature expansion.
-   - The former large dirty tree is now packaged into local stacked commits on `goal/overnight-completion-2026-05-17`, from control docs through baseline cleanup, and published as draft PR #1: `https://github.com/ff-zeno/thai-accounting-app/pull/1`. `dirty-tree-checkpoint-2026-05-17.md` remains the review map for the commit boundaries. Only explicit keep-out/scratch paths remain uncommitted.
+   - The former large dirty tree is now packaged into local stacked commits on `goal/overnight-completion-2026-05-17`, from control docs through baseline cleanup, and published as ready-for-review PR #1: `https://github.com/ff-zeno/thai-accounting-app/pull/1`. `dirty-tree-checkpoint-2026-05-17.md` remains the review map for the commit boundaries. Only explicit keep-out/scratch paths remain uncommitted.
 2. Close external-validation blockers before claiming production compliance.
    - DBD/TFRS remains blocked on CPA plus authenticated DBD Builder validation; WHT certificate upload storage still needs live Blob/Inngest QA; payroll production filing still needs current SSO config validation and exact RD/SSO exports.
 3. Preserve the green commit gate.

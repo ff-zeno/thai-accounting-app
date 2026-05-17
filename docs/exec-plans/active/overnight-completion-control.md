@@ -1,13 +1,48 @@
 # Overnight Completion Control — Phase Runway
 
-**Status:** Active control surface for unattended agentic work
+**Status:** Active control surface for post-merge stabilization and manual QA
 **Created:** 2026-05-16
 **Owner:** Codex goal-mode agent, with user review after each major slice when available
 **Purpose:** Keep phase order, remaining work, research duties, review gates, and test gates authoritative while pushing the app toward a broad testable UI.
 
-**Goal status:** Not complete. The current branch is strongly automated-testable, packaged into local stacked commits, and published as ready-for-review PR #1 (`https://github.com/ff-zeno/thai-accounting-app/pull/1`) with mergeable/CLEAN state and Vercel SUCCESS, but still blocked by external validation (CPA/DBD Builder, production SSO config, live Blob/Inngest WHT storage QA), manual owner/accountant walkthrough, reviewer acceptance, and open implementation gaps listed below. Unattended implementation is now stopped by the design-approval gate for new feature/behavior work; continue only with review feedback, external validation results, manual QA feedback, or a user-approved design for the next feature slice.
+**Goal status:** Not complete. The current branch is strongly automated-testable, packaged into local stacked commits, and published as PR #1 (`https://github.com/ff-zeno/thai-accounting-app/pull/1`) with mergeable/CLEAN state and Vercel SUCCESS. User decision on 2026-05-17 is to merge the full stack as one non-production baseline instead of splitting into smaller PRs; manual owner/accountant testing will be the scoping mechanism after merge. The goal remains blocked by external validation (CPA/DBD Builder, production SSO config, live Blob/Inngest WHT storage QA), manual owner/accountant walkthrough, and open implementation gaps listed below. Unattended implementation is now stopped by the design-approval gate for new feature/behavior work; continue only with merge/post-merge smoke, external validation results, manual QA feedback, or a user-approved design for the next feature slice.
 
-**Current gate:** automated local gate and PR preview are green, not production-compliance complete. On branch `goal/overnight-completion-2026-05-17`, `pnpm test:e2e` 223, `pnpm test` 56 files / 633 tests, `pnpm test:db` 40 files / 437 tests, `pnpm lint` 0 errors / 3 existing TanStack/React Compiler warnings, `pnpm build` with 81 static pages, Drizzle check, `pnpm db:migrate`, TypeScript, diff check, no active `vat_records`, artifact cleanup, and Vercel PR preview all passed after packaging the stack into local commits. Vercel initially failed on vulnerable `inngest@3.52.6`; updating to `inngest@3.54.2` fixed the preview. Remaining blockers before production/fileable claims: CPA + authenticated DBD Builder validation, live Blob/Inngest WHT storage QA, SSO production config validation, owner/accountant walkthrough execution, and PR/reviewer acceptance.
+**Current gate:** automated local gate and PR preview are green, not production-compliance complete. On branch `goal/overnight-completion-2026-05-17`, `pnpm test:e2e` 223, `pnpm test` 56 files / 633 tests, `pnpm test:db` 40 files / 437 tests, `pnpm lint` 0 errors / 3 existing TanStack/React Compiler warnings, `pnpm build` with 81 static pages, Drizzle check, `pnpm db:migrate`, TypeScript, diff check, no active `vat_records`, artifact cleanup, and Vercel PR preview all passed after packaging the stack into local commits. Vercel initially failed on vulnerable `inngest@3.52.6`; updating to `inngest@3.54.2` fixed the preview. Remaining blockers before production/fileable claims: merge PR #1, run post-merge smoke on the target baseline, CPA + authenticated DBD Builder validation, live Blob/Inngest WHT storage QA, SSO production config validation, and owner/accountant walkthrough execution.
+
+## Remaining Blocker Checklist
+
+Use this list as the live remaining-work checklist after PR #1 merges. It supersedes the earlier review-splitting recommendation for this non-production baseline.
+
+Merge and baseline:
+
+- [ ] Merge PR #1 as one stack into the target baseline.
+- [ ] Pull the merged target branch locally and run the minimal post-merge gate: `pnpm db:migrate`, `pnpm tsc --noEmit`, and `pnpm test:e2e e2e/smoke/all-pages.spec.ts`.
+- [ ] Keep scratch paths uncommitted unless explicitly promoted: `benchmarks/_ground-truth-pages/`, `docs/_ai_context/skills-cleanup-plan.md`, `scripts/check-ksher-cat.ts`, and `vat-info.md`.
+- [ ] Preserve the invariant that no active runtime path uses `vat_records`, `vatRecords`, or `vat-records`.
+
+Manual owner/accountant QA:
+
+- [ ] Run `docs/exec-plans/active/owner-test-plan-2026-05-17.md` against the merged baseline.
+- [ ] Record failures as manual QA findings, not PR split blockers.
+- [ ] Confirm the owner can walk VAT, WHT, GL/close, POS, imports, inventory, payroll, fixed assets, CIT/year-end, analytics, settings, and Copilot preview without dead-end navigation.
+
+External compliance blockers:
+
+- [ ] CPA/accountant review of statutory assumptions and filing/readiness workflows.
+- [ ] Authenticated DBD Builder validation for TFRS/DBD financial statements, notes, Builder packet, and auditor ZIP.
+- [ ] Current production SSO rate/cap and submission-format validation.
+- [ ] Live Blob/Inngest WHT certificate storage QA in the deployed environment.
+- [ ] Exact RD/SSO export and employee 50 Tawi production-format fixture validation.
+- [ ] Exact transfer-pricing form rendering validation against current RD assets.
+
+Known implementation gaps to scope after owner QA:
+
+- [ ] Imports direct-clear/backfill/reversal depth beyond owner-testable v1.
+- [ ] Inventory FIFO/specific-ID/statutory true-up and richer count approval workflows.
+- [ ] Bank/WHT FX revaluation, realized settlement FX, and remaining posting-context allocation metadata.
+- [ ] Payroll receipt/reconciliation, bank matching, and production 50 Tawi flow depth.
+- [ ] DBD/TFRS fileable financial statements and auditor packet generation.
+- [ ] Copilot live model/MCP orchestration beyond preview and guarded settings.
 
 ## Operating Goal
 
@@ -62,7 +97,7 @@ Before starting any new phase:
 - [x] VAT actions/export/Phase 9A dependent tests currently pass when DB suites run serially.
 - [x] VAT Playwright smoke currently covers `/tax/vat`, `/tax/vat/input`, `/tax/vat/output`, `/tax/vat/register`, `/tax/vat/filings`, `/tax/vat/forecast`.
 - [x] Archive Phase 8.5 to completed after one final full gate.
-- [x] Clearly separate current dirty overnight baseline before large new slices via `docs/exec-plans/active/dirty-tree-checkpoint-2026-05-17.md`, mapping the 200+ file dirty tree into review slices and listing current stabilization gates. A real commit split is still recommended before PR review.
+- [x] Clearly separate current dirty overnight baseline before large new slices via `docs/exec-plans/active/dirty-tree-checkpoint-2026-05-17.md`, mapping the 200+ file dirty tree into review slices and listing current stabilization gates. Earlier PR split advice is superseded by the 2026-05-17 user decision to merge PR #1 as one stack; the checkpoint remains an audit/review map, not an active PR-splitting plan.
 - [x] Add goal completion audit: `docs/exec-plans/active/goal-completion-audit-2026-05-17.md` maps explicit goal requirements to artifacts/evidence and records why the goal is not complete.
 - [x] Run broader serial DB stabilization gate after the completion audit: VAT ledger schema/behavior, foreign-vendor tax, GL, payroll, fixed assets, and Copilot DB suites passed serially; follow-up `pnpm tsc --noEmit` and `git diff --check` passed. Evidence recorded in `goal-completion-audit-2026-05-17.md`.
 - [x] Run selected Playwright stabilization bundle after the completion audit: VAT, accounting, fixed-assets, and analytics suites passed; follow-up `pnpm tsc --noEmit` and `git diff --check` passed. Evidence recorded in `goal-completion-audit-2026-05-17.md`.

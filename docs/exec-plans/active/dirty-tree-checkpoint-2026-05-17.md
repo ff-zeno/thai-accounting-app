@@ -1,8 +1,8 @@
 # Dirty Tree Checkpoint — 2026-05-17
 
-**Status:** Active review map for the packaged overnight goal-mode branch.
+**Status:** Historical audit map for the packaged overnight goal-mode branch.
 
-This checkpoint separates the overnight implementation into coherent review slices. It began as a dirty-tree map; the slices are now local commits on `goal/overnight-completion-2026-05-17`, with only explicit keep-out/scratch paths left uncommitted.
+This checkpoint separates the overnight implementation into coherent review slices. It began as a dirty-tree map; the slices are now local commits on `goal/overnight-completion-2026-05-17`, with only explicit keep-out/scratch paths left uncommitted. User decision on 2026-05-17 supersedes the earlier PR-splitting plan: PR #1 should merge as one non-production baseline, and this file remains an audit map for what landed.
 
 Current count note:
 - Baseline commit: `68ba8be005ec36e943c71e200f2410a9c11313fa`.
@@ -25,7 +25,7 @@ Current count note:
 - After the final SSO wording cleanup in the audit/runbook, counts and coverage still remain unchanged: 276 porcelain entries, 353 dirty file-level paths, 345 staging-covered paths, and the same 8 keep-out/scratch paths.
 - After adding the new-feature design-approval stop condition, counts and coverage still remain unchanged: 276 porcelain entries, 353 dirty file-level paths, 345 staging-covered paths, and the same 8 keep-out/scratch paths.
 - Post-estimate reviewability refresh on 2026-05-17 revalidated the manifest against the current tree: 276 porcelain entries, 353 file-level paths, main slices still selecting 306 paths, residual assigned mini-groups still selecting 39 paths, and coverage still 345 staging-covered paths plus the same 8 keep-out/scratch paths. Follow-up TypeScript, Drizzle check, `pnpm db:migrate`, diff check, active-code no-`vat_records`, and artifact-status checks passed.
-- After packaging into local stacked commits on `goal/overnight-completion-2026-05-17`, implementation/control slices are committed from `6a6f0b2` through `a767ad2` and published as ready-for-review PR #1: `https://github.com/ff-zeno/thai-accounting-app/pull/1`. The only remaining uncommitted paths are the 8 explicit keep-out/scratch paths: five benchmark PNGs, `docs/_ai_context/skills-cleanup-plan.md`, `scripts/check-ksher-cat.ts`, and `vat-info.md`.
+- After packaging into local stacked commits on `goal/overnight-completion-2026-05-17`, implementation/control slices are committed from `6a6f0b2` through `a767ad2` and published as PR #1: `https://github.com/ff-zeno/thai-accounting-app/pull/1`. The only remaining uncommitted paths are the 8 explicit keep-out/scratch paths: five benchmark PNGs, `docs/_ai_context/skills-cleanup-plan.md`, `scripts/check-ksher-cat.ts`, and `vat-info.md`.
 - Final packaged-stack gate passed: `pnpm test` 56 files / 633 tests, `pnpm lint` 0 errors / 3 existing warnings, `pnpm build` 81 static pages, `pnpm test:db` 40 files / 437 tests, `pnpm test:e2e` 223 tests, `pnpm exec drizzle-kit check`, `pnpm db:migrate`, `pnpm tsc --noEmit`, `git diff --check`, active-code no-`vat_records`, and artifact-status check.
 - PR preview follow-up passed after updating `inngest` from `3.52.6` to `3.54.2`; Vercel had blocked the vulnerable older version after an otherwise successful build.
 - Post-gate artifact check found no tracked/untracked `test-results`, `playwright-report`, `.next`, `node_modules`, coverage, dist, `.turbo`, `.vercel`, or local agent-runtime artifacts in `git status --porcelain=v1 --untracked-files=all`.
@@ -33,7 +33,7 @@ Current count note:
 - Fresh post-223-E2E artifact check also found no tracked/untracked `test-results`, `playwright-report`, `.next`, `node_modules`, coverage, dist, `.turbo`, `.vercel`, `.codex`, `.playwright-mcp`, `.serena`, `.superpowers`, `_tmp_images`, or root `image.png` entries in `git status --porcelain=v1 --untracked-files=all`.
 - The default count collapses untracked directories, so use the file-level count for review sizing and the porcelain count only as a quick status signal.
 - Local/tool artifacts such as `.codex`, `.playwright-mcp/`, `.serena/`, `.superpowers/`, `_tmp_images/`, and `image.png` are ignored by `.gitignore`; keep them out of review unless intentionally needed.
-- The remaining count may still include scratch helpers such as `scripts/check-ksher-cat.ts`; review/commit splitting should exclude those unless intentionally needed.
+- The remaining count may still include scratch helpers such as `scripts/check-ksher-cat.ts`; keep those out of the merge unless intentionally promoted.
 - Review intentionality before staging unclassified untracked docs or data such as `vat-info.md`, `docs/_ai_context/skills-cleanup-plan.md`, `benchmarks/_ground-truth-pages/`, and dogfood helper files.
 
 Current file-level top-level breakdown after the mechanical lint cleanup:

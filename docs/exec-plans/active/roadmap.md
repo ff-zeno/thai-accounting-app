@@ -87,17 +87,17 @@ All active plans live in `docs/exec-plans/active/`.
 
 Use `docs/exec-plans/active/overnight-completion-control.md` as the operative runbook for goal-mode implementation. It owns the current phase queue, research protocol, review protocol, standard test gates, and remaining review debt.
 
-Current post-gate order after the 2026-05-17 stabilization pass:
+Current post-gate order after the 2026-05-17 stabilization pass and merge decision:
 
-1. Keep the branch reviewable before more feature expansion.
-   - The former large dirty tree is now packaged into local stacked commits on `goal/overnight-completion-2026-05-17`, from control docs through baseline cleanup, and published as ready-for-review PR #1: `https://github.com/ff-zeno/thai-accounting-app/pull/1`. `dirty-tree-checkpoint-2026-05-17.md` remains the review map for the commit boundaries. Only explicit keep-out/scratch paths remain uncommitted.
+1. Merge the packaged branch as one non-production baseline.
+   - The former large dirty tree is now packaged into local stacked commits on `goal/overnight-completion-2026-05-17`, from control docs through baseline cleanup, and published as PR #1: `https://github.com/ff-zeno/thai-accounting-app/pull/1`. User decision on 2026-05-17 is to merge this stack as one PR instead of splitting it into smaller review PRs. `dirty-tree-checkpoint-2026-05-17.md` remains the audit map for what landed. Only explicit keep-out/scratch paths remain uncommitted.
 2. Close external-validation blockers before claiming production compliance.
    - DBD/TFRS remains blocked on CPA plus authenticated DBD Builder validation; WHT certificate upload storage still needs live Blob/Inngest QA; payroll production filing still needs current SSO config validation and exact RD/SSO exports.
 3. Preserve the green commit gate.
    - Latest packaged-stack evidence on `goal/overnight-completion-2026-05-17`: full `pnpm test:e2e` passed 223 tests; `pnpm test:db` passed 40 files / 437 tests; `pnpm test` passed 56 files / 633 tests; `pnpm lint` passes with 0 errors / 3 existing TanStack/React Compiler warnings; `pnpm build` passed with 81 static app pages; `pnpm tsc --noEmit`, `pnpm exec drizzle-kit check`, `pnpm db:migrate`, `git diff --check`, artifact-status, no-active-`vat_records` search, and Vercel PR preview passed. Vercel required `inngest@3.54.0+`; the branch now uses `inngest@3.54.2`.
-4. Resolve or explicitly accept review debt.
-   - Claude Companion is now available for follow-up slices. Recent review debt closed for imports payment unlink / GL reversal, close/posting readiness, POS/cash posting, inventory movement posting/outbox, payroll payment/remittance outbox, CIT accrual/payment posting-outbox, fixed-asset depreciation posting-outbox, and BYO-Copilot settings hardening; any remaining historic skipped reviews must be resolved or explicitly accepted before PR-ready status.
-5. Choose remaining feature slices only after the packaging/review surface is stable.
+4. Accept PR-level review debt for this baseline, then use manual QA to scope follow-up fixes.
+   - Claude Companion follow-up debt is closed for imports payment unlink / GL reversal, close/posting readiness, POS/cash posting, inventory movement posting/outbox, payroll payment/remittance outbox, CIT accrual/payment posting-outbox, fixed-asset depreciation posting-outbox, and BYO-Copilot settings hardening. Since the app is not production yet, broad human testing is the next useful review surface.
+5. Choose remaining feature slices only after owner/accountant QA produces concrete findings or a user-approved design exists.
    - Smallest remaining owner-testable gaps are imports direct-clear/backfill/reversal depth, richer inventory count/approval/statutory true-up workflows, payroll employee 50 Tawi and receipt/reconciliation flows, bank/WHT/realized FX revaluation, exact TP form rendering, and Copilot live model/MCP orchestration.
 
 ## Dependency Order

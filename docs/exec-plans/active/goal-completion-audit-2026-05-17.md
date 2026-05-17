@@ -84,7 +84,7 @@ Claude Companion packaging review on 2026-05-17 found these status risks:
 - Current control docs are useful but not proof by themselves because several are untracked; they must be staged/committed with the slices they describe or treated only as a control snapshot.
 - `dirty-tree-checkpoint-2026-05-17.md` now has concrete pathspec-based staging groups and per-slice gates, but no actual commits have been created yet.
 - Claude Companion packaging reviews found the initial manifest understated stacked-branch dependency and could split VAT/schema/migration changes dangerously; the follow-up found WHT/GL ordering, stale residual-count wording, and docs-first overclaim risks. The checkpoint now labels the manifest as stacked, combines schema/VAT cutover into a foundational bundle, orders GL/posting before WHT and later posting-outbox workflow slices, records scratch-file dispositions, and documents per-slice gates. Claude re-review found no remaining packaging-control blockers. This is still a review aid, not a substitute for actually staging/committing the slices.
-- Several high-risk slices previously skipped Claude review when the CLI was unavailable. Named skipped slices in this audit now have follow-up closures: imports payment unlink / GL reversal, close/posting readiness, POS/cash posting, inventory movement/posting-outbox, payroll payment/remittance outbox, CIT accrual/payment posting-outbox hardening, and BYO-Copilot settings hardening. No named skipped high-risk review remains open in this audit, but actual PR-ready status still requires review-slice packaging and reviewer acceptance.
+- Several high-risk slices previously skipped Claude review when the CLI was unavailable. Named skipped slices in this audit now have follow-up closures: imports payment unlink / GL reversal, close/posting readiness, POS/cash posting, inventory movement/posting-outbox, payroll payment/remittance outbox, CIT accrual/payment posting-outbox hardening, and BYO-Copilot settings hardening. No named skipped high-risk review remains open in this audit. The earlier review-slice packaging requirement is superseded by the 2026-05-17 decision to merge PR #1 as one non-production baseline and scope follow-up work through manual QA.
 - Imports payment unlink/GL reversal cleanup has now received a Claude Companion follow-up after `claude` became available on PATH. Claude found a cross-month locked-GL reversal blocker plus posting-exception cleanup and dangling reversal subledger-reference risks; fixes landed and focused imports/GL DB gates passed.
 - BYO-Copilot settings follow-up ran after `claude` became available on PATH. Claude found no blockers after owner/admin verified-org gating, audit/export redaction, membership-role propagation, env-backed live enablement, bounded validation, and force-dynamic settings page hardening.
 - Route smoke and owner-test plan presence are not equivalent to owner walkthrough execution.
@@ -353,8 +353,10 @@ Historical planned gate commands kept for traceability:
 
 ## Stop/Continue Decision
 
-Do not mark the goal complete. The current tree is much more owner-testable than the starting point, but multiple explicit requirements remain incomplete or externally blocked. The next best engineering move is stabilization and review-splitting before more broad feature work:
+Do not mark the goal complete. The current tree is much more owner-testable than the starting point, but multiple explicit requirements remain incomplete or externally blocked. The 2026-05-17 user decision supersedes the earlier review-splitting plan: merge PR #1 as one non-production baseline, then use owner/accountant QA to scope follow-up fixes.
 
-1. Split or commit reviewable slices from the dirty tree.
-2. Run a broader serial DB gate and selected Playwright bundle.
-3. Choose one remaining slice only after the tree is reviewable and a user-approved design exists for any new feature/behavior implementation.
+1. Merge PR #1 as one stack.
+2. Pull the merged target branch and run post-merge smoke: `pnpm db:migrate`, `pnpm tsc --noEmit`, and `pnpm test:e2e e2e/smoke/all-pages.spec.ts`.
+3. Run `docs/exec-plans/active/owner-test-plan-2026-05-17.md` as the human QA checklist.
+4. Close or explicitly defer the external blockers: CPA/DBD Builder, production SSO config, live Blob/Inngest WHT storage QA, exact RD/SSO exports, employee 50 Tawi production format, and exact TP form rendering.
+5. Choose one remaining feature slice only after manual QA produces concrete findings or the user approves a design for new feature/behavior implementation.

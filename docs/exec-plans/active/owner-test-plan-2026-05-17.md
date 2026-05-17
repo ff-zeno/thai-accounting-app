@@ -1,8 +1,17 @@
 # Owner Test Plan — 2026-05-17
 
-**Status:** Active manual QA guide for the current overnight dirty tree.
+**Status:** Active post-merge manual QA guide for PR #1.
 
-Use this after starting the app locally. It focuses on owner/accountant workflows that should now be testable from the UI. It deliberately separates "owner-testable v1" from known remaining gaps so manual QA does not confuse unfinished roadmap items with regressions.
+Use this after merging PR #1 and starting the app locally. It focuses on owner/accountant workflows that should now be testable from the UI. It deliberately separates "owner-testable v1" from known remaining gaps so manual QA does not confuse unfinished roadmap items with regressions.
+
+## Remaining Blockers
+
+Track the full checklist in `docs/exec-plans/active/overnight-completion-control.md`. For manual QA, the important blockers are:
+
+- [ ] Run this walkthrough against the merged baseline, not the pre-merge branch preview only.
+- [ ] Treat CPA/DBD Builder validation, SSO production configuration, live Blob/Inngest WHT storage QA, exact RD/SSO exports, employee 50 Tawi production format, and exact TP form rendering as blocked until external evidence exists.
+- [ ] Treat imports direct-clear/backfill/reversal depth, inventory FIFO/specific-ID/statutory true-up, richer count approvals, bank/WHT/realized FX, payroll receipt/reconciliation/bank matching, DBD/TFRS fileable packets, and Copilot live-model orchestration as known remaining product gaps unless a tested flow below says otherwise.
+- [ ] File manual QA findings by workflow area. Do not reopen the PR-splitting plan unless a concrete regression makes a targeted rollback safer than a follow-up fix.
 
 ## Preflight
 

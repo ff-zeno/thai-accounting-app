@@ -39,6 +39,13 @@ export interface DashboardMetrics {
   openExceptions: ReviewException[];
 }
 
+export interface OwnerHomeMetrics {
+  netVatPosition: string;
+  outstandingFilings: number;
+  upcomingDeadlines: FilingDeadline[];
+  openExceptions: ReviewException[];
+}
+
 export interface DashboardAnalyticsSnapshot {
   asOfDate: string;
   arTotal: string;
@@ -191,6 +198,41 @@ export async function getDashboardMetrics(
       scheduledPayrollOutflows: cashForecast.scheduledPayrollOutflows,
       scheduledDepreciationExpense: cashForecast.scheduledDepreciationExpense,
     },
+    upcomingDeadlines,
+    openExceptions,
+  };
+}
+
+export async function getOwnerHomeMetrics(
+  orgId: string,
+  year: number,
+  month: number
+): Promise<OwnerHomeMetrics> {
+  const [vatResult, outstandingResult, upcomingDeadlines, openExceptions] =
+    await Promise.all([
+      getVatLedgerPeriodDashboard({
+        orgId,
+        periodYear: year,
+        periodMonth: month,
+      }),
+      db
+        .select({
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(whtMonthlyFilings)
+        .where(
+          and(
+            ...orgScope(whtMonthlyFilings, orgId),
+            sql`${whtMonthlyFilings.status} != 'filed'`
+          )
+        ),
+      getUpcomingDeadlines(orgId, year, month),
+      getOpenExceptions(orgId),
+    ]);
+
+  return {
+    netVatPosition: vatResult.pp30.signedNetPosition,
+    outstandingFilings: outstandingResult[0]?.count ?? 0,
     upcomingDeadlines,
     openExceptions,
   };

@@ -74,7 +74,7 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
             </div>
 
             <div className="border-b px-2 py-2">
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-5 gap-1">
                 {navCategories.map((category) => (
                   <MobileCategoryButton
                     key={category.labelKey}

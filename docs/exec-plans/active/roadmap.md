@@ -16,8 +16,8 @@ Only keep documents here when they drive current or next work.
 
 | Document | Role | Done condition |
 |---|---|---|
-| `completion-control.md` | Live checklist for holistic app completion after PR #1 merge | All external blockers closed or explicitly deferred, owner/accountant QA complete, and remaining product gaps either shipped or accepted as post-v1 |
-| `owner-test-plan-2026-05-17.md` | Manual QA walkthrough for the merged owner-testable baseline | Owner/accountant walkthrough completed and findings transferred into follow-up issues or a new active slice |
+| `owner-mode-ux-reset.md` | Current selected implementation slice: reset the product around owner workflow, bank-first reconciliation, documents, VAT, and WHT | Owner-mode nav and core workflows are simplified; advanced/accountant areas are demoted; VAT lines show source-to-filing lifecycle status |
+| `completion-control.md` | Live checklist for holistic app completion after PR #1 merge, now oriented around the owner-mode reset | Owner-mode reset shipped, external blockers closed or explicitly deferred, and remaining product gaps either shipped or accepted as post-v1 |
 | `dbd-tfrs-research-spike.md` | CPA/DBD Builder validation blocker for fileable DBD/TFRS output | CPA-reviewed schema/notes taxonomy and authenticated Builder validation available |
 | `phase-12b-tfrs-dbd-audit-pack.md` | Remaining DBD/TFRS/audit-pack implementation plan | Fileable financial statements, notes, Builder packet, and auditor ZIP implemented and Builder-validated |
 | `roadmap.md` | This table of contents and current-state index | Replaced by a newer roadmap |
@@ -30,22 +30,32 @@ Completed plans live in `docs/exec-plans/completed/`. They are historical eviden
 |---|---|
 | Original platform and baseline | `000-overview.md`, `001-schema.md`, `001-thai-accounting-platform-monolith-archived.md`, `baseline-hardening-v2-task.md`, `baseline-hardening.md`, `today-gap-remediation.md` |
 | Early app phases | `phase-0-validation.md`, `phase-1a-infrastructure.md`, `phase-1b-app-shell.md`, `phase-2-bank-statements.md`, `phase-3-documents-ai.md`, `phase-4-reconciliation.md`, `phase-5-wht-tax.md`, `phase-6-vat-reporting.md`, `phase-7-ai-batch-matching.md`, `phase-7-learning-metrics.md`, `phase-7-ui-reconciliation.md` |
-| Merged PR #1 baseline evidence | `dirty-tree-checkpoint-2026-05-17.md`, `goal-completion-audit-2026-05-17.md`, `overnight-completion-control.md` |
+| Merged PR #1 baseline evidence | `dirty-tree-checkpoint-2026-05-17.md`, `goal-completion-audit-2026-05-17.md`, `overnight-completion-control.md`, `owner-test-plan-2026-05-17.md` |
 | Shipped operational v1 phase plans | `chart-of-accounts.md`, `phase-8-5-vat-operations-ledger.md`, `phase-8-extraction-learning-loop.md`, `phase-9-foreign-vendor-tax.md`, `phase-9-5-tax-workflow-control-tower.md`, `phase-10-pos-and-cash-flow.md`, `phase-10-5-gl-primitives.md`, `phase-10-6-imports.md`, `phase-10-6-inventory-cogs-imports.md`, `phase-11-payroll.md`, `phase-12a-cit-engine.md`, `phase-13-fixed-assets-depreciation.md`, `phase-14-analytics-audit-pack.md`, `phase-15-ui-nav-refactor.md`, `phase-16-ai-copilot-tool-layer.md` |
 
 ## Current State
 
-The app is now a broad owner-testable non-production baseline. The merged stack includes VAT operations ledger, WHT/foreign-vendor tax, tax workflow surfaces, GL/accounting, POS/sales, imports, inventory, payroll, fixed assets, analytics/FX/cost centers, CIT/year-end readiness, navigation shell, and Copilot preview/settings.
+The app is now a broad non-production baseline, but the primary UX is too complex for the intended user. The merged stack includes VAT operations ledger, WHT/foreign-vendor tax, tax workflow surfaces, GL/accounting, POS/sales, imports, inventory, payroll, fixed assets, analytics/FX/cost centers, CIT/year-end readiness, navigation shell, and Copilot preview/settings.
 
-This is not production/fileable complete. The gap is no longer "split the PR" or "figure out what landed." The gap is owner/accountant QA plus a short set of external validation and product-completion blockers.
+This is not production/fileable complete. The immediate gap is no longer "add more accounting features." The immediate gap is a product reset around the owner workflow: Home, Bank, Documents, Tax, and More, with advanced accounting/audit modules hidden or demoted.
+
+The active product model is:
+
+- Bank is the source of truth.
+- Documents, POS exports, payroll, imports, and optional feeds explain bank movement.
+- Reconciliation confirms every bank line has source evidence or an explicit explanation.
+- Tax consumes reconciled and classified lines for monthly VAT and WHT compliance.
 
 ## Remaining Work
 
-### Manual QA
+### UX reset
 
-- Run `owner-test-plan-2026-05-17.md` against merged `main`.
-- Record findings by workflow area.
-- Fix concrete owner-flow defects before adding broad new surface area.
+- Ship `owner-mode-ux-reset.md` before scheduling additional feature expansion.
+- Default navigation to owner mode: Home, Bank, Documents, Tax, More.
+- Demote GL/accounting internals, analytics, CIT/year-end, fixed assets, imports control, advanced settings, admin, and Copilot tool runner.
+- Rework Home into "what needs attention" and "this month's filings."
+- Rework Bank and Documents around upload, AI extraction/coding, matching, and exception review.
+- Rework Tax around monthly VAT/WHT readiness and line-level lifecycle status.
 
 ### External validation
 
@@ -58,6 +68,7 @@ This is not production/fileable complete. The gap is no longer "split the PR" or
 
 ### Product gaps to schedule after QA
 
+- Owner-mode UX: bank-first reconciliation, unified document inbox, monthly VAT/WHT checklist, VAT line lifecycle, WHT line lifecycle.
 - Imports: direct-clear customs, backfill/reversal depth, richer document/payment picker UX, richer charge classifier UX.
 - Inventory: FIFO/specific-ID/statutory true-up, richer count edit/approval, line-level SKU assignment, demand/reorder automation.
 - Sales/POS: connectors, richer settlement matching, cash slip OCR, bank matching, branch/establishment propagation, Excel/PDF section 87 exports.
@@ -72,6 +83,7 @@ This is not production/fileable complete. The gap is no longer "split the PR" or
 - `active/` is the current queue. Keep it small.
 - `completed/` is evidence. Do not treat a completed phase doc as the next plan just because it still lists future enhancements.
 - Promote a residual item from this roadmap into a dedicated active plan only when it becomes the selected next slice.
+- Do not schedule new broad accounting surface before the owner-mode UX reset.
 - For compliance behavior, verify official or primary sources before encoding rules.
 - For library/framework/API docs, use `ctx7` per `AGENTS.md`.
 - Do not claim production/fileable completeness until the external blockers above are closed or explicitly deferred by the owner.

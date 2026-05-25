@@ -1,6 +1,6 @@
 # Owner Test Plan — 2026-05-17
 
-**Status:** Active post-merge manual QA guide for PR #1.
+**Status:** Historical post-merge manual QA guide for PR #1. Superseded as the active next workflow by `docs/exec-plans/active/owner-mode-ux-reset.md`.
 
 Use this after merging PR #1 and starting the app locally. It focuses on owner/accountant workflows that should now be testable from the UI. It deliberately separates "owner-testable v1" from known remaining gaps so manual QA does not confuse unfinished roadmap items with regressions.
 

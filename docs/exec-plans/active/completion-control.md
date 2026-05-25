@@ -4,14 +4,37 @@
 **Last updated:** 2026-05-17.
 **Baseline:** PR #1 is merged to `main` at `f89b7f420f4daeb80e89d631e1336be5644512d8`. Vercel Production deploy succeeded, `pnpm db:migrate` passed, `pnpm tsc --noEmit` passed, and `pnpm test:e2e e2e/smoke/all-pages.spec.ts` passed 65 routes after merge.
 
-Use this file for the next work loop. Use `roadmap.md` as the table of contents. Historical phase plans and the overnight branch audit now live in `docs/exec-plans/completed/`.
+Use this file for the next work loop. Use `roadmap.md` as the table of contents. Historical phase plans, the overnight branch audit, and the old broad owner-test plan now live in `docs/exec-plans/completed/`.
+
+The current selected slice is `owner-mode-ux-reset.md`. Do not add more broad accounting surface area until the owner workflow is simple and coherent.
 
 ## Active Work
 
-- [ ] Run owner/accountant QA from `owner-test-plan-2026-05-17.md` against merged `main`.
-- [ ] Record workflow failures as follow-up findings by area: VAT/WHT, sales/POS, GL/close, imports/inventory, payroll, fixed assets, CIT/year-end, analytics, settings, Copilot.
+- [ ] Ship owner-mode navigation: Home, Bank, Documents, Tax, More.
+- [ ] Rework Home around attention items, monthly checklist, and filing status.
+- [ ] Rework Bank around statement upload, transaction review, reconciliation, and unmatched items.
+- [ ] Rework Documents around a unified inbox for expense docs, income docs, receipts, invoices, supplier bills, and POS exports.
+- [ ] Rework Tax around monthly VAT/WHT readiness and line-level lifecycle status.
+- [ ] Record workflow failures as follow-up findings by area: Bank, Documents, Reconciliation, VAT, WHT, optional modules, accountant tools.
 - [ ] Close or explicitly defer external blockers before any production/fileable claim.
-- [ ] Pick the next engineering slice only after manual QA produces a concrete failure or the user approves a design for a remaining feature.
+- [ ] Pick the next engineering slice only after the owner-mode reset lands or the user explicitly changes priority.
+
+## Owner Workflow Requirements
+
+- [ ] Bank is treated as the source of truth.
+- [ ] Source documents and feeds explain bank movement: expenses, income documents, receipts, supplier bills, POS exports, payroll, imports, or explicit explanations.
+- [ ] AI extraction/coding/rules reduce owner work to exception review.
+- [ ] Reconciliation shows which bank lines are matched, partially matched, unmatched, duplicate, or explicitly explained.
+- [ ] Monthly checklist asks for all bank statements, POS exports, source documents, reconciliation, VAT review, WHT review, and filing readiness.
+- [ ] Advanced/accountant tools remain reachable but are hidden from default owner navigation.
+
+## VAT/WHT Lifecycle Requirements
+
+- [ ] VAT-bearing income and expense lines show source, date, VAT period, domestic/foreign treatment, VAT classification, VAT base, VAT amount, evidence status, and filing status.
+- [ ] VAT filing status distinguishes pending review, ready for draft, in open PP30 draft, submitted/finalized in filed PP30, carried-forward credit, aged/expiring credit, missed/late correction-needed, and excluded with reason.
+- [ ] Submitted PP30 filings finalize included VAT lines unless an explicit amendment/correction workflow is used.
+- [ ] WHT lines show source payment/document, vendor/customer, domestic/foreign treatment, WHT rate/basis, certificate/evidence status, draft filing inclusion, submitted filing reference, and correction-needed status.
+- [ ] Tax pages support owner filters by period, source, status, and problem type.
 
 ## External Blockers
 
@@ -24,6 +47,7 @@ Use this file for the next work loop. Use `roadmap.md` as the table of contents.
 
 ## Remaining Product Gaps
 
+- [ ] Owner-mode UX: simplified nav, bank-first reconciliation, unified document inbox, monthly tax checklist, VAT/WHT line lifecycle.
 - [ ] Imports: direct-clear customs, backfill/reversal depth, richer document/payment picker UX, richer charge classifier UX.
 - [ ] Inventory: FIFO/specific-ID/statutory true-up, richer count edit/approval, line-level SKU assignment, demand/reorder automation.
 - [ ] Sales/POS: connectors, richer settlement matching, cash slip OCR, bank matching, branch/establishment propagation, Excel/PDF section 87 exports.

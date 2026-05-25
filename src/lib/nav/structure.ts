@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  ArrowRightLeft,
   BarChart3,
   Bot,
   BookOpen,
@@ -16,12 +17,12 @@ import {
   Lightbulb,
   LineChart,
   LockKeyhole,
+  MoreHorizontal,
   PackageSearch,
   Receipt,
   Settings,
   ShoppingCart,
   SplitSquareVertical,
-  Store,
   Upload,
   Users,
   UsersRound,
@@ -47,13 +48,27 @@ export interface NavCategory {
 
 export const navCategories: NavCategory[] = [
   {
-    labelKey: "overview",
+    labelKey: "home",
     icon: Home,
     href: "/dashboard",
     sections: [
       {
-        labelKey: "overview",
-        items: [{ labelKey: "dashboard", href: "/dashboard", icon: Home }],
+        labelKey: "home",
+        items: [{ labelKey: "home", href: "/dashboard", icon: Home }],
+      },
+    ],
+  },
+  {
+    labelKey: "bank",
+    icon: Landmark,
+    href: "/bank-accounts",
+    sections: [
+      {
+        labelKey: "bank",
+        items: [
+          { labelKey: "bankAccounts", href: "/bank-accounts", icon: Landmark },
+          { labelKey: "uploadStatement", href: "/bank-accounts/upload", icon: Upload },
+        ],
       },
     ],
   },
@@ -73,36 +88,7 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    labelKey: "banking",
-    icon: Landmark,
-    href: "/bank-accounts",
-    sections: [
-      {
-        labelKey: "banking",
-        items: [
-          { labelKey: "bankAccounts", href: "/bank-accounts", icon: Landmark },
-          { labelKey: "uploadStatement", href: "/bank-accounts/upload", icon: Upload },
-        ],
-      },
-      {
-        labelKey: "processing",
-        items: [
-          {
-            labelKey: "reconciliation",
-            href: "/reconciliation",
-            icon: GitCompareArrows,
-          },
-          {
-            labelKey: "insights",
-            href: "/reconciliation/insights",
-            icon: Lightbulb,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "taxFiling",
+    labelKey: "tax",
     icon: Receipt,
     href: "/tax/vat",
     sections: [
@@ -137,142 +123,75 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    labelKey: "sales",
-    icon: Store,
-    href: "/sales",
-    sections: [
-      {
-        labelKey: "sales",
-        items: [
-          { labelKey: "salesControl", href: "/sales", icon: ShoppingCart },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "accounting",
-    icon: BookOpen,
+    labelKey: "more",
+    icon: MoreHorizontal,
     href: "/accounting",
     sections: [
       {
-        labelKey: "accounting",
+        labelKey: "reconciliationGroup",
         items: [
-          { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
+          { labelKey: "reconciliation", href: "/reconciliation", icon: GitCompareArrows },
+          { labelKey: "reconciliationReview", href: "/reconciliation/review", icon: ArrowRightLeft },
+          { labelKey: "insights", href: "/reconciliation/insights", icon: Lightbulb },
         ],
       },
-    ],
-  },
-  {
-    labelKey: "inventory",
-    icon: Boxes,
-    href: "/inventory",
-    sections: [
       {
-        labelKey: "inventory",
+        labelKey: "inventoryImports",
         items: [
           { labelKey: "inventoryControl", href: "/inventory", icon: Boxes },
           { labelKey: "importsControl", href: "/imports", icon: PackageSearch },
         ],
       },
-    ],
-  },
-  {
-    labelKey: "fixedAssets",
-    icon: ClipboardList,
-    href: "/fixed-assets",
-    sections: [
       {
-        labelKey: "fixedAssets",
+        labelKey: "accountingReports",
         items: [
-          { labelKey: "fixedAssetRegister", href: "/fixed-assets", icon: ClipboardList },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "analytics",
-    icon: LineChart,
-    href: "/analytics/ar-aging",
-    sections: [
-      {
-        labelKey: "analytics",
-        items: [
+          { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
+          { labelKey: "journal", href: "/accounting/journal", icon: BookOpen },
+          { labelKey: "postingExceptions", href: "/accounting/posting-exceptions", icon: Activity },
+          { labelKey: "trialBalance", href: "/accounting/reports/trial-balance", icon: BarChart3 },
+          { labelKey: "balanceSheet", href: "/accounting/reports/balance-sheet", icon: BarChart3 },
+          { labelKey: "profitLoss", href: "/accounting/reports/profit-loss", icon: BarChart3 },
+          { labelKey: "generalLedgerReport", href: "/accounting/reports/general-ledger", icon: BookOpen },
+          { labelKey: "reports", href: "/reports", icon: BarChart3 },
           { labelKey: "arAging", href: "/analytics/ar-aging", icon: LineChart },
           { labelKey: "apAging", href: "/analytics/ap-aging", icon: LineChart },
           { labelKey: "cashForecast", href: "/analytics/cash-flow", icon: LineChart },
           { labelKey: "concentration", href: "/analytics/concentration", icon: BarChart3 },
           { labelKey: "profitability", href: "/analytics/profitability", icon: BarChart3 },
           { labelKey: "fxRates", href: "/analytics/fx-rates", icon: Landmark },
-          { labelKey: "closeChecklist", href: "/close", icon: LockKeyhole },
         ],
       },
-    ],
-  },
-  {
-    labelKey: "yearEnd",
-    icon: Landmark,
-    href: "/year-end/cit",
-    sections: [
       {
-        labelKey: "yearEnd",
+        labelKey: "payrollAssets",
         items: [
+          { labelKey: "payrollControl", href: "/payroll", icon: UsersRound },
+          { labelKey: "fixedAssetRegister", href: "/fixed-assets", icon: ClipboardList },
+          { labelKey: "fixedAssetRollForward", href: "/fixed-assets/reports/roll-forward", icon: ClipboardList },
+        ],
+      },
+      {
+        labelKey: "yearEndClose",
+        items: [
+          { labelKey: "closeChecklist", href: "/close", icon: LockKeyhole },
           { labelKey: "citWorkbench", href: "/year-end/cit", icon: Landmark },
         ],
       },
-    ],
-  },
-  {
-    labelKey: "copilot",
-    icon: Bot,
-    href: "/copilot",
-    sections: [
-      {
-        labelKey: "copilot",
-        items: [
-          { labelKey: "accountingCopilot", href: "/copilot", icon: Bot },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "payroll",
-    icon: UsersRound,
-    href: "/payroll",
-    sections: [
-      {
-        labelKey: "payroll",
-        items: [
-          { labelKey: "payrollControl", href: "/payroll", icon: UsersRound },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "management",
-    icon: Users,
-    href: "/vendors",
-    sections: [
       {
         labelKey: "management",
         items: [
           { labelKey: "vendors", href: "/vendors", icon: Users },
-          { labelKey: "reports", href: "/reports", icon: BarChart3 },
           { labelKey: "settings", href: "/settings", icon: Settings },
+          { labelKey: "reconciliationRules", href: "/settings/reconciliation-rules", icon: GitCompareArrows },
           { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
           { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
           { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },
         ],
       },
-    ],
-  },
-  {
-    labelKey: "admin",
-    icon: Activity,
-    href: "/admin/extraction-health",
-    sections: [
       {
-        labelKey: "admin",
+        labelKey: "toolsAdmin",
         items: [
+          { labelKey: "salesControl", href: "/sales", icon: ShoppingCart },
+          { labelKey: "accountingCopilot", href: "/copilot", icon: Bot },
           {
             labelKey: "extractionHealth",
             href: "/admin/extraction-health",

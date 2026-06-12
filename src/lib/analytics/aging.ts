@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/index";
 import { documents, payments, vendors } from "@/lib/db/schema";
+import { toSatangOrZero } from "@/lib/utils/money";
 
 export type AgingKind = "ar" | "ap";
 
@@ -74,14 +75,16 @@ export async function buildAgingSnapshot(
 }
 
 export function summarizeAging(rows: AgingRow[]) {
-  return rows.reduce(
+  // Accumulate in integer satang to avoid float drift, then convert back to
+  // THB numbers (the public shape consumers already rely on).
+  const satang = rows.reduce(
     (summary, row) => {
-      summary.current += Number(row.current);
-      summary.days1To30 += Number(row.days1To30);
-      summary.days31To60 += Number(row.days31To60);
-      summary.days61To90 += Number(row.days61To90);
-      summary.days91Plus += Number(row.days91Plus);
-      summary.total += Number(row.total);
+      summary.current += toSatangOrZero(row.current);
+      summary.days1To30 += toSatangOrZero(row.days1To30);
+      summary.days31To60 += toSatangOrZero(row.days31To60);
+      summary.days61To90 += toSatangOrZero(row.days61To90);
+      summary.days91Plus += toSatangOrZero(row.days91Plus);
+      summary.total += toSatangOrZero(row.total);
       return summary;
     },
     {
@@ -93,4 +96,13 @@ export function summarizeAging(rows: AgingRow[]) {
       total: 0,
     }
   );
+
+  return {
+    current: satang.current / 100,
+    days1To30: satang.days1To30 / 100,
+    days31To60: satang.days31To60 / 100,
+    days61To90: satang.days61To90 / 100,
+    days91Plus: satang.days91Plus / 100,
+    total: satang.total / 100,
+  };
 }

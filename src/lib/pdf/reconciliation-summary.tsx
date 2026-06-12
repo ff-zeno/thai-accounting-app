@@ -18,6 +18,7 @@ import {
 } from "@react-pdf/renderer";
 import { resolve } from "path";
 import { toBuddhistYear } from "@/lib/utils/thai-date";
+import { formatAmount } from "@/lib/utils/money";
 
 // ---------------------------------------------------------------------------
 // Font registration
@@ -181,13 +182,6 @@ function formatPeriod(month: number, year: number): string {
   return `${EN_MONTHS[month - 1]} ${year} / ${THAI_MONTHS[month - 1]} ${beYear}`;
 }
 
-function fmtAmount(amount: string): string {
-  return parseFloat(amount).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function fmtPct(n: number): string {
   return (n * 100).toFixed(1) + "%";
 }
@@ -304,7 +298,7 @@ function createReconciliationSummaryDocument(data: ReconciliationSummaryData) {
               h(Text, { style: s.cell },
                 item.counterparty || item.description || "—"
               ),
-              h(Text, { style: s.cellRight }, fmtAmount(item.amount)),
+              h(Text, { style: s.cellRight }, formatAmount(item.amount)),
             )
           ),
         ),
@@ -312,7 +306,7 @@ function createReconciliationSummaryDocument(data: ReconciliationSummaryData) {
       // Unmatched total
       h(View, { style: { marginTop: 8 } },
         h(Text, { style: [s.bold, { fontSize: 10 }] },
-          `Unmatched Amount / จำนวนเงินที่ยังไม่จับคู่: ${fmtAmount(data.unmatchedAmount)} THB`
+          `Unmatched Amount / จำนวนเงินที่ยังไม่จับคู่: ${formatAmount(data.unmatchedAmount)} THB`
         ),
       ),
 

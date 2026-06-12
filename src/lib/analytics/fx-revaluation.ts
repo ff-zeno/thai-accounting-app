@@ -17,6 +17,7 @@ import {
 import { createOpenException } from "@/lib/db/queries/exception-queue";
 import { getBotFxRateForValuationDate } from "@/lib/db/queries/fx-rates-bot";
 import { isPeriodLocked } from "@/lib/db/queries/period-locks";
+import { fromSatang, toSatangOrZero } from "@/lib/utils/money";
 
 type MonetaryItemType = "ar_invoice" | "ap_invoice";
 
@@ -24,8 +25,10 @@ interface RevaluationCandidate {
   itemType: MonetaryItemType;
   itemId: string;
   originalCurrency: string;
-  originalAmount: number;
-  priorThbAmount: number;
+  /** Integer satang of the original (foreign) currency. */
+  originalAmountSatang: number;
+  /** Integer satang THB. */
+  priorThbAmountSatang: number;
   controlAccountCode: "1140" | "2110";
   isAsset: boolean;
 }
@@ -41,10 +44,6 @@ interface RevaluationLayerInput {
   valuedThbAmount: string;
   priorValuationId?: string;
   journalEntryId?: string;
-}
-
-function money(value: number) {
-  return value.toFixed(2);
 }
 
 export function previousBangkokMonthEnd(referenceDate = new Date()) {
@@ -156,20 +155,24 @@ async function getDocumentCandidates(
     );
 
   return rows.flatMap((row) => {
-    const originalThb = Number(row.totalAmountThb ?? 0);
-    const openThb = Math.max(originalThb - Number(row.paidThb ?? 0), 0);
-    if (openThb <= 0 || Number(row.paidThb ?? 0) > 0) return [];
-    const proportion = originalThb === 0 ? 0 : openThb / originalThb;
-    const originalAmount = Number(row.totalAmount ?? 0) * proportion;
-    if (originalAmount <= 0) return [];
+    const originalThbSatang = toSatangOrZero(row.totalAmountThb);
+    const paidThbSatang = toSatangOrZero(row.paidThb);
+    const openThbSatang = Math.max(originalThbSatang - paidThbSatang, 0);
+    if (openThbSatang <= 0 || paidThbSatang > 0) return [];
+    // Ratio, not money.
+    const proportion = originalThbSatang === 0 ? 0 : openThbSatang / originalThbSatang;
+    const originalAmountSatang = Math.round(
+      toSatangOrZero(row.totalAmount) * proportion
+    );
+    if (originalAmountSatang <= 0) return [];
     if (row.direction !== "income" && row.direction !== "expense") return [];
     const isAsset = row.direction === "income";
     return [{
       itemType: isAsset ? "ar_invoice" : "ap_invoice",
       itemId: row.id,
       originalCurrency: (row.currency ?? "THB").toUpperCase(),
-      originalAmount,
-      priorThbAmount: openThb,
+      originalAmountSatang,
+      priorThbAmountSatang: openThbSatang,
       controlAccountCode: isAsset ? "1140" : "2110",
       isAsset,
     }];
@@ -229,9 +232,14 @@ export async function runFxRevaluation(data: {
         itemId: candidate.itemId,
         valuationDate: data.valuationDate,
       }, tx);
-      const priorThbAmount = Number(prior?.valuedThbAmount ?? candidate.priorThbAmount);
-      const valuedThbAmount = Number((candidate.originalAmount * Number(rate.midRate)).toFixed(2));
-      const delta = Number((valuedThbAmount - priorThbAmount).toFixed(2));
+      const priorThbAmountSatang = prior
+        ? toSatangOrZero(prior.valuedThbAmount)
+        : candidate.priorThbAmountSatang;
+      // FX rate is a plain-number multiplier; round the product back to satang.
+      const valuedThbAmountSatang = Math.round(
+        candidate.originalAmountSatang * Number(rate.midRate)
+      );
+      const deltaSatang = valuedThbAmountSatang - priorThbAmountSatang;
       const controlAccount = byCode.get(candidate.controlAccountCode);
       if (!controlAccount) throw new Error(`Missing control account ${candidate.controlAccountCode}`);
 
@@ -239,16 +247,16 @@ export async function runFxRevaluation(data: {
         orgId: data.orgId,
         monetaryItemType: candidate.itemType,
         monetaryItemId: candidate.itemId,
-        originalAmount: money(candidate.originalAmount),
+        originalAmount: fromSatang(candidate.originalAmountSatang),
         originalCurrency: candidate.originalCurrency,
         valuationDate: data.valuationDate,
         valuationRate: rate.midRate,
-        valuedThbAmount: money(valuedThbAmount),
+        valuedThbAmount: fromSatang(valuedThbAmountSatang),
         priorValuationId: prior?.id,
       });
 
-      if (delta === 0) continue;
-      const amount = money(Math.abs(delta));
+      if (deltaSatang === 0) continue;
+      const amount = fromSatang(Math.abs(deltaSatang));
       const controlLine = {
         accountId: controlAccount.id,
         description: `FX revaluation ${candidate.itemType} ${candidate.itemId}`,
@@ -257,19 +265,19 @@ export async function runFxRevaluation(data: {
       };
       if (candidate.isAsset) {
         journalLines.push(
-          delta > 0
+          deltaSatang > 0
             ? { ...controlLine, debitAmount: amount }
             : { ...controlLine, creditAmount: amount },
-          delta > 0
+          deltaSatang > 0
             ? { accountId: fxGain.id, creditAmount: amount, description: "Unrealized FX gain" }
             : { accountId: fxLoss.id, debitAmount: amount, description: "Unrealized FX loss" }
         );
       } else {
         journalLines.push(
-          delta > 0
+          deltaSatang > 0
             ? { accountId: fxLoss.id, debitAmount: amount, description: "Unrealized FX loss" }
             : { accountId: fxGain.id, creditAmount: amount, description: "Unrealized FX gain" },
-          delta > 0
+          deltaSatang > 0
             ? { ...controlLine, creditAmount: amount }
             : { ...controlLine, debitAmount: amount }
         );

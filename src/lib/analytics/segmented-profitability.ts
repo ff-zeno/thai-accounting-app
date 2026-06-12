@@ -7,6 +7,7 @@ import {
   journalLines,
   projects,
 } from "@/lib/db/schema";
+import { fromSatang, toSatangOrZero } from "@/lib/utils/money";
 
 export type ProfitabilitySegmentKind = "cost_center" | "project";
 
@@ -23,10 +24,6 @@ export interface ProfitabilitySegmentRow {
   operatingProfit: string;
 }
 
-function money(value: number) {
-  return value.toFixed(2);
-}
-
 function mapProfitabilityRows(
   rows: Array<{
     segmentId: string | null;
@@ -39,9 +36,10 @@ function mapProfitabilityRows(
   segmentKind: ProfitabilitySegmentKind
 ): ProfitabilitySegmentRow[] {
   return rows.map((row) => {
-    const revenue = Number(row.revenue);
-    const cogs = Number(row.cogs);
-    const expenses = Number(row.expenses);
+    // Integer satang throughout; ratios stay plain numbers.
+    const revenue = toSatangOrZero(row.revenue);
+    const cogs = toSatangOrZero(row.cogs);
+    const expenses = toSatangOrZero(row.expenses);
     const grossMargin = revenue - cogs;
     const operatingProfit = grossMargin - expenses;
 
@@ -50,12 +48,12 @@ function mapProfitabilityRows(
       segmentId: row.segmentId,
       segmentCode: row.segmentCode?.trim() || "UNASSIGNED",
       segmentName: row.segmentName?.trim() || "Unassigned",
-      revenue: money(revenue),
-      cogs: money(cogs),
-      expenses: money(expenses),
-      grossMargin: money(grossMargin),
+      revenue: fromSatang(revenue),
+      cogs: fromSatang(cogs),
+      expenses: fromSatang(expenses),
+      grossMargin: fromSatang(grossMargin),
       grossMarginPct: revenue <= 0 ? null : (grossMargin / revenue).toFixed(4),
-      operatingProfit: money(operatingProfit),
+      operatingProfit: fromSatang(operatingProfit),
     };
   });
 }

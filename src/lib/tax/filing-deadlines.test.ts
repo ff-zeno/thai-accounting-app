@@ -7,6 +7,7 @@ import {
   DEFAULT_TAX_CONFIG,
   adjustToNextThaiBusinessDay,
   isThaiBusinessDay,
+  THAI_BUSINESS_HOLIDAYS,
 } from "./filing-deadlines";
 
 const config = DEFAULT_TAX_CONFIG;
@@ -66,5 +67,34 @@ describe("filing deadlines", () => {
       new Date("2026-04-13T00:00:00+07:00")
     );
     expect(adjusted.toISOString()).toContain("2026-04-15"); // 16 in +07:00 = 15T17:00Z
+  });
+});
+
+describe("holiday coverage", () => {
+  // Forcing function: this STARTS FAILING every January 1st until the
+  // next year's Bank of Thailand holiday list is added. Do not delete the
+  // assertion — add THAI_BUSINESS_HOLIDAYS_<year> and extend the combined
+  // export instead.
+  it("covers at least the year after the current year", () => {
+    const maxYear = Math.max(
+      ...THAI_BUSINESS_HOLIDAYS.map((h) => Number(h.date.slice(0, 4)))
+    );
+    const currentYear = new Date().getFullYear();
+    expect(
+      maxYear,
+      `THAI_BUSINESS_HOLIDAYS only covers up to ${maxYear} — add the ${currentYear + 1} Bank of Thailand list`
+    ).toBeGreaterThanOrEqual(currentYear + 1);
+  });
+
+  it("rolls a 2027 Songkran deadline to the next business day", () => {
+    // PP36 for period 2027-03 lands on Songkran (Thu 2027-04-15) and must
+    // roll through it to Friday 2027-04-16.
+    const result = pp36Deadline(2027, 3, config);
+    expect(result.deadline.toISOString()).toContain("2027-04-15"); // 16 in +07:00 = 15T17:00Z
+  });
+
+  it("treats provisional 2027 substitution holidays as non-business days", () => {
+    expect(isThaiBusinessDay(new Date("2027-05-03T00:00:00+07:00"))).toBe(false);
+    expect(isThaiBusinessDay(new Date("2027-05-05T00:00:00+07:00"))).toBe(true);
   });
 });

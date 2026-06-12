@@ -137,6 +137,133 @@ export const THAI_BUSINESS_HOLIDAYS_2026: ThaiBusinessHoliday[] = [
   },
 ] as const;
 
+// PROVISIONAL: the Bank of Thailand had not published the official 2027
+// financial-institution holiday list as of 2026-06-12 (announcements land
+// late in the preceding year). Derived from the standard bank-holiday
+// pattern with lunar dates cross-checked against publicholidays.asia and
+// calendarlabs.com on 2026-06-12. Replace with the official BOT list when
+// it is announced.
+const HOLIDAYS_2027_SOURCE =
+  "PROVISIONAL (retrieved 2026-06-12, BOT 2027 list not yet announced) — pending official Bank of Thailand announcement";
+
+export const THAI_BUSINESS_HOLIDAYS_2027: ThaiBusinessHoliday[] = [
+  {
+    date: "2027-01-01",
+    holidayNameTh: "วันขึ้นปีใหม่",
+    holidayNameEn: "New Year's Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-02-22",
+    holidayNameTh: "ชดเชยวันมาฆบูชา",
+    holidayNameEn: "Substitution for Makha Bucha Day (Sun 2027-02-21)",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-04-06",
+    holidayNameTh: "วันจักรี",
+    holidayNameEn: "Chakri Memorial Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-04-13",
+    holidayNameTh: "วันสงกรานต์",
+    holidayNameEn: "Songkran Festival",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-04-14",
+    holidayNameTh: "วันสงกรานต์",
+    holidayNameEn: "Songkran Festival",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-04-15",
+    holidayNameTh: "วันสงกรานต์",
+    holidayNameEn: "Songkran Festival",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-05-03",
+    holidayNameTh: "ชดเชยวันแรงงานแห่งชาติ",
+    holidayNameEn: "Substitution for National Labour Day (Sat 2027-05-01)",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-05-04",
+    holidayNameTh: "วันฉัตรมงคล",
+    holidayNameEn: "Coronation Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-05-20",
+    holidayNameTh: "วันวิสาขบูชา",
+    holidayNameEn: "Visakha Bucha Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-06-03",
+    holidayNameTh: "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าฯ พระบรมราชินี",
+    holidayNameEn: "H.M. Queen Suthida Bajrasudhabimalalakshana's Birthday",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-07-19",
+    holidayNameTh: "ชดเชยวันอาสาฬหบูชา",
+    holidayNameEn: "Substitution for Asarnha Bucha Day (Sun 2027-07-18)",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-07-28",
+    holidayNameTh: "วันเฉลิมพระชนมพรรษาพระบาทสมเด็จพระเจ้าอยู่หัว",
+    holidayNameEn: "H.M. King Maha Vajiralongkorn Phra Vajiraklaochaoyuhua's Birthday",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-08-12",
+    holidayNameTh: "วันแม่แห่งชาติ",
+    holidayNameEn: "H.M. Queen Sirikit The Queen Mother's Birthday / Mother's Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-10-13",
+    holidayNameTh: "วันนวมินทรมหาราช",
+    holidayNameEn: "H.M. King Bhumibol Adulyadej The Great Memorial Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-10-25",
+    holidayNameTh: "ชดเชยวันปิยมหาราช",
+    holidayNameEn: "Substitution for H.M. King Chulalongkorn the Great Memorial Day (Sat 2027-10-23)",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-12-06",
+    holidayNameTh: "ชดเชยวันคล้ายวันพระบรมราชสมภพ รัชกาลที่ 9 วันชาติ และวันพ่อแห่งชาติ",
+    holidayNameEn:
+      "Substitution for H.M. King Bhumibol Adulyadej the Great's Birthday, National Day and Father's Day (Sun 2027-12-05)",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-12-10",
+    holidayNameTh: "วันรัฐธรรมนูญ",
+    holidayNameEn: "Constitution Day",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+  {
+    date: "2027-12-31",
+    holidayNameTh: "วันสิ้นปี",
+    holidayNameEn: "New Year's Eve",
+    sourceAnnouncement: HOLIDAYS_2027_SOURCE,
+  },
+] as const;
+
+/** All known bank-holiday years combined — the default for deadline rolling. */
+export const THAI_BUSINESS_HOLIDAYS: ThaiBusinessHoliday[] = [
+  ...THAI_BUSINESS_HOLIDAYS_2026,
+  ...THAI_BUSINESS_HOLIDAYS_2027,
+];
+
 function bangkokDateString(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok",
@@ -162,7 +289,7 @@ function addDays(date: Date, days: number): Date {
 
 export function isThaiBusinessDay(
   date: Date,
-  holidays: readonly ThaiBusinessHoliday[] = THAI_BUSINESS_HOLIDAYS_2026
+  holidays: readonly ThaiBusinessHoliday[] = THAI_BUSINESS_HOLIDAYS
 ): boolean {
   const localDate = bangkokDateString(date);
   const day = new Date(`${localDate}T12:00:00Z`).getUTCDay();
@@ -172,7 +299,7 @@ export function isThaiBusinessDay(
 
 export function adjustToNextThaiBusinessDay(
   date: Date,
-  holidays: readonly ThaiBusinessHoliday[] = THAI_BUSINESS_HOLIDAYS_2026
+  holidays: readonly ThaiBusinessHoliday[] = THAI_BUSINESS_HOLIDAYS
 ): Date {
   let adjusted = date;
   while (!isThaiBusinessDay(adjusted, holidays)) {

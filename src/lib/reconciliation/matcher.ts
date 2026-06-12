@@ -6,7 +6,7 @@ import { findAliasByText } from "@/lib/db/queries/vendor-aliases";
 import { getActiveRules, incrementRuleMatchCount } from "@/lib/db/queries/reconciliation-rules";
 import { normalizeCounterparty, normalizeCompanyName, tokenOverlap } from "./thai-text";
 import { evaluateRules, type TransactionContext } from "./rule-engine";
-import { amountsEqual, isZeroAmount, toSatangOrZero } from "@/lib/utils/money";
+import { amountsEqual, toSatang, toSatangOrZero } from "@/lib/utils/money";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,8 +100,11 @@ function filterByDirection(
  * Direction validation applied across all layers.
  */
 export async function findMatches(ctx: MatchContext): Promise<MatchResult> {
-  // Guard: zero-amount documents can't be meaningfully matched
-  if (isZeroAmount(ctx.netAmountPaid)) return { type: "none" };
+  // Guard: zero or malformed amounts can't be meaningfully matched. Malformed
+  // input must stop here — the ratio layers use toSatangOrZero, and a zero
+  // denominator would turn amountDiffPct into NaN/Infinity.
+  const entrySatang = toSatang(ctx.netAmountPaid);
+  if (entrySatang === null || entrySatang === 0) return { type: "none" };
 
   // Layer 0: Reference match (document number, tax ID, vendor name in txn text)
   const referenceResult = await tryReferenceMatch(ctx);

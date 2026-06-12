@@ -1340,7 +1340,8 @@ export async function getVatOperationsLedgerOverview(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
-        data.establishmentId ? eq(pp36Obligations.establishmentId, data.establishmentId) : undefined,
+        // PP36 obligations are an org-level pool (establishment_id is
+        // constrained NULL) — a branch filter here would match zero rows.
         eq(pp36Obligations.pp36PeriodYear, data.periodYear),
         eq(pp36Obligations.pp36PeriodMonth, data.periodMonth),
         sql`${pp36Obligations.deletedAt} IS NULL`
@@ -1488,7 +1489,8 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
-        data.establishmentId ? eq(pp36Obligations.establishmentId, data.establishmentId) : undefined,
+        // PP36 obligations are an org-level pool (establishment_id is
+        // constrained NULL) — a branch filter here would match zero rows.
         eq(pp36Obligations.status, "eligible_for_pp30_reclaim"),
         sql`${pp36Obligations.deletedAt} IS NULL`,
         sql`${pp36Obligations.pp30ReclaimEligiblePeriodYear} IS NOT NULL`,
@@ -1584,7 +1586,8 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
-        data.establishmentId ? eq(pp36Obligations.establishmentId, data.establishmentId) : undefined,
+        // PP36 obligations are an org-level pool (establishment_id is
+        // constrained NULL) — a branch filter here would match zero rows.
         eq(pp36Obligations.status, "eligible_for_pp30_reclaim"),
         sql`${pp36Obligations.deletedAt} IS NULL`,
         sql`${pp36Obligations.pp30ReclaimEligiblePeriodYear} IS NOT NULL`,

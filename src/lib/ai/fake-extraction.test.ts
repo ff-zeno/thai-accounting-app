@@ -39,6 +39,15 @@ describe("isFakeAiEnabled", () => {
     vi.stubEnv("VERCEL", "1");
     expect(() => isFakeAiEnabled()).toThrow(/never be enabled in production/);
   });
+
+  it("fails closed on any non-zero VERCEL value, allows explicit VERCEL=0", () => {
+    vi.stubEnv("E2E_FAKE_AI", "1");
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("VERCEL", "true");
+    expect(() => isFakeAiEnabled()).toThrow(/never be enabled in production/);
+    vi.stubEnv("VERCEL", "0");
+    expect(isFakeAiEnabled()).toBe(true);
+  });
 });
 
 describe("buildFakeExtraction", () => {

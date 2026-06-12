@@ -15,7 +15,9 @@ export const FAKE_MODEL_ID = "e2e/fake-extraction";
 
 export function isFakeAiEnabled(): boolean {
   if (process.env.E2E_FAKE_AI !== "1") return false;
-  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+  // Fail closed: any VERCEL value except an explicit "0" counts as deployed.
+  const onVercel = !!process.env.VERCEL && process.env.VERCEL !== "0";
+  if (process.env.NODE_ENV === "production" || onVercel) {
     throw new Error(
       "E2E_FAKE_AI must never be enabled in production environments"
     );

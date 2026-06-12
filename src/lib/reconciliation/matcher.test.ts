@@ -75,6 +75,24 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Input guard tests
+// ---------------------------------------------------------------------------
+
+describe("input guards", () => {
+  it("returns none for a zero amount without querying candidates", async () => {
+    const result = await findMatches(ctx({ netAmountPaid: "0.00" }));
+    expect(result).toEqual({ type: "none" });
+    expect(mockFindCandidates).not.toHaveBeenCalled();
+  });
+
+  it("returns none for a malformed amount instead of dividing by zero", async () => {
+    const result = await findMatches(ctx({ netAmountPaid: "not-a-number" }));
+    expect(result).toEqual({ type: "none" });
+    expect(mockFindCandidates).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Reference match tests (Layer 0)
 // ---------------------------------------------------------------------------
 

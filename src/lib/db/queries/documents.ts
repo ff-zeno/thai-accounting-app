@@ -1184,9 +1184,13 @@ export async function bulkUpdateDocumentVat(
     vatPeriodMonth: data.vatPeriodMonth,
     vatPeriodOverrideReason: data.vatPeriodOverrideReason,
     vatPeriodOverriddenByUserId:
-      data.vatPeriodYear || data.vatPeriodMonth ? actorId ?? null : undefined,
+      data.vatPeriodYear != null || data.vatPeriodMonth != null
+        ? actorId ?? null
+        : undefined,
     vatPeriodOverriddenAt:
-      data.vatPeriodYear || data.vatPeriodMonth ? new Date() : undefined,
+      data.vatPeriodYear != null || data.vatPeriodMonth != null
+        ? new Date()
+        : undefined,
     updatedAt: new Date(),
   };
 

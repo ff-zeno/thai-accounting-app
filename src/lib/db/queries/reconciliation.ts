@@ -110,11 +110,15 @@ export async function findMatchCandidates(
   const tolerance = options?.amountTolerance ?? 0;
   const dateDays = options?.dateDays ?? 7;
 
+  // Malformed amounts/dates on a single document must not throw — that would
+  // poison the whole matching batch (one bad row breaks every other match).
   const parsedAmount = parseFloat(amount);
+  if (!Number.isFinite(parsedAmount)) return [];
   const minAmount = (parsedAmount * (1 - tolerance)).toFixed(2);
   const maxAmount = (parsedAmount * (1 + tolerance)).toFixed(2);
 
   const dateObj = new Date(paymentDate);
+  if (Number.isNaN(dateObj.getTime())) return [];
   const startDate = new Date(dateObj);
   startDate.setDate(startDate.getDate() - dateDays);
   const endDate = new Date(dateObj);

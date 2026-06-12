@@ -22,6 +22,7 @@ import {
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
 import { resolveOpenExceptionsForEntity } from "./exception-queue";
+import { fromSatang, toSatang, toSatangOrZero } from "@/lib/utils/money";
 
 export class ReconciliationAllocationError extends Error {
   constructor(message: string) {
@@ -112,10 +113,14 @@ export async function findMatchCandidates(
 
   // Malformed amounts/dates on a single document must not throw — that would
   // poison the whole matching batch (one bad row breaks every other match).
-  const parsedAmount = parseFloat(amount);
-  if (!Number.isFinite(parsedAmount)) return [];
-  const minAmount = (parsedAmount * (1 - tolerance)).toFixed(2);
-  const maxAmount = (parsedAmount * (1 + tolerance)).toFixed(2);
+  // Bounds are computed in integer satang. REVIEW NOTE: at exact tolerance
+  // boundaries this can differ from the legacy float math by 1 satang
+  // (toFixed vs Math.round); the bounds only pre-filter SQL candidates, the
+  // matcher layers decide the actual match.
+  const parsedSatang = toSatang(amount);
+  if (parsedSatang === null) return [];
+  const minAmount = fromSatang(Math.round(parsedSatang * (1 - tolerance)));
+  const maxAmount = fromSatang(Math.round(parsedSatang * (1 + tolerance)));
 
   const dateObj = new Date(paymentDate);
   if (Number.isNaN(dateObj.getTime())) return [];
@@ -603,13 +608,12 @@ export async function recomputeTransactionStatus(
   if (activeMatches === 0) {
     newStatus = "unmatched";
   } else {
-    // Check if total matched amount covers the transaction
-    const matchedTotal = parseFloat(result?.totalMatchedAmount ?? "0");
-    const txnAmount = parseFloat(txn?.amount ?? "0");
-    // Full coverage if within 0.01 tolerance
-    newStatus = Math.abs(matchedTotal - txnAmount) < 0.01
-      ? "matched"
-      : "partially_matched";
+    // Check if total matched amount covers the transaction. Legacy float
+    // tolerance was "< 0.01 THB", i.e. less than one satang — with integer
+    // satang that means exact coverage.
+    const matchedSatang = toSatangOrZero(result?.totalMatchedAmount ?? "0");
+    const txnSatang = toSatangOrZero(txn?.amount ?? "0");
+    newStatus = matchedSatang === txnSatang ? "matched" : "partially_matched";
   }
 
   await conn

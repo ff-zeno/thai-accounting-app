@@ -654,29 +654,29 @@ describe("match metadata", () => {
 
 describe("computeFuzzyConfidence", () => {
   it("returns 1.0 for exact amount and same date", () => {
-    const confidence = computeFuzzyConfidence(10000, 10000, "2026-03-18", "2026-03-18");
+    const confidence = computeFuzzyConfidence("10000.00", "10000.00", "2026-03-18", "2026-03-18");
     expect(confidence).toBe(1.0);
   });
 
   it("decreases confidence for larger amount differences", () => {
     // 1% diff: 1.0 - 0.01*5 - 0 = 0.95
-    const c1 = computeFuzzyConfidence(10000, 10100, "2026-03-18", "2026-03-18");
+    const c1 = computeFuzzyConfidence("10000.00", "10100.00", "2026-03-18", "2026-03-18");
     // 0.5% diff: 1.0 - 0.005*5 - 0 = 0.975
-    const c2 = computeFuzzyConfidence(10000, 10050, "2026-03-18", "2026-03-18");
+    const c2 = computeFuzzyConfidence("10000.00", "10050.00", "2026-03-18", "2026-03-18");
     expect(c2).toBeGreaterThan(c1);
   });
 
   it("decreases confidence for larger date differences", () => {
     // 0 days diff
-    const c1 = computeFuzzyConfidence(10000, 10000, "2026-03-18", "2026-03-18");
+    const c1 = computeFuzzyConfidence("10000.00", "10000.00", "2026-03-18", "2026-03-18");
     // 7 days diff: 1.0 - 0 - (7/14 * 0.3) = 0.85
-    const c2 = computeFuzzyConfidence(10000, 10000, "2026-03-18", "2026-03-25");
+    const c2 = computeFuzzyConfidence("10000.00", "10000.00", "2026-03-18", "2026-03-25");
     expect(c1).toBeGreaterThan(c2);
     expect(c2).toBeCloseTo(0.85, 2);
   });
 
   it("clamps confidence at 0 for extreme differences", () => {
-    const confidence = computeFuzzyConfidence(10000, 15000, "2026-03-18", "2026-04-18");
+    const confidence = computeFuzzyConfidence("10000.00", "15000.00", "2026-03-18", "2026-04-18");
     expect(confidence).toBe(0);
   });
 });
@@ -692,7 +692,7 @@ describe("findSumCombination", () => {
       candidate({ id: "b", amount: "20000.00", date: "2026-03-16" }),
     ];
 
-    const result = findSumCombination(candidates, 50000, 2);
+    const result = findSumCombination(candidates, 5_000_000, 2);
     expect(result).not.toBeNull();
     expect(result!.map((c) => c.id)).toEqual(["a", "b"]);
   });
@@ -704,7 +704,7 @@ describe("findSumCombination", () => {
       candidate({ id: "c", amount: "25000.00", date: "2026-03-17" }),
     ];
 
-    const result = findSumCombination(candidates, 50000, 3);
+    const result = findSumCombination(candidates, 5_000_000, 3);
     expect(result).not.toBeNull();
     expect(result!.map((c) => c.id)).toEqual(["a", "b", "c"]);
   });
@@ -715,18 +715,18 @@ describe("findSumCombination", () => {
       candidate({ id: "b", amount: "15000.00", date: "2026-03-16" }),
     ];
 
-    const result = findSumCombination(candidates, 50000, 2);
+    const result = findSumCombination(candidates, 5_000_000, 2);
     expect(result).toBeNull();
   });
 
-  it("tolerates floating point within 0.01", () => {
+  it("tolerates a 1-satang rounding difference", () => {
     const candidates = [
-      candidate({ id: "a", amount: "10000.005", date: "2026-03-15" }),
+      candidate({ id: "a", amount: "10000.01", date: "2026-03-15" }),
       candidate({ id: "b", amount: "20000.00", date: "2026-03-16" }),
     ];
 
-    // 10000.005 + 20000.00 = 30000.005, target 30000.00 -- diff is 0.005 < 0.01
-    const result = findSumCombination(candidates, 30000, 2);
+    // 10000.01 + 20000.00 = 30000.01, target 30000.00 — diff is 1 satang
+    const result = findSumCombination(candidates, 3_000_000, 2);
     expect(result).not.toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import { findAliasByText } from "@/lib/db/queries/vendor-aliases";
 import { getActiveRules, incrementRuleMatchCount } from "@/lib/db/queries/reconciliation-rules";
 import { normalizeCounterparty, normalizeCompanyName, tokenOverlap } from "./thai-text";
 import { evaluateRules, type TransactionContext } from "./rule-engine";
+import { amountsEqual, isZeroAmount, toSatangOrZero } from "@/lib/utils/money";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +58,9 @@ export type MatchResult =
 
 const EXACT_DATE_WINDOW_DAYS = 7;
 const FUZZY_DATE_WINDOW_DAYS = 14;
+// NOTE: 0.01 appears twice in this module with two different meanings:
+// here it is a RATIO (1% amount tolerance for candidate queries); in
+// findSumCombination the legacy 0.01 was one SATANG (now TOLERANCE_SATANG=1).
 const FUZZY_AMOUNT_TOLERANCE = 0.01; // 1%
 const MAX_SPLIT_TRANSACTIONS = 3;
 
@@ -97,7 +101,7 @@ function filterByDirection(
  */
 export async function findMatches(ctx: MatchContext): Promise<MatchResult> {
   // Guard: zero-amount documents can't be meaningfully matched
-  if (parseFloat(ctx.netAmountPaid) === 0) return { type: "none" };
+  if (isZeroAmount(ctx.netAmountPaid)) return { type: "none" };
 
   // Layer 0: Reference match (document number, tax ID, vendor name in txn text)
   const referenceResult = await tryReferenceMatch(ctx);
@@ -142,7 +146,7 @@ async function tryReferenceMatch(ctx: MatchContext): Promise<MatchResult | null>
   const directionFiltered = filterByDirection(candidates, direction);
   if (directionFiltered.length === 0) return null;
 
-  const parsedAmount = parseFloat(netAmountPaid);
+  const parsedSatang = toSatangOrZero(netAmountPaid);
 
   for (let i = 0; i < directionFiltered.length; i++) {
     const candidate = directionFiltered[i];
@@ -194,9 +198,9 @@ async function tryReferenceMatch(ctx: MatchContext): Promise<MatchResult | null>
 
     if (!referenceFound) continue;
 
-    // Score amount match
-    const candidateAmount = parseFloat(candidate.amount);
-    const amountDiffPct = Math.abs(candidateAmount - parsedAmount) / parsedAmount;
+    // Score amount match (integer satang; same ratio as the legacy float math)
+    const candidateSatang = toSatangOrZero(candidate.amount);
+    const amountDiffPct = Math.abs(candidateSatang - parsedSatang) / parsedSatang;
 
     if (amountDiffPct === 0) {
       signals.amountMatch = { score: 1.0, detail: "exact" };
@@ -255,7 +259,7 @@ async function tryAliasMatch(ctx: MatchContext): Promise<MatchResult | null> {
   const directionFiltered = filterByDirection(candidates, direction);
   if (directionFiltered.length === 0) return null;
 
-  const parsedAmount = parseFloat(netAmountPaid);
+  const parsedSatang = toSatangOrZero(netAmountPaid);
 
   for (let i = 0; i < directionFiltered.length; i++) {
     const candidate = directionFiltered[i];
@@ -266,9 +270,9 @@ async function tryAliasMatch(ctx: MatchContext): Promise<MatchResult | null> {
     if (!alias || alias.vendorId !== vendorId) continue;
 
     // Alias found and matches document's vendor
-    const candidateAmount = parseFloat(candidate.amount);
-    const amountDiffPct = Math.abs(candidateAmount - parsedAmount) / parsedAmount;
-    const isExactAmount = amountDiffPct === 0;
+    const candidateSatang = toSatangOrZero(candidate.amount);
+    const amountDiffPct = Math.abs(candidateSatang - parsedSatang) / parsedSatang;
+    const isExactAmount = candidateSatang === parsedSatang;
 
     const dateDiffDays = Math.abs(
       (new Date(candidate.date).getTime() - new Date(paymentDate).getTime()) /
@@ -277,7 +281,7 @@ async function tryAliasMatch(ctx: MatchContext): Promise<MatchResult | null> {
 
     const confidence = isExactAmount
       ? 1.0
-      : Math.min(0.99, computeFuzzyConfidence(parsedAmount, candidateAmount, paymentDate, candidate.date) + 0.20);
+      : Math.min(0.99, computeFuzzyConfidence(netAmountPaid, candidate.amount, paymentDate, candidate.date) + 0.20);
 
     return {
       type: "pattern",
@@ -370,8 +374,8 @@ async function tryRuleMatch(ctx: MatchContext): Promise<MatchResult | null> {
         signals: {
           ruleMatch: { score: 1.0, detail: `Rule "${ruleMatch.ruleName}" matched` },
           amountMatch: {
-            score: parseFloat(candidate.amount) === parseFloat(netAmountPaid) ? 1.0 : 0.9,
-            detail: parseFloat(candidate.amount) === parseFloat(netAmountPaid) ? "exact" : "within tolerance",
+            score: amountsEqual(candidate.amount, netAmountPaid) ? 1.0 : 0.9,
+            detail: amountsEqual(candidate.amount, netAmountPaid) ? "exact" : "within tolerance",
           },
           directionMatch: { score: 1.0, detail: `${direction} ↔ ${candidate.type}` },
         },
@@ -399,8 +403,8 @@ async function tryExactMatch(ctx: MatchContext): Promise<MatchResult | null> {
   const directionFiltered = filterByDirection(candidates, direction);
 
   // Filter to truly exact matches
-  const exactMatches = directionFiltered.filter(
-    (c) => parseFloat(c.amount) === parseFloat(netAmountPaid)
+  const exactMatches = directionFiltered.filter((c) =>
+    amountsEqual(c.amount, netAmountPaid)
   );
 
   if (exactMatches.length === 0) return null;
@@ -467,13 +471,13 @@ function computeMultiSignalScore(
   candidate: MatchCandidateRow,
   ctx: MatchContext
 ): { score: number; signals: Record<string, { score: number; detail: string }> } {
-  const parsedAmount = parseFloat(ctx.netAmountPaid);
-  const candidateAmount = parseFloat(candidate.amount);
+  const parsedSatang = toSatangOrZero(ctx.netAmountPaid);
+  const candidateSatang = toSatangOrZero(candidate.amount);
 
   const signals: Record<string, { score: number; detail: string }> = {};
 
-  // 1. Amount proximity (weight: 0.35)
-  const amountDiffPct = Math.abs(candidateAmount - parsedAmount) / parsedAmount;
+  // 1. Amount proximity (weight: 0.35) — integer satang, legacy ratio formula
+  const amountDiffPct = Math.abs(candidateSatang - parsedSatang) / parsedSatang;
   const amountScore = Math.max(0, 1 - amountDiffPct * 10); // 10% diff → 0 score
   signals.amountMatch = {
     score: amountScore,
@@ -559,9 +563,9 @@ async function tryMultiSignalMatch(ctx: MatchContext): Promise<MatchResult | nul
   const directionFiltered = filterByDirection(candidates, direction);
 
   // Exclude exact matches (already tried in tryExactMatch)
-  const parsedAmount = parseFloat(netAmountPaid);
+  const parsedSatang = toSatangOrZero(netAmountPaid);
   const nonExact = directionFiltered.filter(
-    (c) => parseFloat(c.amount) !== parsedAmount
+    (c) => toSatangOrZero(c.amount) !== parsedSatang
   );
 
   if (nonExact.length === 0) return null;
@@ -595,15 +599,17 @@ async function tryMultiSignalMatch(ctx: MatchContext): Promise<MatchResult | nul
 
 /**
  * Confidence = 1.0 - (amount_diff_pct * 5) - (date_diff_days / 14 * 0.3)
- * Clamped to [0, 1]
+ * Clamped to [0, 1]. Amounts are decimal strings, compared in integer satang.
  */
 function computeFuzzyConfidence(
-  expectedAmount: number,
-  actualAmount: number,
+  expectedAmount: string,
+  actualAmount: string,
   expectedDate: string,
   actualDate: string
 ): number {
-  const amountDiffPct = Math.abs(actualAmount - expectedAmount) / expectedAmount;
+  const expectedSatang = toSatangOrZero(expectedAmount);
+  const actualSatang = toSatangOrZero(actualAmount);
+  const amountDiffPct = Math.abs(actualSatang - expectedSatang) / expectedSatang;
   const dateDiffDays = Math.abs(
     (new Date(actualDate).getTime() - new Date(expectedDate).getTime()) /
       (1000 * 60 * 60 * 24)
@@ -630,15 +636,15 @@ async function trySplitMatch(ctx: MatchContext): Promise<MatchResult | null> {
   const directionFiltered = filterByDirection(candidates, direction);
 
   // Only consider transactions smaller than the target
-  const targetAmount = parseFloat(netAmountPaid);
+  const targetSatang = toSatangOrZero(netAmountPaid);
   const smaller = directionFiltered.filter(
-    (c) => parseFloat(c.amount) < targetAmount
+    (c) => toSatangOrZero(c.amount) < targetSatang
   );
 
   if (smaller.length < 2) return null;
 
   // Try 2-transaction combinations first, then 3
-  const twoMatch = findSumCombination(smaller, targetAmount, 2);
+  const twoMatch = findSumCombination(smaller, targetSatang, 2);
   if (twoMatch) {
     return {
       type: "split",
@@ -656,7 +662,7 @@ async function trySplitMatch(ctx: MatchContext): Promise<MatchResult | null> {
     };
   }
 
-  const threeMatch = findSumCombination(smaller, targetAmount, 3);
+  const threeMatch = findSumCombination(smaller, targetSatang, 3);
   if (threeMatch) {
     return {
       type: "split",
@@ -678,22 +684,24 @@ async function trySplitMatch(ctx: MatchContext): Promise<MatchResult | null> {
 }
 
 /**
- * Find a combination of exactly `count` candidates whose amounts sum to `target`.
- * Uses tolerance of 0.01 (1 satang) for floating point comparison.
+ * Find a combination of exactly `count` candidates whose amounts sum to
+ * `targetSatang` (integer satang). Tolerance is 1 satang — the integer
+ * equivalent of the legacy float 0.01 THB.
  */
 function findSumCombination(
   candidates: MatchCandidateRow[],
-  target: number,
+  targetSatang: number,
   count: number
 ): MatchCandidateRow[] | null {
-  const TOLERANCE = 0.01;
+  const TOLERANCE_SATANG = 1;
 
   if (count === 2) {
     for (let i = 0; i < candidates.length; i++) {
       for (let j = i + 1; j < candidates.length; j++) {
         const sum =
-          parseFloat(candidates[i].amount) + parseFloat(candidates[j].amount);
-        if (Math.abs(sum - target) <= TOLERANCE) {
+          toSatangOrZero(candidates[i].amount) +
+          toSatangOrZero(candidates[j].amount);
+        if (Math.abs(sum - targetSatang) <= TOLERANCE_SATANG) {
           return [candidates[i], candidates[j]];
         }
       }
@@ -705,10 +713,10 @@ function findSumCombination(
       for (let j = i + 1; j < candidates.length; j++) {
         for (let k = j + 1; k < candidates.length; k++) {
           const sum =
-            parseFloat(candidates[i].amount) +
-            parseFloat(candidates[j].amount) +
-            parseFloat(candidates[k].amount);
-          if (Math.abs(sum - target) <= TOLERANCE) {
+            toSatangOrZero(candidates[i].amount) +
+            toSatangOrZero(candidates[j].amount) +
+            toSatangOrZero(candidates[k].amount);
+          if (Math.abs(sum - targetSatang) <= TOLERANCE_SATANG) {
             return [candidates[i], candidates[j], candidates[k]];
           }
         }

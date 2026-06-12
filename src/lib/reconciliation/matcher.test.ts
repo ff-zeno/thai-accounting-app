@@ -5,6 +5,7 @@ import {
   findSumCombination,
   filterByDirection,
   escapeRegex,
+  tryRuleMatch,
   type MatchContext,
 } from "./matcher";
 import type { MatchCandidateRow } from "@/lib/db/queries/reconciliation";
@@ -25,9 +26,17 @@ vi.mock("@/lib/db/queries/reconciliation-rules", () => ({
 
 import { findMatchCandidates } from "@/lib/db/queries/reconciliation";
 import { findAliasByText } from "@/lib/db/queries/vendor-aliases";
+import {
+  getActiveRules,
+  incrementRuleMatchCount,
+  type RuleAction,
+  type RuleCondition,
+} from "@/lib/db/queries/reconciliation-rules";
 
 const mockFindCandidates = vi.mocked(findMatchCandidates);
 const mockFindAlias = vi.mocked(findAliasByText);
+const mockGetActiveRules = vi.mocked(getActiveRules);
+const mockIncrementRuleMatchCount = vi.mocked(incrementRuleMatchCount);
 
 function candidate(
   overrides: Partial<MatchCandidateRow> & { id: string; amount: string; date: string }
@@ -409,6 +418,128 @@ describe("exact match", () => {
     const result = await findMatches(ctx());
 
     expect(result).toEqual({ type: "none" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule match tests (Layer 3)
+// ---------------------------------------------------------------------------
+
+type ActiveRuleRow = Awaited<ReturnType<typeof getActiveRules>>[number];
+
+/** Helper to build a full reconciliation_rules row as getActiveRules returns it */
+function ruleRow(overrides: {
+  id: string;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+  name?: string;
+  priority?: number;
+}): ActiveRuleRow {
+  return {
+    id: overrides.id,
+    orgId: "org-1",
+    name: overrides.name ?? "Test Rule",
+    description: null,
+    priority: overrides.priority ?? 100,
+    isActive: true,
+    isAutoSuggested: false,
+    conditions: overrides.conditions,
+    actions: overrides.actions,
+    matchCount: 0,
+    lastMatchedAt: null,
+    templateId: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    deletedAt: null,
+  };
+}
+
+describe("rule match", () => {
+  const acmeConditions: RuleCondition[] = [
+    { field: "counterparty", operator: "contains", value: "acme" },
+  ];
+
+  const acmeCandidate = () =>
+    candidate({
+      id: "txn-acme",
+      amount: "10379.00",
+      date: "2026-03-15",
+      counterparty: "ACME Supplies Co",
+      type: "debit",
+    });
+
+  it("tryRuleMatch skips a matched rule whose actions lack auto_match", async () => {
+    // Rule matches the candidate, but only assigns a vendor — no auto_match.
+    mockGetActiveRules.mockResolvedValueOnce([
+      ruleRow({
+        id: "rule-no-auto",
+        name: "Tag ACME vendor",
+        conditions: acmeConditions,
+        actions: [{ type: "assign_vendor", value: "vendor-acme" }],
+      }),
+    ]);
+    mockFindCandidates.mockResolvedValueOnce([acmeCandidate()]);
+
+    const result = await tryRuleMatch(ctx());
+
+    expect(result).toBeNull();
+    expect(mockIncrementRuleMatchCount).not.toHaveBeenCalled();
+  });
+
+  it("cascade continues past the rule layer when the rule has no auto_match action", async () => {
+    mockGetActiveRules.mockResolvedValueOnce([
+      ruleRow({
+        id: "rule-no-auto",
+        name: "Tag ACME vendor",
+        conditions: acmeConditions,
+        actions: [{ type: "assign_vendor", value: "vendor-acme" }],
+      }),
+    ]);
+    // Reference: no candidates
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Exact: no candidates
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Rule layer: candidate that satisfies the rule's conditions
+    mockFindCandidates.mockResolvedValueOnce([acmeCandidate()]);
+    // Multi-signal: no candidates
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Split: no candidates
+    mockFindCandidates.mockResolvedValueOnce([]);
+
+    const result = await findMatches(ctx());
+
+    expect(result).toEqual({ type: "none" });
+    expect(mockIncrementRuleMatchCount).not.toHaveBeenCalled();
+  });
+
+  it("auto_match rule returns type rule at 0.95 confidence and increments the counter once", async () => {
+    mockGetActiveRules.mockResolvedValueOnce([
+      ruleRow({
+        id: "rule-auto",
+        name: "Auto-match ACME",
+        conditions: acmeConditions,
+        actions: [{ type: "auto_match", value: "true" }],
+      }),
+    ]);
+    // Reference: no candidates
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Exact: no candidates
+    mockFindCandidates.mockResolvedValueOnce([]);
+    // Rule layer: matching candidate
+    mockFindCandidates.mockResolvedValueOnce([acmeCandidate()]);
+
+    const result = await findMatches(ctx());
+
+    expect(result.type).toBe("rule");
+    if (result.type === "rule") {
+      expect(result.transactionId).toBe("txn-acme");
+      expect(result.confidence).toBe("0.95");
+      expect(result.metadata.layer).toBe("rule");
+      expect(result.metadata.signals.ruleMatch.detail).toContain("Auto-match ACME");
+      expect(result.metadata.signals.amountMatch.score).toBe(1.0);
+    }
+    expect(mockIncrementRuleMatchCount).toHaveBeenCalledTimes(1);
+    expect(mockIncrementRuleMatchCount).toHaveBeenCalledWith("org-1", "rule-auto");
   });
 });
 

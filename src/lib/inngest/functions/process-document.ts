@@ -6,6 +6,7 @@ import {
   getFilesByDocument,
   updateFilePipelineStatus,
 } from "@/lib/db/queries/document-files";
+import { auditMutation } from "@/lib/db/helpers/audit-log";
 import {
   updateDocumentFromExtraction,
   createLineItems,
@@ -134,6 +135,36 @@ function validateFileType(
   );
 }
 
+/**
+ * Terminal pipeline failure: mark the file failed AND write an audit_log row
+ * so the failure is traceable (CLAUDE.md: mutations are logged to audit_log).
+ *
+ * No actorId is passed — pipeline failures are system actions, and
+ * auditMutation records a null actor for absent/non-UUID actor IDs.
+ *
+ * Idempotency note: audit_log inserts are append-only (no unique key), so an
+ * Inngest step retry that re-executes a terminal failure may write a duplicate
+ * audit row. This matches existing auditMutation usage and never corrupts
+ * state — the file status update itself is idempotent.
+ *
+ * Exported for testing (see src/lib/db/queries/document-files.db.test.ts).
+ */
+export async function recordTerminalFailure(
+  orgId: string,
+  fileId: string,
+  status: "failed_validation" | "failed_extraction",
+  reason: string
+): Promise<void> {
+  await updateFilePipelineStatus(orgId, fileId, status);
+  await auditMutation({
+    orgId,
+    entityType: "document_file",
+    entityId: fileId,
+    action: "update",
+    newValue: { pipelineStatus: status, error: reason },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline
 // ---------------------------------------------------------------------------
@@ -162,7 +193,12 @@ export const processDocument = inngest.createFunction(
 
       for (const file of dbFiles) {
         if (!file.fileUrl) {
-          await updateFilePipelineStatus(orgId, file.id, "failed_validation");
+          await recordTerminalFailure(
+            orgId,
+            file.id,
+            "failed_validation",
+            "missing file URL (quality check)"
+          );
           console.warn(`[process-document] File ${file.id} has no URL — skipping`);
           continue;
         }
@@ -170,8 +206,15 @@ export const processDocument = inngest.createFunction(
         // Format validation: only JPEG, PNG, PDF
         try {
           validateFileType(file.fileType, file.originalFilename);
-        } catch {
-          await updateFilePipelineStatus(orgId, file.id, "failed_validation");
+        } catch (error) {
+          await recordTerminalFailure(
+            orgId,
+            file.id,
+            "failed_validation",
+            error instanceof Error
+              ? error.message
+              : "unsupported file type (quality check)"
+          );
           console.warn(`[process-document] File ${file.id} has unsupported type — skipping`);
           continue;
         }
@@ -183,7 +226,12 @@ export const processDocument = inngest.createFunction(
           const meta = await headPrivateBlob(file.fileUrl);
           if (meta) {
             if (meta.size < MIN_FILE_SIZE_BYTES) {
-              await updateFilePipelineStatus(orgId, file.id, "failed_validation");
+              await recordTerminalFailure(
+                orgId,
+                file.id,
+                "failed_validation",
+                `file too small: ${meta.size} bytes < ${MIN_FILE_SIZE_BYTES} minimum (quality check)`
+              );
               console.warn(
                 `[process-document] File ${file.originalFilename ?? file.id} too small (${meta.size} bytes) — skipping`
               );
@@ -198,7 +246,12 @@ export const processDocument = inngest.createFunction(
               );
             }
           } else {
-            await updateFilePipelineStatus(orgId, file.id, "failed_validation");
+            await recordTerminalFailure(
+              orgId,
+              file.id,
+              "failed_validation",
+              "file inaccessible: blob HEAD returned no metadata (quality check)"
+            );
             console.warn(
               `[process-document] File ${file.id} HEAD failed — skipping`
             );
@@ -477,7 +530,12 @@ export const processDocument = inngest.createFunction(
         if (!(await isWithinBudget(orgId))) {
           // Terminal: don't retry, mark as failed
           for (const file of files) {
-            await updateFilePipelineStatus(orgId, file.id, "failed_extraction");
+            await recordTerminalFailure(
+              orgId,
+              file.id,
+              "failed_extraction",
+              "monthly AI budget exceeded — extraction skipped"
+            );
           }
           await updateDocumentFromExtraction(orgId, documentId, {
             needsReview: true,
@@ -506,10 +564,11 @@ export const processDocument = inngest.createFunction(
           // Per-document budget guard
           if (cost.totalCost > PER_DOCUMENT_BUDGET_USD) {
             for (const file of files) {
-              await updateFilePipelineStatus(
+              await recordTerminalFailure(
                 orgId,
                 file.id,
-                "failed_extraction"
+                "failed_extraction",
+                `extraction cost $${cost.totalCost.toFixed(4)} exceeded per-document budget of $${PER_DOCUMENT_BUDGET_USD}`
               );
             }
             await updateDocumentFromExtraction(orgId, documentId, {
@@ -561,10 +620,11 @@ export const processDocument = inngest.createFunction(
           // should let Inngest retry the step)
           if (!isRetryableError(error)) {
             for (const file of files) {
-              await updateFilePipelineStatus(
+              await recordTerminalFailure(
                 orgId,
                 file.id,
-                "failed_extraction"
+                "failed_extraction",
+                `extraction failed (non-retryable): ${error instanceof Error ? error.message : "unknown error"}`
               );
             }
           }

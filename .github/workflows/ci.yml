@@ -16,6 +16,7 @@ jobs:
   quality:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       # Unit tests never open a connection — the Neon pool is lazy and only
       # presence of the variable is checked at import time.
@@ -35,6 +36,7 @@ jobs:
   db-tests:
     name: DB integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
@@ -66,6 +68,7 @@ jobs:
   build:
     name: Production build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
       DATABASE_URL_UNPOOLED: postgres://placeholder:placeholder@localhost:5432/placeholder
@@ -103,6 +106,7 @@ jobs:
   e2e:
     name: Golden-path e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: e2e-gate
     if: needs.e2e-gate.outputs.run-e2e == 'true'
     # The e2e org lives on a single shared Neon branch — never run two e2e
@@ -133,7 +137,19 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        # The browser download is known to hang after reaching 100% (CDN
+        # stream stall) — bound each attempt and retry instead of letting
+        # the job ride to its timeout.
+        run: |
+          pnpm exec playwright install-deps chromium
+          for attempt in 1 2 3; do
+            if timeout 300 pnpm exec playwright install chromium; then
+              exit 0
+            fi
+            echo "playwright install attempt ${attempt} hung or failed; retrying" >&2
+          done
+          exit 1
       - name: Start Inngest dev server
         run: |
           pnpm dlx inngest-cli@1 dev -u http://localhost:3015/api/inngest --no-discovery > inngest.log 2>&1 &

@@ -1896,6 +1896,8 @@ export const salesTransactions = pgTable(
     vatAmount: numeric("vat_amount", { precision: 14, scale: 2 }).notNull(),
     vatRate: numeric("vat_rate", { precision: 5, scale: 4 })
       .notNull()
+      // Safety net only — runtime writes resolve the effective-dated rate via
+      // getVatRate() (src/lib/db/queries/tax-config.ts).
       .default("0.0700"),
     discountAmount: numeric("discount_amount", { precision: 14, scale: 2 })
       .notNull()
@@ -3829,7 +3831,10 @@ export const taxConfig = pgTable(
     updatedAt,
     // NO deletedAt — config managed via effective dates
   },
-  (t) => [unique("tax_config_key").on(t.key)]
+  // Effective-dated: one row per (key, effectiveFrom) window so rate history
+  // survives changes (e.g. the 7% VAT window ending 2026-09-30) and
+  // back-period filings can resolve the rate that applied at the time.
+  (t) => [unique("tax_config_key_effective_from").on(t.key, t.effectiveFrom)]
 );
 
 export const thaiBusinessCalendar = pgTable(

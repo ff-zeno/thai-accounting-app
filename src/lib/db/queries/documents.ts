@@ -20,6 +20,7 @@ import {
   isPp36ServiceCategory,
 } from "@/lib/tax/foreign-vendor-tax";
 import { materializeWhtCreditReceivedFromDocument } from "./wht-credits-received";
+import { getVatRate } from "./tax-config";
 
 type TaxInvoiceSubtype = "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti";
 type DocumentType =
@@ -1162,9 +1163,22 @@ export async function bulkUpdateDocumentVat(
     if (!branch) throw new Error("VAT branch is not available for this organization");
   }
 
+  // Callers no longer send a hard-coded rate: when a VAT-bearing treatment is
+  // set without an explicit rate, resolve the effective-dated statutory rate
+  // server-side (tax_config).
+  let vatRate = data.vatRate === "" ? null : data.vatRate;
+  if (
+    vatRate === undefined &&
+    (data.vatTreatment === "input_vat" ||
+      data.vatTreatment === "output_vat" ||
+      data.vatTreatment === "pp36")
+  ) {
+    vatRate = await getVatRate();
+  }
+
   const patch = {
     vatTreatment: data.vatTreatment,
-    vatRate: data.vatRate === "" ? null : data.vatRate,
+    vatRate,
     vatEstablishmentId: data.vatEstablishmentId === "" ? null : data.vatEstablishmentId,
     vatPeriodYear: data.vatPeriodYear,
     vatPeriodMonth: data.vatPeriodMonth,

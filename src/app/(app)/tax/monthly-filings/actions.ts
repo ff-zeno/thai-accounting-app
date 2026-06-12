@@ -29,7 +29,7 @@ export async function refreshFilingAction(
   if (!orgId) return { error: "No organization selected" };
 
   const totals = await aggregateMonthlyFiling(orgId, year, month, formType);
-  const deadline = computeFilingDeadline(year, month);
+  const deadline = await computeFilingDeadline(year, month);
 
   const filingId = await upsertMonthlyFiling({
     orgId,
@@ -84,7 +84,7 @@ export async function loadFilingDataAction(year: number, month: number) {
   // Ensure filing records exist for all form types
   for (const formType of formTypes) {
     const totals = await aggregateMonthlyFiling(orgId, year, month, formType);
-    const deadline = computeFilingDeadline(year, month);
+    const deadline = await computeFilingDeadline(year, month);
     await upsertMonthlyFiling({
       orgId,
       periodYear: year,

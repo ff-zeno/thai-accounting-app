@@ -102,6 +102,8 @@ interface Props {
   initialHasMore: boolean;
   initialNextCursor: { issueDate: string | null; id: string } | null;
   filterOptions: FilterOptions;
+  /** Effective-dated statutory VAT rate resolved server-side (tax_config). */
+  defaultVatRate: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +343,7 @@ export function DocumentTable({
   initialHasMore,
   initialNextCursor,
   filterOptions,
+  defaultVatRate,
 }: Props) {
   const t = useTranslations("documents");
   const tc = useTranslations("common");
@@ -582,10 +585,10 @@ export function DocumentTable({
   async function handleBulkVatBranchUpdate() {
     if (!bulkVatBranchId) return;
     setIsBulkVatUpdating(true);
+    // vatRate is resolved server-side from the effective-dated tax_config.
     const result = await bulkUpdateDocumentVatAction(Array.from(selectedIds), {
       vatEstablishmentId: bulkVatBranchId,
       vatTreatment: direction === "income" ? "output_vat" : "input_vat",
-      vatRate: "0.0700",
       vatPeriodOverrideReason: "bulk_document_vat_update",
     });
     setIsBulkVatUpdating(false);
@@ -1002,6 +1005,7 @@ export function DocumentTable({
         open={selectedDocId !== null}
         onClose={() => setSelectedDocId(null)}
         vatBranches={filterOptions.vatBranches ?? []}
+        defaultVatRate={defaultVatRate}
         onSave={async (docId, data) => {
           const result = await updateDocumentSidebarAction(docId, data);
           if ("success" in result) {

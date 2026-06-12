@@ -519,6 +519,13 @@
       "when": 1782297600000,
       "tag": "0073_document_vat_source_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1782384000000,
+      "tag": "0074_tax_config_effective_dating",
+      "breakpoints": true
     }
   ]
 }

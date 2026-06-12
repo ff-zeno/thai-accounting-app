@@ -14,8 +14,7 @@ import {
   normalizeIsoCountry,
 } from "@/lib/tax/foreign-vendor-tax";
 import { hashVatSnapshot, periodFromBangkokDate } from "./vat-operations-ledger";
-
-const PP36_VAT_RATE = "0.0700";
+import { getVatRate } from "./tax-config";
 
 export class ForeignVendorTaxMaterializationError extends Error {
   constructor(message: string) {
@@ -200,6 +199,8 @@ export async function materializePp36ObligationFromDocument(data: {
   const periodBasis: "payment_date" | "invoice_date" = payment?.paymentDate
     ? "payment_date"
     : "invoice_date";
+  // Effective-dated VAT rate as of the tax point (NUMERIC(5,4) string).
+  const vatRate = await getVatRate(classification.taxPointDate, conn);
   const obligationValues = {
     orgId: data.orgId,
     sourceDocumentId: data.documentId,
@@ -217,8 +218,8 @@ export async function materializePp36ObligationFromDocument(data: {
     fxRate: fxRate != null ? fxRate.toFixed(6) : null,
     fxRateSource: fxRate != null ? "reviewed_document" : null,
     fxRateDate: fxRate != null ? classification.taxPointDate : null,
-    vatAmount: formatMoney(baseAmountThb * 0.07),
-    vatRate: PP36_VAT_RATE,
+    vatAmount: formatMoney(baseAmountThb * Number(vatRate)),
+    vatRate,
     occurredOn: doc.issueDate ?? classification.taxPointDate,
     paymentDate: payment?.paymentDate ?? classification.taxPointDate,
     taxPointDate: classification.taxPointDate,

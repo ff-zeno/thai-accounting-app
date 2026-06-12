@@ -9,9 +9,9 @@ import { orgScope } from "../helpers/org-scope";
 import { auditMutation, isAuditActorId } from "../helpers/audit-log";
 import {
   whtEfilingDeadline,
-  DEFAULT_TAX_CONFIG,
   formatBangkokDate,
 } from "@/lib/tax/filing-deadlines";
+import { getFilingDeadlineConfig } from "./tax-config";
 import {
   isPeriodLocked as isCanonicalPeriodLocked,
   lockPeriod,
@@ -414,14 +414,14 @@ export async function voidFiling(
 // Compute the filing deadline for a WHT period
 // ---------------------------------------------------------------------------
 
-export function computeFilingDeadline(
+export async function computeFilingDeadline(
   periodYear: number,
   periodMonth: number
-): string {
+): Promise<string> {
   const { deadline } = whtEfilingDeadline(
     periodYear,
     periodMonth,
-    DEFAULT_TAX_CONFIG
+    await getFilingDeadlineConfig()
   );
   return formatBangkokDate(deadline);
 }

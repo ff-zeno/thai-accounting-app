@@ -51,6 +51,8 @@ interface Props {
   docId: string | null;
   open: boolean;
   onClose: () => void;
+  /** Effective-dated statutory VAT rate resolved server-side (tax_config). */
+  defaultVatRate: string;
   vatBranches: Array<{
     id: string;
     branchNumber: string;
@@ -116,7 +118,7 @@ interface FormState {
   vendorId: string | null;
 }
 
-function docToForm(doc: DocumentDetail): FormState {
+function docToForm(doc: DocumentDetail, defaultVatRate: string): FormState {
   return {
     type: doc.type,
     documentNumber: doc.documentNumber ?? "",
@@ -129,7 +131,7 @@ function docToForm(doc: DocumentDetail): FormState {
     currency: doc.currency ?? "THB",
     taxInvoiceSubtype: doc.taxInvoiceSubtype ?? "",
     vatTreatment: (doc.vatTreatment ?? "") as FormState["vatTreatment"],
-    vatRate: doc.vatRate ?? "0.0700",
+    vatRate: doc.vatRate ?? defaultVatRate,
     vatEstablishmentId: doc.vatEstablishmentId ?? "",
     vatPeriodYear: doc.vatPeriodYear ? String(doc.vatPeriodYear) : "",
     vatPeriodMonth: doc.vatPeriodMonth ? String(doc.vatPeriodMonth) : "",
@@ -218,6 +220,7 @@ export function DocumentDetailSidebar({
   docId,
   open,
   onClose,
+  defaultVatRate,
   vatBranches,
   onSave,
 }: Props) {
@@ -269,7 +272,7 @@ export function DocumentDetailSidebar({
       if (cancelled) return;
       if (result) {
         setDoc(result);
-        const formState = docToForm(result);
+        const formState = docToForm(result, defaultVatRate);
         setForm(formState);
         setInitialForm(formState);
         setExplicitVerdict(null);
@@ -279,7 +282,7 @@ export function DocumentDetailSidebar({
     return () => {
       cancelled = true;
     };
-  }, [docId]);
+  }, [docId, defaultVatRate]);
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {

@@ -12,6 +12,7 @@ import {
 } from "../schema";
 import { orgScopeAlive } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
+import { getVatRate } from "./tax-config";
 import {
   postCashDepositJournalEntry,
   postPosSaleJournalEntry,
@@ -515,7 +516,7 @@ async function createPosSaleFromSourceInTx(
     taxPointBasis: "issue_date",
     baseAmount: data.taxBaseExVat,
     vatAmount: data.vatAmount,
-    vatRate: "0.0700",
+    vatRate: await getVatRate(soldDate, tx),
     status: "reportable",
     sourceSnapshot: {
       source: data.source,

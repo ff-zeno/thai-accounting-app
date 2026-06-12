@@ -9,9 +9,9 @@ import {
 import { orgScope } from "../helpers/org-scope";
 import {
   whtEfilingDeadline,
-  DEFAULT_TAX_CONFIG,
   formatBangkokDate,
 } from "@/lib/tax/filing-deadlines";
+import { getFilingDeadlineConfig } from "./tax-config";
 import { getVatLedgerPeriodDashboard } from "./vat-operations-ledger";
 import { computeCashForecast, computeDso } from "@/lib/analytics/kpi-engine";
 
@@ -279,6 +279,7 @@ async function getUpcomingDeadlines(
 ): Promise<FilingDeadline[]> {
   const today = new Date();
   const deadlines: FilingDeadline[] = [];
+  const deadlineConfig = await getFilingDeadlineConfig();
 
   // Check WHT filings for current and previous 2 months
   const periodsToCheck = [
@@ -306,7 +307,7 @@ async function getUpcomingDeadlines(
     for (const filing of filings) {
       const deadlineDate = filing.deadline
         ? new Date(filing.deadline)
-        : whtEfilingDeadline(period.year, period.month, DEFAULT_TAX_CONFIG).deadline;
+        : whtEfilingDeadline(period.year, period.month, deadlineConfig).deadline;
 
       deadlines.push({
         filingType: filing.formType.toUpperCase(),

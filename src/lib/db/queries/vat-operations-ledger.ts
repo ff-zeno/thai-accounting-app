@@ -29,11 +29,11 @@ import {
   type vatOutputTaxPointBasisEnum,
 } from "../schema";
 import {
-  DEFAULT_TAX_CONFIG,
   formatBangkokDate,
   pp30EfilingDeadline,
   pp36Deadline,
 } from "@/lib/tax/filing-deadlines";
+import { getFilingDeadlineConfig } from "./tax-config";
 
 type EnumValue<T extends { enumValues: readonly string[] }> = T["enumValues"][number];
 
@@ -1383,15 +1383,16 @@ export async function getVatLedgerPeriodDashboard(
 ) {
   const conn = await getConnection(data.tx);
   const overview = await getVatOperationsLedgerOverview(data);
+  const taxConfigValues = await getFilingDeadlineConfig(undefined, conn);
   const pp30DeadlineDate = pp30EfilingDeadline(
     data.periodYear,
     data.periodMonth,
-    DEFAULT_TAX_CONFIG
+    taxConfigValues
   ).deadline;
   const pp36DeadlineDate = pp36Deadline(
     data.periodYear,
     data.periodMonth,
-    DEFAULT_TAX_CONFIG
+    taxConfigValues
   ).deadline;
 
   const pp30Filings = await conn

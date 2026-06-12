@@ -2,6 +2,7 @@
 
 **Status:** Active next implementation slice.
 **Created:** 2026-05-17.
+**Status update 2026-06-12:** Slice 2 (Home dashboard) partially landed in commit `2e967a3`. Slice 1 (navigation/IA reset) is NOT done despite that commit's title — `src/lib/nav/structure.ts` is unchanged (same 5 categories, "More" still exposes ~37 pages, nothing demoted, no owner/accountant mode split). Slices 1, 3, 4, 5 remain open. Verify acceptance criteria against the running app, not commit messages.
 **Owner direction:** The app is for a non-technical Thai business owner first. Backend accounting depth can remain, but owner navigation and primary workflows must center on bank statements, source documents, reconciliation, VAT, and WHT.
 
 ## Problem

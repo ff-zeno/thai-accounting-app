@@ -82,6 +82,20 @@ beforeEach(async () => {
   `);
 });
 
+async function createHeadOffice(orgId: string) {
+  const [establishment] = await testDb
+    .insert(schema.establishments)
+    .values({
+      orgId,
+      branchNumber: "00000",
+      nameEn: "Head Office",
+      isHeadOffice: true,
+      vatRegistered: true,
+    })
+    .returning();
+  return establishment;
+}
+
 describe("general ledger primitives", () => {
   it("seeds the standard Thai chart of accounts idempotently", async () => {
     const org = await createTestOrg(testDb);
@@ -1006,11 +1020,13 @@ describe("general ledger primitives", () => {
   it("posts PP30 tax payment events against the PP30 net payable account", async () => {
     const org = await createTestOrg(testDb);
     await seedStandardGlAccounts(org.id);
+    const establishment = await createHeadOffice(org.id);
 
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         filingKind: "ordinary",
         periodYear: 2026,
@@ -1070,11 +1086,13 @@ describe("general ledger primitives", () => {
   it("processes tax payment events from the posting outbox", async () => {
     const org = await createTestOrg(testDb);
     await seedStandardGlAccounts(org.id);
+    const establishment = await createHeadOffice(org.id);
 
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         filingKind: "ordinary",
         periodYear: 2026,
@@ -1237,10 +1255,12 @@ describe("general ledger primitives", () => {
       { accountCode: "2152", debitAmount: "0.00", creditAmount: "70.00" },
     ]);
 
+    const establishment = await createHeadOffice(org.id);
     const [pp30Filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         filingKind: "ordinary",
         periodYear: 2026,

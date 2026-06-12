@@ -1,7 +1,7 @@
 # Thai Accounting Platform — Roadmap and Exec-Plan Index
 
 **Status:** Active table of contents and remaining-work map.
-**Last updated:** 2026-05-17.
+**Last updated:** 2026-06-12 (added engineering hardening, UI consistency, and design refresh plans from `docs/reviews/engineering-review-2026-06-12.md`).
 **Current baseline:** PR #1 merged to `main` at `f89b7f420f4daeb80e89d631e1336be5644512d8`; Vercel Production deploy succeeded; post-merge `pnpm db:migrate`, `pnpm tsc --noEmit`, and 65-route smoke passed.
 
 This file is the first place to read before planning more work. It separates:
@@ -16,7 +16,10 @@ Only keep documents here when they drive current or next work.
 
 | Document | Role | Done condition |
 |---|---|---|
-| `owner-mode-ux-reset.md` | Current selected implementation slice: reset the product around owner workflow, bank-first reconciliation, documents, VAT, and WHT | Owner-mode nav and core workflows are simplified; advanced/accountant areas are demoted; VAT lines show source-to-filing lifecycle status |
+| `owner-mode-ux-reset.md` | Current selected implementation slice: reset the product around owner workflow, bank-first reconciliation, documents, VAT, and WHT. **Note 2026-06-12:** Slice 1 (nav demotion) is still open — commit `2e967a3` reset the dashboard only; `src/lib/nav/structure.ts` is unchanged | Owner-mode nav and core workflows are simplified; advanced/accountant areas are demoted; VAT lines show source-to-filing lifecycle status |
+| `engineering-hardening.md` | Reliability backbone: CI, golden-path E2E, money-math hardening, effective-dated tax config, 2027 holidays, payroll test coverage, in-flight VAT commit, external-validation kickoff | CI gates every PR, golden-path E2E green, no float money math, tax config centralized and date-safe, dirty tree cleared |
+| `ui-consistency.md` | UI kit and consistency: pattern inventory, shared data-table, unified status-badge registry, one form approach, standard UX furniture | Owner-mode surfaces use the shared kit; status registry signed off; DESIGN.md updated |
+| `design-refresh.md` | Queued visual identity pass: 4–5 themed working prototypes of 3 benchmark screens; owner picks a direction; tokens codified in DESIGN.md | Direction chosen, tokens merged, owner-mode surfaces restyled, AA contrast and Thai rendering verified |
 | `completion-control.md` | Live checklist for holistic app completion after PR #1 merge, now oriented around the owner-mode reset | Owner-mode reset shipped, external blockers closed or explicitly deferred, and remaining product gaps either shipped or accepted as post-v1 |
 | `dbd-tfrs-research-spike.md` | CPA/DBD Builder validation blocker for fileable DBD/TFRS output | CPA-reviewed schema/notes taxonomy and authenticated Builder validation available |
 | `phase-12b-tfrs-dbd-audit-pack.md` | Remaining DBD/TFRS/audit-pack implementation plan | Fileable financial statements, notes, Builder packet, and auditor ZIP implemented and Builder-validated |
@@ -47,6 +50,20 @@ The active product model is:
 - Tax consumes reconciled and classified lines for monthly VAT and WHT compliance.
 
 ## Remaining Work
+
+### Engineering reliability (see `engineering-hardening.md` and `docs/reviews/engineering-review-2026-06-12.md`)
+
+- No CI exists; add GitHub Actions gates before further feature work.
+- No golden-path E2E proving statement → document → extraction → reconciliation → PP30 draft.
+- Float money math in `src/lib/reconciliation/matcher.ts` and `src/lib/tax/vat-register.ts`.
+- Tax config date bombs: 2026-only holiday calendar, VAT 7% hardcoded in 4 places (rate validated only through Sep 2026), static deadline constants, WHT rate duplication.
+- Uncommitted branch-scoped VAT PP30 work (13 files, migrations 0072/0073) needs gates + commit.
+- Payroll and reconciliation-rule test coverage gaps; no Inngest failed-run audit trail.
+
+### UI consistency and design (see `ui-consistency.md`, then `design-refresh.md`)
+
+- 7 bespoke table implementations, 9 ad-hoc forms, fragmented status-badge vocabulary; standardize before visual redesign.
+- Visual identity is default-shadcn; owner will choose from 4–5 prototyped design directions after the kit is unified.
 
 ### UX reset
 

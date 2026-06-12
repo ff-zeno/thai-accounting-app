@@ -121,6 +121,17 @@ interface VatLedgerPeriodDashboard {
   };
 }
 
+interface VatBranchReadinessRow {
+  id: string;
+  branchNumber: string;
+  nameTh: string | null;
+  nameEn: string | null;
+  isHeadOffice: boolean;
+  consolidatedFilingApproved: boolean;
+  missingBranchCount: number;
+  pp30: VatLedgerPeriodDashboard["pp30"];
+}
+
 interface VatForecastRow {
   period: { year: number; month: number };
   pp30: VatLedgerPeriodDashboard["pp30"];
@@ -239,6 +250,8 @@ export function VatView() {
   const [pp36PaymentDate, setPp36PaymentDate] = useState("");
   const [pp36PaymentReceipt, setPp36PaymentReceipt] = useState("");
   const [forecast, setForecast] = useState<VatForecastRow[] | null>(null);
+  const [branchReadiness, setBranchReadiness] = useState<VatBranchReadinessRow[]>([]);
+  const [selectedEstablishmentId, setSelectedEstablishmentId] = useState("");
 
   function handleLoadData() {
     startTransition(async () => {
@@ -248,7 +261,10 @@ export function VatView() {
         return;
       }
       const nextDashboard = result.dashboard as VatLedgerPeriodDashboard;
+      const nextBranches = (result.branchReadiness ?? []) as VatBranchReadinessRow[];
       setDashboard(nextDashboard);
+      setBranchReadiness(nextBranches);
+      setSelectedEstablishmentId((prev) => prev || nextBranches[0]?.id || "");
       if (
         nextDashboard.pp36.filingId &&
         nextDashboard.pp36.status === "filed" &&
@@ -279,7 +295,11 @@ export function VatView() {
 
   function handleBuildLedgerDraft() {
     startTransition(async () => {
-      const result = await buildPp30VatLedgerDraftAction(year, month);
+      const result = await buildPp30VatLedgerDraftAction(
+        year,
+        month,
+        selectedEstablishmentId
+      );
       if ("error" in result) {
         setLedgerActionError(result.error ?? "VAT ledger draft could not be built.");
         return;
@@ -287,7 +307,10 @@ export function VatView() {
       setLedgerDraft(result as VatLedgerDraftResult);
       setLedgerActionError(null);
       const dashboardResult = await loadVatDataAction(year, month);
-      if ("dashboard" in dashboardResult) setDashboard(dashboardResult.dashboard as VatLedgerPeriodDashboard);
+      if ("dashboard" in dashboardResult) {
+        setDashboard(dashboardResult.dashboard as VatLedgerPeriodDashboard);
+        setBranchReadiness((dashboardResult.branchReadiness ?? []) as VatBranchReadinessRow[]);
+      }
     });
   }
 
@@ -301,7 +324,10 @@ export function VatView() {
       setLedgerDraft(result as VatLedgerDraftResult);
       setLedgerActionError(null);
       const dashboardResult = await loadVatDataAction(year, month);
-      if ("dashboard" in dashboardResult) setDashboard(dashboardResult.dashboard as VatLedgerPeriodDashboard);
+      if ("dashboard" in dashboardResult) {
+        setDashboard(dashboardResult.dashboard as VatLedgerPeriodDashboard);
+        setBranchReadiness((dashboardResult.branchReadiness ?? []) as VatBranchReadinessRow[]);
+      }
     });
   }
 
@@ -388,6 +414,8 @@ export function VatView() {
                   setYear(Number(e.target.value));
                   setLoaded(false);
                   setDashboard(null);
+                  setBranchReadiness([]);
+                  setSelectedEstablishmentId("");
                 }}
                 className="flex h-8 w-24 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
@@ -408,6 +436,8 @@ export function VatView() {
                   setMonth(Number(e.target.value));
                   setLoaded(false);
                   setDashboard(null);
+                  setBranchReadiness([]);
+                  setSelectedEstablishmentId("");
                 }}
                 className="flex h-8 w-36 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
@@ -462,6 +492,73 @@ export function VatView() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>PP 30 Branch Readiness</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="pp30-branch">Draft branch</Label>
+                <select
+                  id="pp30-branch"
+                  value={selectedEstablishmentId}
+                  onChange={(event) => setSelectedEstablishmentId(event.target.value)}
+                  className="flex h-8 min-w-52 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  {branchReadiness.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.isHeadOffice ? "HQ" : branch.branchNumber} - {branch.nameEn || branch.nameTh || branch.branchNumber}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Branch</TableHead>
+                    <TableHead className="text-right">Output VAT</TableHead>
+                    <TableHead className="text-right">Input VAT</TableHead>
+                    <TableHead className="text-right">Net payable</TableHead>
+                    <TableHead className="text-right">Missing branch</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {branchReadiness.map((branch) => (
+                    <TableRow key={branch.id}>
+                      <TableCell>
+                        <div className="font-medium">
+                          {branch.isHeadOffice ? "HQ" : branch.branchNumber}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {branch.nameEn || branch.nameTh || branch.branchNumber}
+                          {branch.consolidatedFilingApproved ? " - consolidated approved" : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatAmount(branch.pp30.outputVatTotal)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatAmount(branch.pp30.inputVatTotal)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatAmount(branch.pp30.netPayable)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {branch.missingBranchCount}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusVariant(branch.pp30.status)}>
+                          {formatStatusLabel(branch.pp30.status)}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
           <VatOperationsLedgerPanel
             dashboard={dashboard}

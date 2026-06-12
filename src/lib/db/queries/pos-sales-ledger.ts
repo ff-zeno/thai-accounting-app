@@ -506,6 +506,7 @@ async function createPosSaleFromSourceInTx(
   await createVatOutputItem({
     tx,
     orgId: data.orgId,
+    establishmentId: data.establishmentId,
     sourcePosSaleId: row.id,
     taxInvoiceNo: data.taxInvoiceNumber,
     taxInvoiceDate: soldDate,

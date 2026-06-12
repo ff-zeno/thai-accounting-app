@@ -505,6 +505,20 @@
       "when": 1782124800000,
       "tag": "0071_journal_entries_active_source_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1782211200000,
+      "tag": "0072_branch_scoped_vat_pp30",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1782297600000,
+      "tag": "0073_document_vat_source_controls",
+      "breakpoints": true
     }
   ]
 }

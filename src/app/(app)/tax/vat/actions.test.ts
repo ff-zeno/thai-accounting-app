@@ -15,6 +15,7 @@ vi.mock("@/lib/utils/org-context", () => ({
 vi.mock("@/lib/db/queries/vat-operations-ledger", () => ({
   buildPp30VatFilingDraft: vi.fn(),
   buildPp36VatFilingDraft: vi.fn(),
+  getVatBranchReadiness: vi.fn(),
   getVatFilingDrilldown: vi.fn(),
   getVatForecastByPeriodRange: vi.fn(),
   getVatLedgerPeriodDashboard: vi.fn(),
@@ -29,6 +30,7 @@ const { requireOrgAdmin } = await import("@/lib/utils/admin-guard");
 const {
   buildPp30VatFilingDraft,
   buildPp36VatFilingDraft,
+  getVatBranchReadiness,
   getVatFilingDrilldown,
   getVatForecastByPeriodRange,
   getVatLedgerPeriodDashboard,
@@ -54,6 +56,7 @@ const adminContext = {
   userId: "b44b0b31-e293-4c2b-99b0-19f596f30c55",
   role: "admin",
 } as const;
+const hqEstablishmentId = "22222222-2222-4222-8222-222222222222";
 
 describe("VAT actions", () => {
   beforeEach(() => {
@@ -104,6 +107,7 @@ describe("VAT actions", () => {
         availableCarryforward: { count: 0, amount: "0.00" },
       },
     });
+    vi.mocked(getVatBranchReadiness).mockResolvedValue([]);
 
     await expect(loadVatDataAction(2026, 3)).resolves.toMatchObject({
       success: true,
@@ -183,7 +187,9 @@ describe("VAT actions", () => {
       carryforward: { allocatedCount: 0 },
     } as Awaited<ReturnType<typeof buildPp30VatFilingDraft>>);
 
-    await expect(buildPp30VatLedgerDraftAction(2026, 3)).resolves.toEqual({
+    await expect(
+      buildPp30VatLedgerDraftAction(2026, 3, hqEstablishmentId)
+    ).resolves.toEqual({
       success: true,
       filing: {
         id: "11111111-1111-4111-8111-111111111111",
@@ -206,6 +212,7 @@ describe("VAT actions", () => {
 
     expect(buildPp30VatFilingDraft).toHaveBeenCalledWith({
       orgId: "95aead7c-9942-474f-b48e-2ec5b46f10c9",
+      establishmentId: hqEstablishmentId,
       periodYear: 2026,
       periodMonth: 3,
       actorId: "b44b0b31-e293-4c2b-99b0-19f596f30c55",

@@ -6,6 +6,7 @@ import { requireOrgAdmin } from "@/lib/utils/admin-guard";
 import {
   buildPp30VatFilingDraft,
   buildPp36VatFilingDraft,
+  getVatBranchReadiness,
   getVatFilingDrilldown,
   getVatForecastByPeriodRange,
   getVatLedgerPeriodDashboard,
@@ -46,10 +47,16 @@ export async function loadVatDataAction(year: number, month: number) {
     periodYear: period.periodYear,
     periodMonth: period.periodMonth,
   });
+  const branchReadiness = await getVatBranchReadiness({
+    orgId,
+    periodYear: period.periodYear,
+    periodMonth: period.periodMonth,
+  });
 
   return {
     success: true,
     dashboard,
+    branchReadiness,
   };
 }
 
@@ -103,14 +110,23 @@ export async function loadVatForecastAction(year: number, month: number) {
 // Build VAT operations ledger PP30 draft for a period
 // ---------------------------------------------------------------------------
 
-export async function buildPp30VatLedgerDraftAction(year: number, month: number) {
+export async function buildPp30VatLedgerDraftAction(
+  year: number,
+  month: number,
+  establishmentId?: string
+) {
   const { orgId, userId } = await requireOrgAdmin();
 
   const period = validateVatPeriod(year, month);
   if ("error" in period) return period;
 
+  if (!establishmentId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(establishmentId)) {
+    return { error: "VAT branch is required before building PP 30" };
+  }
+
   const draft = await buildPp30VatFilingDraft({
     orgId,
+    establishmentId,
     periodYear: period.periodYear,
     periodMonth: period.periodMonth,
     actorId: userId,

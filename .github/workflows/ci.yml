@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  quality:
+    name: Typecheck, lint, unit tests
+    runs-on: ubuntu-latest
+    env:
+      # Unit tests never open a connection — the Neon pool is lazy and only
+      # presence of the variable is checked at import time.
+      DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  db-tests:
+    name: DB integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5433:5432
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: thai_accounting_test
+        options: >-
+          --health-cmd "pg_isready -U test -d thai_accounting_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # db-test-utils self-migrates from drizzle/*.sql — no db:migrate needed.
+      TEST_DATABASE_URL: postgres://test:test@localhost:5433/thai_accounting_test
+      DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:db
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+      DATABASE_URL_UNPOOLED: postgres://placeholder:placeholder@localhost:5432/placeholder
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cGxhY2Vob2xkZXItY2kuY2xlcmsuYWNjb3VudHMuZGV2JA
+      CLERK_SECRET_KEY: sk_test_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  e2e-gate:
+    name: Check e2e secrets
+    runs-on: ubuntu-latest
+    outputs:
+      run-e2e: ${{ steps.check.outputs.run-e2e }}
+    steps:
+      - id: check
+        env:
+          E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+          E2E_CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+          E2E_BLOB_READ_WRITE_TOKEN: ${{ secrets.E2E_BLOB_READ_WRITE_TOKEN }}
+        run: |
+          if [ -n "$E2E_DATABASE_URL" ] && [ -n "$E2E_CLERK_SECRET_KEY" ] && [ -n "$E2E_BLOB_READ_WRITE_TOKEN" ]; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "E2E secrets not configured — skipping e2e job." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  e2e:
+    name: Golden-path e2e
+    runs-on: ubuntu-latest
+    needs: e2e-gate
+    if: needs.e2e-gate.outputs.run-e2e == 'true'
+    # The e2e org lives on a single shared Neon branch — never run two e2e
+    # jobs against it concurrently, and don't cancel a run mid-flight.
+    concurrency:
+      group: e2e-shared-neon-branch
+      cancel-in-progress: false
+    env:
+      DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.E2E_DATABASE_URL_UNPOOLED }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.E2E_BLOB_READ_WRITE_TOKEN }}
+      E2E_FAKE_AI: "1"
+      E2E_REQUIRE_INNGEST: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Start Inngest dev server
+        run: |
+          pnpm dlx inngest-cli@1 dev -u http://localhost:3015/api/inngest --no-discovery > inngest.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8288 > /dev/null 2>&1; then
+              echo "Inngest dev server is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Inngest dev server failed to start" >&2
+          cat inngest.log >&2
+          exit 1
+      - run: pnpm test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+      - name: Upload Inngest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inngest-log
+          path: inngest.log
+          retention-days: 14

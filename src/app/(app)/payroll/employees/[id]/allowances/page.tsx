@@ -4,10 +4,15 @@ import { ArrowLeft, UsersRound } from "lucide-react";
 import { getPayrollEmployeeDetail } from "@/lib/db/queries/payroll";
 import { getCurrentUserId } from "@/lib/utils/auth";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -25,13 +30,6 @@ type PayrollEmployeeAllowancesPageProps = {
 async function submitAllowance(formData: FormData) {
   "use server";
   await createEmployeeAllowanceAction(formData);
-}
-
-function amount(value: string | null | undefined, digits = 2) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
 }
 
 function allowanceTotal(row: {
@@ -88,83 +86,48 @@ export default async function PayrollEmployeeAllowancesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
-          <p className="text-sm text-muted-foreground">
-            Lor.Yor.01 allowance history, payroll class, and recent pay slips.
-          </p>
-        </div>
+      <PageHeader
+        title={displayName}
+        description="Lor.Yor.01 allowance history, payroll class, and recent pay slips."
+      >
         <Button variant="outline" render={<Link href="/payroll/employees" />}>
           <ArrowLeft className="mr-2 size-4" />
           Employees
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId || !detail ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <UsersRound className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view employee allowances.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<UsersRound />}
+              title="Select an organization to view employee allowances."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Branch</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {detail.employee.branchNumber}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.employee.establishmentName || "Payroll establishment"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">PND.1 Type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {detail.employee.isDirector ? "40(2)" : "40(1)"}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.employee.position ?? "No position"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Base Salary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.employee.baseMonthlySalary)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Effective {detail.employee.salaryEffectiveFrom ?? detail.employee.startDate}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {detail.employee.endDate ? "Ended" : "Active"}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Started {detail.employee.startDate}
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Branch"
+              value={detail.employee.branchNumber}
+              hint={detail.employee.establishmentName || "Payroll establishment"}
+            />
+            <StatCard
+              label="PND.1 Type"
+              value={detail.employee.isDirector ? "40(2)" : "40(1)"}
+              hint={detail.employee.position ?? "No position"}
+            />
+            <StatCard
+              label="Base Salary"
+              value={<Amount value={detail.employee.baseMonthlySalary} />}
+              hint={`Effective ${detail.employee.salaryEffectiveFrom ?? detail.employee.startDate}`}
+            />
+            <StatCard
+              label="Status"
+              value={detail.employee.endDate ? "Ended" : "Active"}
+              hint={`Started ${detail.employee.startDate}`}
+            />
           </div>
 
           <Card>
@@ -264,9 +227,10 @@ export default async function PayrollEmployeeAllowancesPage({
             </CardHeader>
             <CardContent>
               {detail.allowances.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No allowance declarations recorded.
-                </p>
+                <EmptyState
+                  size="sm"
+                  title="No allowance declarations recorded."
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -285,18 +249,18 @@ export default async function PayrollEmployeeAllowancesPage({
                       <TableRow key={allowance.id}>
                         <TableCell>{allowance.taxYear}</TableCell>
                         <TableCell>{allowance.effectiveFromMonth}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(allowance.personalAllowance)}
+                        <TableCell className="text-right">
+                          <Amount value={allowance.personalAllowance} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(allowance.spouseAllowance)}
+                        <TableCell className="text-right">
+                          <Amount value={allowance.spouseAllowance} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {allowance.childCountPre2018} / {allowance.childCountPost2018SecondPlus}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(
-                            (
+                        <TableCell className="text-right">
+                          <Amount
+                            value={(
                               Number(allowance.parentAllowance) +
                               Number(allowance.disabledDependentAllowance) +
                               Number(allowance.healthInsurancePremium) +
@@ -305,11 +269,11 @@ export default async function PayrollEmployeeAllowancesPage({
                               Number(allowance.pensionInsurance) +
                               Number(allowance.ltfRmfSsfAmount) +
                               Number(allowance.mortgageInterest)
-                            ).toFixed(2)
-                          )}
+                            ).toFixed(2)}
+                          />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(allowanceTotal(allowance))}
+                        <TableCell className="text-right">
+                          <Amount value={allowanceTotal(allowance)} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -325,9 +289,10 @@ export default async function PayrollEmployeeAllowancesPage({
             </CardHeader>
             <CardContent>
               {detail.recentSlips.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No pay slips recorded for this employee.
-                </p>
+                <EmptyState
+                  size="sm"
+                  title="No pay slips recorded for this employee."
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -345,23 +310,25 @@ export default async function PayrollEmployeeAllowancesPage({
                     {detail.recentSlips.map((slip) => (
                       <TableRow key={slip.id}>
                         <TableCell>{slip.payDate}</TableCell>
-                        <TableCell>{slip.status}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={slip.status} />
+                        </TableCell>
                         <TableCell>{slip.pnd1IncomeType}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.grossSalary)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.grossSalary} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.pitWht)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.pitWht} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(
-                            (
+                        <TableCell className="text-right">
+                          <Amount
+                            value={(
                               Number(slip.ssoEmployee) + Number(slip.ssoEmployer)
-                            ).toFixed(2)
-                          )}
+                            ).toFixed(2)}
+                          />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.netPay)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.netPay} />
                         </TableCell>
                       </TableRow>
                     ))}

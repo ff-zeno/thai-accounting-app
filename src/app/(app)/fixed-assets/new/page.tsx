@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Landmark } from "lucide-react";
+import { ArrowLeft, CircleAlert, Landmark } from "lucide-react";
 import { getFixedAssetsDashboard } from "@/lib/db/queries/fixed-assets";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { createFixedAssetAction } from "../actions";
 import { FixedAssetIntakeFields } from "../fixed-asset-intake-fields";
 
@@ -32,26 +35,23 @@ export default async function FixedAssetNewPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">New Fixed Asset</h1>
-          <p className="text-sm text-muted-foreground">
-            Manual asset intake with statutory tax-life defaults and depreciation start.
-          </p>
-        </div>
+      <PageHeader
+        title="New Fixed Asset"
+        description="Manual asset intake with statutory tax-life defaults and depreciation start."
+      >
         <Button variant="outline" render={<Link href="/fixed-assets" />}>
           <ArrowLeft className="mr-2 size-4" />
           Fixed Assets
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Landmark className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to create fixed assets.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Landmark />}
+              title="Select an organization to create fixed assets."
+            />
           </CardContent>
         </Card>
       ) : (
@@ -61,9 +61,10 @@ export default async function FixedAssetNewPage({
           </CardHeader>
           <CardContent>
             {error ? (
-              <div className="mb-4 rounded-md border border-destructive/30 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
+              <Alert variant="destructive" className="mb-4">
+                <CircleAlert />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             ) : null}
             <form action={submitAsset} className="grid gap-4 md:grid-cols-4">
               <FixedAssetIntakeFields categoryDefaults={dashboard.categoryDefaults} />

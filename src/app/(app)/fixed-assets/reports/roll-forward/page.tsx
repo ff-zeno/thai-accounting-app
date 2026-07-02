@@ -2,10 +2,14 @@ import Link from "next/link";
 import { ArrowLeft, Download, Landmark } from "lucide-react";
 import { getFixedAssetRollForward } from "@/lib/db/queries/fixed-assets";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -18,17 +22,6 @@ import {
 type FixedAssetRollForwardPageProps = {
   searchParams: Promise<{ year?: string }>;
 };
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function amountOrDash(value: string | null | undefined) {
-  return value === null || value === undefined ? "-" : amount(value);
-}
 
 function label(value: string) {
   return value.replaceAll("_", " ");
@@ -90,28 +83,23 @@ export default async function FixedAssetRollForwardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Fixed Asset Roll Forward
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Opening cost plus additions less disposals, with depreciation by category.
-          </p>
-        </div>
+      <PageHeader
+        title="Fixed Asset Roll Forward"
+        description="Opening cost plus additions less disposals, with depreciation by category."
+      >
         <Button variant="outline" render={<Link href="/fixed-assets" />}>
           <ArrowLeft className="mr-2 size-4" />
           Fixed Assets
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Landmark className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view fixed asset reports.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Landmark />}
+              title="Select an organization to view fixed asset reports."
+            />
           </CardContent>
         </Card>
       ) : (
@@ -148,46 +136,22 @@ export default async function FixedAssetRollForwardPage({
           </Card>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Opening Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(totals.openingCost.toFixed(2))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Additions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(totals.additions.toFixed(2))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Disposals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(totals.disposals.toFixed(2))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Closing Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(totals.closingCost.toFixed(2))}
-                </div>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Opening Cost"
+              value={<Amount value={totals.openingCost.toFixed(2)} />}
+            />
+            <StatCard
+              label="Additions"
+              value={<Amount value={totals.additions.toFixed(2)} />}
+            />
+            <StatCard
+              label="Disposals"
+              value={<Amount value={totals.disposals.toFixed(2)} />}
+            />
+            <StatCard
+              label="Closing Cost"
+              value={<Amount value={totals.closingCost.toFixed(2)} />}
+            />
           </div>
 
           <Card>
@@ -213,60 +177,70 @@ export default async function FixedAssetRollForwardPage({
                   {rows.map((row) => (
                     <TableRow key={row.category}>
                       <TableCell>{label(row.category)}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(row.openingCost)}
+                      <TableCell className="text-right">
+                        <Amount value={row.openingCost} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(row.additions)}
+                      <TableCell className="text-right">
+                        <Amount value={row.additions} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(row.disposals)}
+                      <TableCell className="text-right">
+                        <Amount value={row.disposals} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(row.depreciationInPeriod)}
+                      <TableCell className="text-right">
+                        <Amount value={row.depreciationInPeriod} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(row.closingCost)}
+                      <TableCell className="text-right">
+                        <Amount value={row.closingCost} />
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {row.glAssetAccountCode ?? "-"}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amountOrDash(row.glClosingCost)}
+                      <TableCell className="text-right">
+                        <Amount value={row.glClosingCost} nullDash />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amountOrDash(row.glVariance)}
+                      <TableCell className="text-right">
+                        <Amount value={row.glVariance} nullDash />
                       </TableCell>
                     </TableRow>
                   ))}
                   {rows.length > 0 ? (
                     <TableRow>
                       <TableCell className="font-medium">Total</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(totals.openingCost.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount value={totals.openingCost.toFixed(2)} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(totals.additions.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount value={totals.additions.toFixed(2)} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(totals.disposals.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount value={totals.disposals.toFixed(2)} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(totals.depreciationInPeriod.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount value={totals.depreciationInPeriod.toFixed(2)} />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(totals.closingCost.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount value={totals.closingCost.toFixed(2)} />
                       </TableCell>
                       <TableCell />
-                      <TableCell className="text-right font-mono">
-                        {totals.hasUntiedGlRows
-                          ? "-"
-                          : amount(totals.glClosingCost.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount
+                          value={
+                            totals.hasUntiedGlRows
+                              ? null
+                              : totals.glClosingCost.toFixed(2)
+                          }
+                          nullDash
+                        />
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {totals.hasUntiedGlRows
-                          ? "-"
-                          : amount(totals.glVariance.toFixed(2))}
+                      <TableCell className="text-right">
+                        <Amount
+                          value={
+                            totals.hasUntiedGlRows
+                              ? null
+                              : totals.glVariance.toFixed(2)
+                          }
+                          nullDash
+                        />
                       </TableCell>
                     </TableRow>
                   ) : null}

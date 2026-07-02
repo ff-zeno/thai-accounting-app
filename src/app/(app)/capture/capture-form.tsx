@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Camera, Plus, Loader2, X, Check } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { uploadDocument } from "../documents/upload/actions";
@@ -163,10 +164,12 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
 
       {/* Submitted feedback */}
       {submitted && captures.length === 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-          <Check className="size-4 shrink-0" />
-          <span>Received, processing... Capture next document when ready.</span>
-        </div>
+        <Alert variant="success">
+          <Check />
+          <AlertDescription>
+            Received, processing... Capture next document when ready.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -292,7 +293,7 @@ export function SmartUploadForm() {
     return (
       <Card>
         <CardContent className="flex items-start gap-3 p-6">
-          <CheckCircle className="mt-0.5 size-5 text-green-600" />
+          <CheckCircle className="mt-0.5 size-5 text-success" />
           <div>
             <p className="font-medium">Import complete</p>
             <p className="text-sm text-muted-foreground">
@@ -300,7 +301,7 @@ export function SmartUploadForm() {
               skipped
             </p>
             {state.balanceWarning && (
-              <p className="mt-1 flex items-center gap-1 text-sm text-amber-600">
+              <p className="mt-1 flex items-center gap-1 text-sm text-warning">
                 <AlertTriangle className="size-4" />
                 {state.balanceWarning}
               </p>
@@ -566,16 +567,16 @@ function ReviewStep({
             <div className="mt-3 flex items-center gap-2">
               {matchedAccount ? (
                 <>
-                  <CheckCircle className="size-4 text-green-600" />
-                  <span className="text-sm text-green-700">
+                  <CheckCircle className="size-4 text-success" />
+                  <span className="text-sm text-success">
                     Matched to existing account: {matchedAccount.accountNumber}
                     {matchedAccount.accountName && ` (${matchedAccount.accountName})`}
                   </span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="size-4 text-amber-500" />
-                  <span className="text-sm text-amber-700">
+                  <AlertTriangle className="size-4 text-warning" />
+                  <span className="text-sm text-warning">
                     No matching account found — select or create one below
                   </span>
                 </>
@@ -618,21 +619,17 @@ function ReviewStep({
 
       {/* Parse errors */}
       {result.errors.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base text-amber-600">
-              <AlertTriangle className="size-4" />
-              Parse Warnings ({result.errors.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1 text-sm text-amber-700">
+        <Alert variant="warning">
+          <AlertTriangle />
+          <AlertTitle>Parse Warnings ({result.errors.length})</AlertTitle>
+          <AlertDescription>
+            <ul className="space-y-1">
               {result.errors.map((e, i) => (
                 <li key={i}>• {e}</li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Transaction Table */}
@@ -679,11 +676,11 @@ function ReviewStep({
                           {txn.type === "credit" ? "IN" : "OUT"}
                         </Badge>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-1.5 text-right font-mono text-xs">
+                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs tabular-nums">
                         {txn.type === "credit" ? "+" : "−"}
                         {fmtNum(parseFloat(txn.amount))}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-1.5 text-right font-mono text-xs text-muted-foreground">
+                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
                         {txn.runningBalance ? fmtNum(parseFloat(txn.runningBalance)) : "—"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-1.5 text-xs text-muted-foreground">
@@ -767,7 +764,7 @@ function AccountSelectStep({
                 <div
                   key={account.id}
                   className={`flex items-center justify-between rounded-md border p-3 ${
-                    isMismatch ? "border-amber-300 bg-amber-50" : ""
+                    isMismatch ? "border-warning/40 bg-warning/10" : ""
                   }`}
                 >
                   <div>
@@ -789,7 +786,7 @@ function AccountSelectStep({
                       </p>
                     )}
                     {isMismatch && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
+                      <p className="mt-1 flex items-center gap-1 text-xs text-warning">
                         <AlertTriangle className="size-3" />
                         Bank mismatch: statement is {meta?.bankCode}, account is{" "}
                         {account.bankCode}
@@ -812,7 +809,7 @@ function AccountSelectStep({
 
         {meta?.bankCode &&
           accounts.some((a) => a.bankCode !== meta.bankCode) && (
-            <label className="flex items-center gap-2 text-xs text-amber-700">
+            <label className="flex items-center gap-2 text-xs text-warning">
               <input
                 type="checkbox"
                 checked={mismatchAck}
@@ -1037,7 +1034,7 @@ function OverlapReviewStep({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <AlertTriangle className="size-4 text-amber-500" />
+          <AlertTriangle className="size-4 text-warning" />
           Overlapping Statement Detected
         </CardTitle>
       </CardHeader>
@@ -1076,9 +1073,9 @@ function OverlapReviewStep({
         </div>
 
         {allAlreadyImported && (
-          <div className="flex items-center gap-2 rounded-md bg-green-50 p-3">
-            <CheckCircle className="size-4 text-green-600" />
-            <p className="text-sm text-green-700">
+          <div className="flex items-center gap-2 rounded-md bg-success/10 p-3">
+            <CheckCircle className="size-4 text-success" />
+            <p className="text-sm text-success">
               All transactions in this file are already imported. Nothing new to add.
             </p>
           </div>

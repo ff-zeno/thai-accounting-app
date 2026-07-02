@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -237,18 +238,11 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                           {txn.date}
                         </p>
                       </div>
-                      <span
-                        className={`whitespace-nowrap font-mono text-sm ${
-                          txn.type === "credit"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {txn.type === "debit" ? "-" : "+"}
-                        {parseFloat(txn.amount).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </span>
+                      <Amount
+                        value={txn.type === "debit" ? `-${txn.amount}` : txn.amount}
+                        signed
+                        className="whitespace-nowrap text-sm"
+                      />
                     </button>
                   );
                 })}
@@ -311,7 +305,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                           {doc.issueDate || "No date"}
                         </p>
                       </div>
-                      <span className="whitespace-nowrap font-mono text-sm">
+                      <span className="whitespace-nowrap text-sm tabular-nums">
                         {formatAmount(doc.totalAmount, doc.currency)}
                       </span>
                     </button>
@@ -333,7 +327,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                 <p className="text-xs font-medium text-muted-foreground">
                   Selected Transactions ({selectedTxnIds.size})
                 </p>
-                <p className="font-mono text-lg font-semibold">
+                <p className="text-lg font-semibold tabular-nums">
                   {formatAmount(selectedTxnTotal.toFixed(2))}
                 </p>
               </div>
@@ -343,7 +337,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                 <p className="text-xs font-medium text-muted-foreground">
                   Selected Document
                 </p>
-                <p className="font-mono text-lg font-semibold">
+                <p className="text-lg font-semibold tabular-nums">
                   {selectedDoc
                     ? formatAmount(selectedDoc.totalAmount, selectedDoc.currency)
                     : "--"}
@@ -357,7 +351,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                     Difference
                   </p>
                   <p
-                    className={`font-mono text-lg font-semibold ${
+                    className={`text-lg font-semibold tabular-nums ${
                       amountDifference < 0.01
                         ? "text-success"
                         : hasAmountWarning

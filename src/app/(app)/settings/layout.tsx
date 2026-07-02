@@ -23,7 +23,8 @@ export default function SettingsLayout({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-      <nav className="flex gap-1 border-b">
+      {/* Route-based nav styled with the kit Tabs recipe (ui/tabs.tsx). */}
+      <nav className="inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
         {tabs.map((tab) => {
           const isActive =
             tab.href === "/settings"
@@ -33,11 +34,12 @@ export default function SettingsLayout({
             <Link
               key={tab.href}
               href={tab.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
-                "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none",
+                "hover:bg-background/50 hover:text-foreground",
+                "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                isActive && "bg-background text-foreground shadow"
               )}
             >
               {tab.label}

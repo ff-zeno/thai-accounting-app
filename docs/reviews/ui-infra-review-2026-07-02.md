@@ -203,3 +203,9 @@ Phase 4 — polish:
 11. Theme Clerk auth screens via `appearance`; fix "Long Tua" brand string;
     settle the i18n strategy; desktop nav touch targets to 44px; calendar
     component tokens; remove phantom `cn-toast`.
+
+Decisions (2026-07-02, post-review): Clerk auth theming SKIPPED per user.
+i18n strategy: current split FROZEN during UI iteration; full next-intl +
+Thai sweep is a pre-launch milestone. Settings tab bar: restyle to kit Tabs
+visual language (route Links, not client tab state). "Long Tua" fixed
+everywhere (layout, sidebar, mobile drawer).

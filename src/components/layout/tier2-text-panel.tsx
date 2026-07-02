@@ -19,11 +19,14 @@ export function Tier2TextPanel({ category, pathname }: Tier2TextPanelProps) {
         {t(category.labelKey)}
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {category.sections.map((section) => (
-          <section key={section.labelKey}>
+          <section
+            key={section.labelKey}
+            className="border-t pt-4 first:border-t-0 first:pt-0"
+          >
             {category.sections.length > 1 && (
-              <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase text-muted-foreground">
+              <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/70">
                 {t(section.labelKey)}
               </div>
             )}

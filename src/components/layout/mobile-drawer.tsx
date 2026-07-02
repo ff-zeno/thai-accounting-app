@@ -89,9 +89,12 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
 
             <nav aria-label="Mobile navigation" className="flex-1 overflow-y-auto px-3 py-3">
               {selectedCategory.sections.map((section) => (
-                <section key={section.labelKey} className="mb-5">
+                <section
+                  key={section.labelKey}
+                  className="mb-4 border-t pt-4 first:border-t-0 first:pt-0"
+                >
                   {selectedCategory.sections.length > 1 && (
-                    <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase text-muted-foreground">
+                    <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/70">
                       {t(section.labelKey)}
                     </div>
                   )}

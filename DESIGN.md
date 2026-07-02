@@ -26,7 +26,7 @@
   - Body: 14px / 400
   - Caption: 12px / 400 — the smallest size; never `text-[10px]`
 - **Financial numbers:** always `tabular-nums` (via the `Amount` component), right-aligned in tables. Geist Mono is reserved for identifiers (account numbers, tax IDs, references) — never for money.
-  - Nav heading: 11px / 600 / uppercase / 0.08em tracking / text-foreground/40
+  - Nav heading: 11px / 600 / uppercase / 0.08em tracking / text-foreground/70
   - Nav item: 14px / 500 / text-muted-foreground
   - Nav active: 14px / 600 / text-accent-foreground
 
@@ -105,3 +105,5 @@
 | 2026-07-02 | Page heading standardized at 24px/600 | The de-facto standard on all 49 pages; doc updated to match reality instead of forcing a 32px retrofit |
 | 2026-07-02 | tabular-nums mandated for money; mono reserved for IDs | Review found a 29-file font-mono / 12-file tabular-nums split on financial columns |
 | 2026-07-02 | Kit primitives added: PageHeader, StatCard, Alert, EmptyState, StatusBadge, Amount | Review found the same patterns hand-rolled on ~40 pages with drifting details |
+| 2026-07-02 | Nav group headers darkened to text-foreground/70 + border-t separators between tier-2 groups | Founder walkthrough: tax menu group headers read weaker than items, groups blurred together; separators were already specified but never implemented |
+| 2026-07-02 | Tier-1 tooltips via portal-based kit Tooltip (Base UI) | Old absolutely-positioned hover span was clipped by the icon strip's scroll container, so labels never appeared |

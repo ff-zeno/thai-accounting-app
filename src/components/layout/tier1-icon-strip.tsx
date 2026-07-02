@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { NavCategory } from "@/lib/nav/structure";
 
 interface Tier1IconStripProps {
@@ -45,36 +51,42 @@ export function Tier1IconStrip({
       </div>
       <div className="my-3 h-px w-9 bg-border" />
 
-      <nav
-        aria-label="Primary navigation"
-        className="flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2"
-      >
-        {categories.map((category, index) => {
-          const active = activeCategory.labelKey === category.labelKey;
-          const label = t(category.labelKey);
-          return (
-            <Link
-              key={category.labelKey}
-              href={category.href}
-              title={label}
-              aria-label={label}
-              aria-current={active ? "page" : undefined}
-              onKeyDown={(event) => handleKeyDown(event, index)}
-              className={cn(
-                "group relative flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors",
-                active
-                  ? "bg-accent text-primary"
-                  : "hover:bg-accent/60 hover:text-foreground"
-              )}
-            >
-              <category.icon className="size-5" />
-              <span className="pointer-events-none absolute left-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-md group-hover:block group-focus-visible:block">
-                {label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+      <TooltipProvider delay={200} closeDelay={0}>
+        <nav
+          aria-label="Primary navigation"
+          className="flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2"
+        >
+          {categories.map((category, index) => {
+            const active = activeCategory.labelKey === category.labelKey;
+            const label = t(category.labelKey);
+            return (
+              <Tooltip key={category.labelKey}>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href={category.href}
+                      aria-label={label}
+                      aria-current={active ? "page" : undefined}
+                      onKeyDown={(event) => handleKeyDown(event, index)}
+                      className={cn(
+                        "flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors",
+                        active
+                          ? "bg-accent text-primary"
+                          : "hover:bg-accent/60 hover:text-foreground"
+                      )}
+                    />
+                  }
+                >
+                  <category.icon className="size-5" />
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </nav>
+      </TooltipProvider>
     </div>
   );
 }

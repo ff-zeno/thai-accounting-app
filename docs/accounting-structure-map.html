@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Long Dtua — Thai Accounting Structure Map</title>
+<style>
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --subtle: oklch(0.72 0 0);
+    --border: oklch(0.922 0 0);
+    --primary: oklch(0.45 0.12 80);
+    --accent: oklch(0.96 0.02 80);
+    --accent-foreground: oklch(0.25 0.04 80);
+    --destructive: oklch(0.577 0.245 27.325);
+    --ring: oklch(0.65 0.10 80);
+    --edge-wired: oklch(0.62 0 0);
+    --edge-auto: oklch(0.52 0.12 80);
+    --edge-missing: oklch(0.577 0.245 27.325);
+    --panel: oklch(0.985 0 0);
+    --radius: 0.625rem;
+    --shadow: 0 1px 2px oklch(0 0 0 / 0.06), 0 4px 12px oklch(0 0 0 / 0.05);
+  }
+  .dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --subtle: oklch(0.52 0 0);
+    --border: oklch(1 0 0 / 12%);
+    --primary: oklch(0.78 0.12 80);
+    --accent: oklch(0.28 0.03 80);
+    --accent-foreground: oklch(0.95 0.01 80);
+    --destructive: oklch(0.704 0.191 22.216);
+    --ring: oklch(0.60 0.10 80);
+    --edge-wired: oklch(0.62 0 0);
+    --edge-auto: oklch(0.72 0.11 80);
+    --edge-missing: oklch(0.704 0.191 22.216);
+    --panel: oklch(0.18 0 0);
+    --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 4px 12px oklch(0 0 0 / 0.3);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 24px 28px 8px;
+  }
+  header h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  header .sub { color: var(--muted-foreground); font-size: 13px; }
+  header .spacer { flex: 1; }
+  #theme-toggle {
+    border: 1px solid var(--border); background: var(--card); color: var(--foreground);
+    border-radius: 9999px; padding: 5px 14px; font-size: 12px; font-weight: 500;
+    cursor: pointer;
+  }
+  #theme-toggle:hover { background: var(--accent); color: var(--accent-foreground); }
+  #theme-toggle:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  .legend {
+    display: flex; gap: 22px; flex-wrap: wrap; align-items: center;
+    padding: 6px 28px 14px; font-size: 12px; color: var(--muted-foreground);
+  }
+  .legend .item { display: flex; align-items: center; gap: 7px; }
+  .legend svg { flex: none; }
+  .legend .hint { margin-left: auto; color: var(--subtle); }
+
+  .layout { display: flex; align-items: flex-start; gap: 0; }
+  .map-scroll { flex: 1; overflow-x: auto; padding: 4px 12px 40px 28px; }
+  .map-wrap { position: relative; min-width: 1340px; }
+  #edges {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    overflow: visible; z-index: 1;
+  }
+  #edges path.edge { fill: none; stroke-width: 1.6; opacity: 0.5; pointer-events: stroke; cursor: pointer; transition: opacity 150ms ease-out, stroke-width 150ms ease-out; }
+  #edges path.edge.wired   { stroke: var(--edge-wired); }
+  #edges path.edge.auto    { stroke: var(--edge-auto); }
+  #edges path.edge.missing { stroke: var(--edge-missing); stroke-dasharray: 6 5; }
+  #edges path.edge.hi { opacity: 1; stroke-width: 2.4; }
+  #edges.focus path.edge:not(.hi) { opacity: 0.08; }
+
+  .lanes { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(5, 1fr); gap: 44px; pointer-events: none; }
+  .lane { display: flex; flex-direction: column; gap: 14px; }
+  .lane-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--subtle); padding: 2px 2px 6px; border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .node {
+    pointer-events: auto;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 10px 12px; cursor: pointer;
+    transition: border-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out;
+  }
+  .node:hover, .node.hi { border-color: var(--ring); }
+  .node.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow); }
+  .lanes.focus .node:not(.hi):not(.selected):not(:hover) { opacity: 0.35; }
+  .node h3 { margin: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em; }
+  .node .forms { margin-top: 2px; font-size: 11.5px; color: var(--primary); font-weight: 500; }
+  .node .tbl { margin-top: 3px; font-size: 11px; color: var(--muted-foreground); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .node .gapdot { display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: var(--destructive); margin-left: 6px; vertical-align: 1px; }
+
+  aside {
+    width: 380px; flex: none; position: sticky; top: 0; align-self: flex-start;
+    max-height: 100vh; overflow-y: auto;
+    border-left: 1px solid var(--border); background: var(--panel);
+    padding: 20px 22px 32px;
+  }
+  aside h2 { font-size: 16px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.005em; }
+  aside .thai { color: var(--muted-foreground); font-size: 13px; margin-bottom: 10px; }
+  aside .purpose { font-size: 13px; margin: 10px 0 14px; }
+  aside h4 {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--subtle); margin: 16px 0 6px;
+  }
+  aside ul { margin: 0; padding: 0 0 0 2px; list-style: none; }
+  aside li { font-size: 12.5px; margin: 3px 0; padding-left: 14px; position: relative; }
+  aside li::before { content: ""; position: absolute; left: 2px; top: 8px; width: 5px; height: 1.5px; background: var(--subtle); }
+  aside li.gap::before { background: var(--destructive); }
+  aside code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px;
+    background: var(--muted); border-radius: 4px; padding: 0.5px 4px;
+  }
+  aside .placeholder { color: var(--muted-foreground); font-size: 13px; }
+  aside .placeholder ul { margin-top: 8px; }
+  aside .edgelist li { cursor: default; }
+
+  #tooltip {
+    position: fixed; z-index: 10; pointer-events: none; display: none;
+    max-width: 340px; background: var(--card); color: var(--foreground);
+    border: 1px solid var(--border); border-radius: calc(var(--radius) * 0.8);
+    box-shadow: var(--shadow); padding: 8px 11px; font-size: 12px; line-height: 1.45;
+  }
+  #tooltip .kind { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+  #tooltip .kind.wired { color: var(--muted-foreground); }
+  #tooltip .kind.auto { color: var(--primary); }
+  #tooltip .kind.missing { color: var(--destructive); }
+  #tooltip code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
+
+  @media (max-width: 1100px) {
+    aside { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Long Dtua (ลงตัว) — Accounting Structure Map</h1>
+  <span class="sub">how the facets of Thai accounting connect · verified 2026-07-02 · detail: <code>docs/_ai_context/accounting-structure-map.md</code></span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" aria-pressed="false">Dark mode</button>
+</header>
+
+<div class="legend">
+  <span class="item">
+    <svg width="34" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="var(--edge-wired)" stroke-width="1.8"/><path d="M27 1.7 33 5 27 8.3 Z" fill="var(--edge-wired)"/></svg>
+    direct call / FK (same transaction)
+  </span>
+  <span class="item">
+    <svg width="34" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="var(--edge-auto)" stroke-width="1.8"/><path d="M27 1.7 33 5 27 8.3 Z" fill="var(--edge-auto)"/></svg>
+    async — Inngest event / cron
+  </span>
+  <span class="item">
+    <svg width="34" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="var(--edge-missing)" stroke-width="1.8" stroke-dasharray="5 4"/><path d="M27 1.7 33 5 27 8.3 Z" fill="var(--edge-missing)"/></svg>
+    missing / unlinked edge (documented gap)
+  </span>
+  <span class="item"><span style="width:6px;height:6px;border-radius:9999px;background:var(--destructive);display:inline-block"></span> facet has known gaps</span>
+  <span class="hint">hover a card to trace its flows · click for detail</span>
+</div>
+
+<div class="layout">
+  <div class="map-scroll">
+    <div class="map-wrap">
+      <svg id="edges" aria-hidden="true">
+        <defs>
+          <marker id="arr-wired" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0.5 0.8 7.5 4 0.5 7.2 Z" fill="var(--edge-wired)"/>
+          </marker>
+          <marker id="arr-auto" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0.5 0.8 7.5 4 0.5 7.2 Z" fill="var(--edge-auto)"/>
+          </marker>
+          <marker id="arr-missing" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0.5 0.8 7.5 4 0.5 7.2 Z" fill="var(--edge-missing)"/>
+          </marker>
+        </defs>
+        <g id="edge-paths"></g>
+      </svg>
+      <div class="lanes" id="lanes"></div>
+    </div>
+  </div>
+
+  <aside id="panel"></aside>
+</div>
+
+<div id="tooltip" role="tooltip"></div>
+
+<script>
+const LANES = [
+  "Evidence & capture",
+  "Operations",
+  "Tax ledgers & filings",
+  "General ledger",
+  "Year-end & control",
+];
+
+const FACETS = {
+  documents: { lane: 0, title: "Documents & AI extraction", thai: "เอกสาร · ใบกำกับภาษี", forms: "tax invoices · receipts · notes",
+    purpose: "Every tax position traces to a source document. AI extracts fields; a human confirms. Subtype (full/e-tax vs abb) gates input-VAT claims.",
+    tables: ["documents (vat_treatment, vat_period_*, snapshots)", "document_line_items (wht_rate, rd_payment_type_code)", "document_files (pipeline status)", "extraction_log + learning tables"],
+    compute: ["inngest/process-document.ts — 7-step pipeline, $0.50/doc budget", "ai/extract-document.ts + schemas", "learning chain: exemplars → consensus → shadow validation"],
+    pages: ["/documents/upload · /expenses · /income", "/documents/[docId]/review (human confirm)", "/capture · /admin/extraction-health"],
+    outputs: ["feeds every downstream facet"],
+    gaps: ["Inngest emits are fire-and-forget — a failed emit silently skips reconciliation/learning"] },
+  vendors: { lane: 0, title: "Vendors & DBD lookup", thai: "คู่ค้า", forms: "",
+    purpose: "Counterparty registry keyed (org, tax_id, branch); enriched from the DBD open API; bank-alias learning feeds the matcher.",
+    tables: ["vendors (entity_type: individual|company|foreign)", "vendor_bank_aliases (auto-confirm at 3 hits)"],
+    compute: ["api/dbd-client.ts", "db/helpers/learn-alias.ts"],
+    pages: ["/vendors"], outputs: [], gaps: [] },
+  bank: { lane: 0, title: "Bank statements & transactions", thai: "รายการเดินบัญชี", forms: "",
+    purpose: "Statement parsing with balance validation; transactions are the money-movement ground truth that settles filings and slips via FK.",
+    tables: ["bank_accounts · bank_statements", "transactions (external_ref dedup)"],
+    compute: ["parsers/ — KBank CSV/PDF, generic CSV", "balance-validation.ts"],
+    pages: ["/bank-accounts (+ upload, [accountId])"], outputs: [], gaps: [] },
+
+  recon: { lane: 1, title: "Reconciliation", thai: "กระทบยอด", forms: "7-layer matcher + AI batch",
+    purpose: "Matches bank transactions to documents/payments. Deterministic cascade first; leftovers go to a budgeted hourly AI batch; humans approve.",
+    tables: ["reconciliation_matches (confidence, soft-delete)", "ai_match_suggestions · reconciliation_rules", "ai_batch_runs"],
+    compute: ["reconciliation/matcher.ts — reference → alias → exact → rule → multi-signal → split → ambiguous", "inngest: reconcile-document, match-imported-transactions, ai-reconciliation-dispatcher/batch, suggest-rules"],
+    pages: ["/reconciliation (+ review, ai-review, insights)"],
+    outputs: ["monthly reconciliation PDF (/api/reconciliation-summary)"], gaps: [] },
+  payments: { lane: 1, title: "Payments", thai: "การจ่ายเงิน", forms: "",
+    purpose: "Payment recording against a document; computes gross/WHT/net in integer satang and spawns the WHT certificate in the same transaction.",
+    tables: ["payments (gross, wht_amount_withheld, net_amount_paid)"],
+    compute: ["queries/payments.ts createPayment() — satang-exact"],
+    pages: ["document review → record payment"],
+    outputs: [],
+    gaps: ["ordinary payments never reach the GL (no payments:* outbox event)"] },
+  pos: { lane: 1, title: "POS sales & settlements", thai: "ยอดขาย POS", forms: "",
+    purpose: "Manual/CSV POS sales with output-VAT split, processor settlements (fee VAT needs the processor tax invoice), cash deposits.",
+    tables: ["sales_transactions (pos_primary|processor_shadow)", "processor_settlements · cash_deposits · voucher_sales"],
+    compute: ["queries/pos-sales-ledger.ts — the only production writer of vat_output_items"],
+    pages: ["/sales"], outputs: [], gaps: [] },
+  imports: { lane: 1, title: "Imports (customs)", thai: "นำเข้า", forms: "",
+    purpose: "Customs packets: declarations, broker invoices, import VAT, FX at clearance; overhead components build landed cost for inventory.",
+    tables: ["imports · import_goods/charge/payment lines", "inventory_statutory_overhead_components"],
+    compute: ["queries/imports.ts (finalization enqueues GL posting)"],
+    pages: ["/imports (+ [id])"], outputs: [], gaps: [] },
+  inventory: { lane: 1, title: "Inventory & COGS", thai: "สินค้าคงคลัง", forms: "",
+    purpose: "SKU ledger with weighted-average valuation; movements carry running state and post COGS to the GL.",
+    tables: ["skus (valuation method, GL account links)", "inventory_movements · inventory_counts"],
+    compute: ["inventory/weighted-average.ts", "queries/inventory.ts"],
+    pages: ["/inventory (+ skus, adjustments, counts)"],
+    outputs: ["roll-forward + aged CSVs · §87 movement report"], gaps: [] },
+  assets: { lane: 1, title: "Fixed assets & depreciation", thai: "สินทรัพย์ถาวร", forms: "Royal Decree 145 tax lives",
+    purpose: "Asset register with book vs tax depreciation; monthly cron posts schedules to GL; book-tax differences sync into CIT adjustments.",
+    tables: ["fixed_assets · depreciation_schedule", "tax_min_life_by_category (cited)"],
+    compute: ["queries/fixed-assets.ts", "cron process-monthly-depreciation (1st)"],
+    pages: ["/fixed-assets (+ dispose, import, reports)"],
+    outputs: ["roll-forward CSV"], gaps: [] },
+  payroll: { lane: 1, title: "Payroll runs", thai: "เงินเดือน", forms: "cumulative-YTD PIT · capped SSO",
+    purpose: "Draft → approve → pay lifecycle; slips carry PIT withholding (§40(1)/(2)) and social security both sides.",
+    tables: ["employees · employee_allowances", "pay_runs · pay_slips", "pit_brackets · sso_config (effective-dated)"],
+    compute: ["payroll/pit-calculator.ts · sso-calculator.ts", "queries/payroll.ts"],
+    pages: ["/payroll (+ employees, runs)"],
+    outputs: [],
+    gaps: ["no payslip PDF, no bank transfer file"] },
+
+  whtcert: { lane: 2, title: "WHT certificates — 50 tawi", thai: "หนังสือรับรองหักภาษี ณ ที่จ่าย", forms: "PND 2 · 3 · 53 · 54",
+    purpose: "Withholding at source: certificate issued to the payee per payment, numbered per org/form/year, with below-statutory-rate acknowledgment.",
+    tables: ["wht_certificates (+ items FK back to document lines)", "wht_sequence_counters (never deleted)", "wht_rates (global, effective-dated)"],
+    compute: ["queries/wht-certificates.ts", "pdf/fifty-tawi.tsx (+ bilingual for foreign payees)"],
+    pages: ["/tax/wht-certificates (= /tax/withholding/outgoing)"],
+    outputs: ["50 tawi PDF → blob"],
+    gaps: ["PND54 and PP36 are parallel unlinked records of the same foreign payment"] },
+  whtfilings: { lane: 2, title: "WHT monthly filings", thai: "ภ.ง.ด. รายเดือน", forms: "PND 2 / 3 / 53 / 54",
+    purpose: "Monthly remittance returns aggregated from certificates by (period, form type); filing locks the period.",
+    tables: ["wht_monthly_filings (unique org+period+form)"],
+    compute: ["queries/wht-filings.ts — aggregate, markFilingAsFiled → lockPeriod", "tax/rd-csv-export.ts"],
+    pages: ["/tax/monthly-filings (= /tax/withholding/filings)"],
+    outputs: ["RD e-filing CSV — Thai headers, BE dates, UTF-8 BOM"],
+    gaps: ["pnd_filings migration protocol documented but unimplemented"] },
+  whtcredits: { lane: 2, title: "WHT credits received", thai: "ภาษีถูกหัก ณ ที่จ่าย", forms: "incoming 50 tawi",
+    purpose: "Certificates customers withheld from the org's income — CIT prepayment credits, auto-materialized when the document is confirmed.",
+    tables: ["wht_credits_received (CHECK wht ≤ gross)"],
+    compute: ["materializeWhtCreditReceivedFromDocument (on confirm)", "getWhtCreditsReceivedTotal → CIT"],
+    pages: ["/tax/wht-credits-received (= /tax/withholding/incoming)"],
+    outputs: [], gaps: [] },
+  vatitems: { lane: 2, title: "VAT items — input / output", thai: "ภาษีซื้อ · ภาษีขาย", forms: "6-month claim window",
+    purpose: "The VAT operations ledger: input items walk a status machine to claimable (full tax invoice enforced by DB CHECK); output items carry tax points.",
+    tables: ["vat_input_items (status machine, snapshot + sha256)", "vat_output_items", "tax_treatment_decisions (AI classification)"],
+    compute: ["vat-operations-ledger.ts creators"],
+    pages: ["/tax/vat/input · /output · /register"],
+    outputs: [],
+    gaps: ["createVatInputItem has ZERO production callers — confirmed documents never materialize", "tax_treatment_decisions unwired", "/tax/vat/register reads documents, not this ledger — two sources of truth"] },
+  pp36: { lane: 2, title: "PP36 obligations", thai: "ภ.พ.36 — reverse charge", forms: "foreign service payments",
+    purpose: "Self-assessed VAT on foreign services. Org-level pool (establishment forced NULL). Reclaimable in PP30 only after remittance — DB-enforced.",
+    tables: ["pp36_obligations (FX columns, reclaim-requires-paid CHECK)"],
+    compute: ["tax/foreign-vendor-tax.ts", "materializePp36ObligationFromDocument (confirm + payment)"],
+    pages: ["/tax/vat (PP36 lane)"], outputs: [], gaps: [] },
+  vatfilings: { lane: 2, title: "VAT filings — PP30 / PP36", thai: "ภ.พ.30 · ภ.พ.36", forms: "branch-scoped PP30 · nil filings",
+    purpose: "Draft → file lifecycle with frozen line snapshots; net = output − input − PP36 reclaim − carryforward, computed in BigInt cents; filing locks the period.",
+    tables: ["vat_filings (ordinary PP30 must have establishment)", "vat_filing_lines (append-only, frozen snapshots)", "vat_credit_carryforwards · tax_payment_events"],
+    compute: ["buildPp30/Pp36VatFilingDraft + allocators", "markVatFilingDraftFiled → period_locks + audit_log"],
+    pages: ["/tax/vat · /tax/vat/filings/[id] · /forecast"],
+    outputs: ["§87 input/output tax report CSVs"], gaps: [] },
+  pnd1: { lane: 2, title: "Payroll filings", thai: "ภ.ง.ด.1 · ประกันสังคม", forms: "PND1 · PND1 Kor · SSO",
+    purpose: "Monthly employer PIT return aggregated from slips; annual PND1 Kor summary; SSO contribution filing. Submit → accept state machine.",
+    tables: ["pnd_filings (PND1|PND1KOR)", "sso_filings"],
+    compute: ["buildPnd1Draft · buildPnd1KorDraft · buildSsoFilingDraft", "remittance recorders → GL"],
+    pages: ["/payroll/filings/pnd1 · /pnd1-kor · /sso"],
+    outputs: [],
+    gaps: ["no RD/SSO e-filing output file", "/payroll/filings/pnd1-kor unreachable from any nav/link"] },
+
+  outbox: { lane: 3, title: "Posting outbox", thai: "", forms: "14 posting kinds",
+    purpose: "Every GL-relevant domain write enqueues an outbox row in the same transaction; a minutely cron dispatches to per-kind posters; failures surface as exceptions.",
+    tables: ["posting_outbox (unique per entity+event)", "posting_exceptions (one open per row)"],
+    compute: ["queries/posting-outbox.ts", "gl/posting-kind-dispatch.ts — POSTING_KIND_DISPATCH", "cron process-posting-outbox (* * * * *)"],
+    pages: ["/accounting/posting-exceptions"], outputs: [], gaps: [] },
+  gl: { lane: 3, title: "Journal entries & GL accounts", thai: "บัญชีแยกประเภท", forms: "Thai 4-digit COA",
+    purpose: "Double-entry core: balanced-entry CHECK, debit-XOR-credit lines, idempotent auto-posting, corrections by reversal only (no soft-delete).",
+    tables: ["gl_accounts (name_th/en, vat/wht register roles, dbd_taxonomy_hint)", "journal_entries · journal_lines · gl_opening_balances"],
+    compute: ["queries/general-ledger.ts — per-kind posters, reverseJournalEntry"],
+    pages: ["/accounting · /accounting/journal/[id]"], outputs: [], gaps: [] },
+  statements: { lane: 3, title: "Financial statements", thai: "งบการเงิน", forms: "TB · P&L · BS · GL detail",
+    purpose: "Trial balance and statement summaries built from journal lines + opening balances; CSV exports per report.",
+    tables: ["(derived from journal_lines)"],
+    compute: ["buildTrialBalance · buildFinancialStatementSummary", "gl/accounting-report-export.ts"],
+    pages: ["/accounting/reports/* · /analytics/*"],
+    outputs: ["/api/accounting/*.csv"],
+    gaps: ["TFRS for NPAEs / DBD e-filing: documentation only — no XBRL/workbook code"] },
+
+  cit: { lane: 4, title: "Corporate income tax", thai: "ภ.ง.ด.50 · ภ.ง.ด.51", forms: "PND50 · PND51 · TP disclosure",
+    purpose: "Half-year prepayment (projected or actual-H1) and annual return: GL profit ± book-tax adjustments − 5-year loss layers − WHT credits; SME brackets.",
+    tables: ["cit_filings · book_tax_adjustments", "loss_carry_forward_layers (expiry = origin + 5, CHECK)", "transfer_pricing_disclosures · cit_brackets"],
+    compute: ["cit/cit-calculator.ts", "queries/cit-filings.ts — GL-profit draft, adjustment syncers"],
+    pages: ["/year-end/cit"],
+    outputs: [],
+    gaps: ["GL profit undercounts expenses while ordinary documents don't post to GL"] },
+  close: { lane: 4, title: "Period close & locks", thai: "ปิดงวด", forms: "",
+    purpose: "Close checklists per org/period plus a period-lock registry enforced by DB triggers (check_period_lock) with an explicit override session var.",
+    tables: ["close_checklists (+ items)", "period_locks (domain, lock/unlock audit)"],
+    compute: ["queries/period-locks.ts · close-checklists.ts", "DB triggers on documents, VAT/WHT tables, journal entries"],
+    pages: ["/close · /accounting (GL lock)"],
+    outputs: [],
+    gaps: ["checklist completion doesn't write period_locks", "protocol domains (vat|wht|gl|payroll|cit|sso) vs code's vat_pp30/vat_pp36", "two isPeriodLocked implementations"] },
+};
+
+const EDGES = [
+  // async — Inngest events / crons
+  { from: "documents", to: "recon", kind: "auto", label: "event <code>document/confirmed</code> → reconcile-document (7-layer cascade)" },
+  { from: "bank", to: "recon", kind: "auto", label: "event <code>transactions/imported</code> → match-imported-transactions (±45-day window)" },
+  { from: "vatfilings", to: "outbox", kind: "auto", label: "<code>tax_payment_events:payment</code> + PP36 lifecycle posting kinds" },
+  { from: "pos", to: "outbox", kind: "auto", label: "posting kinds: pos_primary_sale · processor_settlement · cash_deposit" },
+  { from: "imports", to: "outbox", kind: "auto", label: "posting kinds: import_broker_invoice · import_payment_clearing" },
+  { from: "inventory", to: "outbox", kind: "auto", label: "<code>inventory_movements:post_gl</code> — purchase / COGS / count variance" },
+  { from: "assets", to: "outbox", kind: "auto", label: "monthly depreciation cron → <code>fixed_asset_depreciation_period:post</code>" },
+  { from: "payroll", to: "outbox", kind: "auto", label: "kinds: payroll_net_payment · payroll_pnd1_remittance · payroll_sso_remittance" },
+  { from: "whtcredits", to: "outbox", kind: "auto", label: "posting kind <code>wht_credit_received</code>" },
+  { from: "cit", to: "outbox", kind: "auto", label: "kinds: cit_accrual · cit_payment · year-end close entries" },
+  { from: "outbox", to: "gl", kind: "auto", label: "minutely cron → <code>POSTING_KIND_DISPATCH</code> → balanced journal entries (idempotent)" },
+  // direct wired
+  { from: "documents", to: "payments", kind: "wired", label: "<code>createPayment()</code> from document review — one transaction" },
+  { from: "payments", to: "whtcert", kind: "wired", label: "<code>createWhtCertificateDraft()</code> — same transaction, satang-exact net adjustment" },
+  { from: "whtcert", to: "whtfilings", kind: "wired", label: "<code>aggregateMonthlyFiling()</code> groups certificates by (period, form type)" },
+  { from: "documents", to: "whtcredits", kind: "wired", label: "auto-materialize on confirm for received 50 tawi documents" },
+  { from: "documents", to: "pp36", kind: "wired", label: "<code>materializePp36ObligationFromDocument()</code> — on confirm and on payment" },
+  { from: "pos", to: "vatitems", kind: "wired", label: "<code>createVatOutputItem()</code> — the only production writer" },
+  { from: "vatitems", to: "vatfilings", kind: "wired", label: "PP30 draft allocators — claimable input + reportable output + carryforward" },
+  { from: "pp36", to: "vatfilings", kind: "wired", label: "PP36 obligation lines; reclaim into PP30 only after <code>pp36_paid_at</code> (DB CHECK)" },
+  { from: "imports", to: "inventory", kind: "wired", label: "landed-cost overhead layers → import_in movements" },
+  { from: "documents", to: "inventory", kind: "wired", label: "<code>receiveDocumentInventoryAction</code> → purchase_in movement" },
+  { from: "documents", to: "assets", kind: "wired", label: "<code>capitalizeDocumentAsFixedAssetAction</code> → acquisition_document_id" },
+  { from: "assets", to: "cit", kind: "wired", label: "<code>book_tax_difference</code> → book_tax_adjustments (PND50)" },
+  { from: "whtcredits", to: "cit", kind: "wired", label: "<code>wht_credits_used</code> — CIT prepayment credit on PND50" },
+  { from: "payroll", to: "pnd1", kind: "wired", label: "<code>buildPnd1Draft</code> / <code>buildSsoFilingDraft</code> aggregate slips by tax month" },
+  { from: "recon", to: "vendors", kind: "wired", label: "<code>learnAliasFromMatch()</code> — bank aliases auto-confirm at 3 occurrences" },
+  { from: "gl", to: "statements", kind: "wired", label: "<code>buildTrialBalance</code> · <code>buildFinancialStatementSummary</code>" },
+  { from: "statements", to: "cit", kind: "wired", label: "<code>buildPnd50DraftFromGlProfit()</code> reads GL P&L" },
+  { from: "vatfilings", to: "close", kind: "wired", label: "<code>markVatFilingDraftFiled</code> → period_locks (vat_pp30 / vat_pp36) + audit_log" },
+  { from: "whtfilings", to: "close", kind: "wired", label: "<code>markFilingAsFiled</code> → lockPeriod()" },
+  // missing / unlinked
+  { from: "documents", to: "vatitems", kind: "missing", label: "MISSING — no auto materializer: <code>createVatInputItem</code> has zero production callers; document VAT can't reach a PP30 draft" },
+  { from: "payments", to: "outbox", kind: "missing", label: "MISSING — no <code>documents:*</code>/<code>payments:*</code> outbox events: ordinary expenses & AP/AR never post to GL" },
+  { from: "whtcert", to: "pp36", kind: "missing", label: "UNLINKED — PND54 remittance and PP36 obligation are independent records of the same foreign payment" },
+];
+
+// ---- render nodes ----
+const lanesEl = document.getElementById("lanes");
+const laneEls = LANES.map((name, i) => {
+  const lane = document.createElement("div");
+  lane.className = "lane";
+  lane.innerHTML = `<div class="lane-title">${i + 1} · ${name}</div>`;
+  lanesEl.appendChild(lane);
+  return lane;
+});
+const nodeEls = {};
+for (const [id, f] of Object.entries(FACETS)) {
+  const el = document.createElement("div");
+  el.className = "node";
+  el.id = "n-" + id;
+  el.tabIndex = 0;
+  el.setAttribute("role", "button");
+  el.innerHTML = `<h3>${f.title}${f.gaps.length ? '<span class="gapdot" title="has documented gaps"></span>' : ""}</h3>` +
+    (f.forms ? `<div class="forms">${f.forms}</div>` : "") +
+    (f.thai ? `<div class="tbl">${f.thai}</div>` : "");
+  laneEls[f.lane].appendChild(el);
+  nodeEls[id] = el;
+}
+
+// ---- edges ----
+const svg = document.getElementById("edges");
+const gPaths = document.getElementById("edge-paths");
+const wrap = document.querySelector(".map-wrap");
+const pathEls = [];
+
+function anchor(el, side) {
+  const r = el.getBoundingClientRect();
+  const w = wrap.getBoundingClientRect();
+  const x = r.left - w.left, y = r.top - w.top;
+  switch (side) {
+    case "right":  return [x + r.width, y + r.height / 2];
+    case "left":   return [x, y + r.height / 2];
+    case "top":    return [x + r.width / 2, y];
+    case "bottom": return [x + r.width / 2, y + r.height];
+  }
+}
+
+function drawEdges() {
+  gPaths.innerHTML = "";
+  pathEls.length = 0;
+  for (const e of EDGES) {
+    const a = FACETS[e.from], b = FACETS[e.to];
+    let p1, p2, d;
+    if (a.lane < b.lane) {
+      p1 = anchor(nodeEls[e.from], "right"); p2 = anchor(nodeEls[e.to], "left");
+      const dx = (p2[0] - p1[0]) * 0.45;
+      d = `M ${p1[0]} ${p1[1]} C ${p1[0] + dx} ${p1[1]}, ${p2[0] - dx} ${p2[1]}, ${p2[0] - 8} ${p2[1]}`;
+    } else if (a.lane > b.lane) {
+      p1 = anchor(nodeEls[e.from], "left"); p2 = anchor(nodeEls[e.to], "right");
+      const dx = (p1[0] - p2[0]) * 0.45;
+      d = `M ${p1[0]} ${p1[1]} C ${p1[0] - dx} ${p1[1]}, ${p2[0] + dx} ${p2[1]}, ${p2[0] + 8} ${p2[1]}`;
+    } else {
+      const r1 = nodeEls[e.from].getBoundingClientRect(), r2 = nodeEls[e.to].getBoundingClientRect();
+      const down = r2.top > r1.top;
+      p1 = anchor(nodeEls[e.from], down ? "bottom" : "top");
+      p2 = anchor(nodeEls[e.to], down ? "top" : "bottom");
+      const dy = (p2[1] - p1[1]) * 0.4;
+      d = `M ${p1[0]} ${p1[1]} C ${p1[0]} ${p1[1] + dy}, ${p2[0]} ${p2[1] - dy}, ${p2[0]} ${p2[1] + (down ? -8 : 8)}`;
+    }
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    path.setAttribute("class", "edge " + e.kind);
+    path.setAttribute("marker-end", `url(#arr-${e.kind})`);
+    gPaths.appendChild(path);
+    pathEls.push({ path, e });
+  }
+  svg.setAttribute("width", wrap.scrollWidth);
+  svg.setAttribute("height", wrap.scrollHeight);
+}
+
+// ---- interactions ----
+const tooltip = document.getElementById("tooltip");
+const KIND_NAME = { wired: "direct call / FK", auto: "async — event / cron", missing: "missing edge" };
+
+function bindEdgeEvents() {
+  for (const { path, e } of pathEls) {
+    path.addEventListener("mousemove", (ev) => {
+      tooltip.style.display = "block";
+      tooltip.innerHTML = `<div class="kind ${e.kind}">${KIND_NAME[e.kind]}</div>` +
+        `<div><strong>${FACETS[e.from].title}</strong> → <strong>${FACETS[e.to].title}</strong></div>` +
+        `<div>${e.label}</div>`;
+      const pad = 14;
+      let x = ev.clientX + pad, y = ev.clientY + pad;
+      const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+      if (x + tw > innerWidth - 8) x = ev.clientX - tw - pad;
+      if (y + th > innerHeight - 8) y = ev.clientY - th - pad;
+      tooltip.style.left = x + "px"; tooltip.style.top = y + "px";
+      path.classList.add("hi");
+    });
+    path.addEventListener("mouseleave", () => {
+      tooltip.style.display = "none";
+      path.classList.remove("hi");
+    });
+  }
+}
+
+function focusNode(id, on) {
+  lanesEl.classList.toggle("focus", on);
+  svg.classList.toggle("focus", on);
+  for (const { path, e } of pathEls) {
+    const hit = on && (e.from === id || e.to === id);
+    path.classList.toggle("hi", hit);
+    if (hit) {
+      nodeEls[e.from].classList.add("hi");
+      nodeEls[e.to].classList.add("hi");
+    }
+  }
+  if (!on) for (const el of Object.values(nodeEls)) el.classList.remove("hi");
+}
+
+const panel = document.getElementById("panel");
+function section(title, items, gap) {
+  if (!items || !items.length) return "";
+  return `<h4>${title}</h4><ul>` +
+    items.map((t) => `<li${gap ? ' class="gap"' : ""}>${t.replace(/`([^`]+)`/g, "<code>$1</code>")}</li>`).join("") + "</ul>";
+}
+function showDetail(id) {
+  const f = FACETS[id];
+  const inbound = EDGES.filter((e) => e.to === id);
+  const outbound = EDGES.filter((e) => e.from === id);
+  panel.innerHTML =
+    `<h2>${f.title}</h2>` +
+    `<div class="thai">${[f.thai, f.forms].filter(Boolean).join(" · ")}</div>` +
+    `<div class="purpose">${f.purpose}</div>` +
+    section("Tables", f.tables) +
+    section("Compute", f.compute) +
+    section("Pages", f.pages) +
+    section("Outputs", f.outputs) +
+    section("Gaps", f.gaps, true) +
+    (inbound.length ? `<h4>Fed by</h4><ul class="edgelist">${inbound.map((e) => `<li${e.kind === "missing" ? ' class="gap"' : ""}>${FACETS[e.from].title} — ${e.label}</li>`).join("")}</ul>` : "") +
+    (outbound.length ? `<h4>Feeds</h4><ul class="edgelist">${outbound.map((e) => `<li${e.kind === "missing" ? ' class="gap"' : ""}>${FACETS[e.to].title} — ${e.label}</li>`).join("")}</ul>` : "");
+}
+function showDefault() {
+  const gaps = EDGES.filter((e) => e.kind === "missing");
+  panel.innerHTML =
+    `<h2>How to read this map</h2>` +
+    `<div class="purpose placeholder">Columns are lifecycle stages, left to right: evidence enters, operations act on it, tax ledgers aggregate it into filings, the posting outbox turns everything into balanced journal entries, and year-end consumes the ledger. Hover a card to trace its flows; click one for tables, code, pages, and gaps.</div>` +
+    `<h4>Missing edges (${gaps.length})</h4><ul>` +
+    gaps.map((e) => `<li class="gap"><strong>${FACETS[e.from].title} → ${FACETS[e.to].title}</strong>: ${e.label}</li>`).join("") + `</ul>` +
+    `<h4>Cross-cutting guardrails</h4><ul>` +
+    ["org_id scoping + same-org FK triggers on every business table",
+     "branch scoping: PP30 per establishment (DB CHECK) · PP36 org-level pool",
+     "period locks via check_period_lock() DB triggers",
+     "soft-delete everywhere; journal entries reversal-only; filing lines append-only",
+     "NUMERIC(14,2) money · integer-satang / BigInt-cent arithmetic",
+     "AI suggests, humans confirm — needs_review defaults, shadow validation",
+     "idempotent posting: unique (entity, event) outbox + auto-source journal unique",
+     "PP36 enters PP30 only as a post-payment reclaim line (DB CHECK chain)"]
+      .map((t) => `<li>${t}</li>`).join("") + `</ul>` +
+    `<div class="purpose placeholder" style="margin-top:14px">Full reference: <code>docs/_ai_context/accounting-structure-map.md</code></div>`;
+}
+
+let selected = null;
+for (const [id, el] of Object.entries(nodeEls)) {
+  el.addEventListener("mouseenter", () => focusNode(id, true));
+  el.addEventListener("mouseleave", () => focusNode(id, false));
+  const activate = () => {
+    if (selected) nodeEls[selected].classList.remove("selected");
+    if (selected === id) { selected = null; showDefault(); return; }
+    selected = id;
+    el.classList.add("selected");
+    showDetail(id);
+  };
+  el.addEventListener("click", activate);
+  el.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); activate(); } });
+}
+
+// ---- theme ----
+const toggle = document.getElementById("theme-toggle");
+function setDark(on) {
+  document.documentElement.classList.toggle("dark", on);
+  toggle.textContent = on ? "Light mode" : "Dark mode";
+  toggle.setAttribute("aria-pressed", String(on));
+}
+toggle.addEventListener("click", () => setDark(!document.documentElement.classList.contains("dark")));
+if (matchMedia("(prefers-color-scheme: dark)").matches) setDark(true);
+
+// ---- boot ----
+drawEdges();
+bindEdgeEvents();
+showDefault();
+addEventListener("resize", () => { drawEdges(); bindEdgeEvents(); });
+</script>
+</body>
+</html>

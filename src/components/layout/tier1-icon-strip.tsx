@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { HelpSidebar } from "@/components/help/help-sidebar";
 import type { NavCategory } from "@/lib/nav/structure";
 
 interface Tier1IconStripProps {
@@ -95,8 +96,9 @@ export function Tier1IconStrip({
           <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
             {mainCategories.map((category, index) => renderIcon(category, index))}
           </div>
+          <HelpSidebar />
           {bottomCategories.length > 0 && (
-            <div className="flex flex-col items-center gap-1 border-t pt-2">
+            <div className="mt-1 flex flex-col items-center gap-1 border-t pt-2">
               {bottomCategories.map((category) => renderIcon(category))}
             </div>
           )}

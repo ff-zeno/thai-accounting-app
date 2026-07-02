@@ -2,7 +2,9 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRightLeft,
+  Bot,
   CheckCircle2,
+  ChevronRight,
   Clock,
   FileText,
   Landmark,
@@ -18,12 +20,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
 import {
+  getAttentionCounts,
   getOwnerHomeMetrics,
   type ReviewException,
 } from "@/lib/db/queries/dashboard";
+import { listPins } from "@/lib/db/queries/user-nav-pins";
+import { resolvePinnedNavItems } from "@/lib/nav/pins";
+import { getObligationsWithStatus } from "@/lib/tax/obligations";
+import { StatusBadge } from "@/components/status-badge";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { getCurrentUser } from "@/lib/utils/auth";
 import { formatThb } from "./format";
+
+/** Fallback shortcuts shown until the user pins their own nav items. */
+const DEFAULT_SHORTCUTS = [
+  { label: "Upload document", href: "/documents/upload", icon: Upload },
+  { label: "Reconciliation", href: "/reconciliation", icon: ArrowRightLeft },
+  { label: "VAT", href: "/tax/vat", icon: Receipt },
+];
+
+const bangkokShortDate = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Bangkok",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
 
 function bangkokYearMonth() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -77,7 +100,26 @@ export default async function DashboardPage() {
   }
 
   const { year, month } = bangkokYearMonth();
-  const metrics = await getOwnerHomeMetrics(orgId, year, month);
+  // Filings due this month cover the previous calendar month's tax period.
+  const filingPeriod =
+    month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+  const tNav = await getTranslations("nav");
+  const user = await getCurrentUser();
+  const [metrics, attention, pins, obligationsSnapshot] = await Promise.all([
+    getOwnerHomeMetrics(orgId, year, month),
+    getAttentionCounts(orgId),
+    user ? listPins(orgId, user.id) : Promise.resolve([]),
+    getObligationsWithStatus(orgId, filingPeriod),
+  ]);
+  const pinnedItems = resolvePinnedNavItems(pins.map((pin) => pin.href));
+  const shortcuts =
+    pinnedItems.length > 0
+      ? pinnedItems.map((item) => ({
+          label: tNav(item.labelKey),
+          href: item.href,
+          icon: item.icon,
+        }))
+      : DEFAULT_SHORTCUTS;
   const openDeadlines = metrics.upcomingDeadlines.filter(
     (item) => item.status !== "filed"
   );
@@ -152,6 +194,99 @@ export default async function DashboardPage() {
           ))}
         </div>
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Needs your attention</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Link href="/documents/expenses" className="block">
+            <StatCard
+              className="h-full transition-colors hover:bg-muted/50"
+              label="Documents to review"
+              value={attention.documentsNeedingReview}
+              hint="Uploaded documents waiting for your confirmation"
+              icon={<FileText />}
+            />
+          </Link>
+          <Link href="/reconciliation" className="block">
+            <StatCard
+              className="h-full transition-colors hover:bg-muted/50"
+              label="Unmatched bank transactions"
+              value={attention.unmatchedTransactions}
+              hint="Bank lines without a matched document"
+              icon={<ArrowRightLeft />}
+            />
+          </Link>
+          <Link href="/reconciliation/ai-review" className="block">
+            <StatCard
+              className="h-full transition-colors hover:bg-muted/50"
+              label="AI suggestions pending"
+              value={attention.pendingAiSuggestions}
+              hint="Proposed matches awaiting approve/reject"
+              icon={<Bot />}
+            />
+          </Link>
+        </div>
+        {obligationsSnapshot && obligationsSnapshot.obligations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Filings due this month</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y">
+                {obligationsSnapshot.obligations.map((obligation) => (
+                  <Link
+                    key={obligation.key}
+                    href={obligation.workbenchHref}
+                    className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{obligation.form}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Due {bangkokShortDate.format(obligation.dueDate)}
+                        {obligation.dueDateIsEfiling ? " (e-filing)" : ""}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <StatusBadge status={obligation.displayStatus} />
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <Link
+                href="/tax"
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                What do these mean? Open Compliance
+                <ChevronRight className="size-3.5" />
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold">Pinned shortcuts</h2>
+          {pinnedItems.length === 0 && (
+            <span className="text-xs text-muted-foreground">
+              Suggestions — star any item in the sidebar to pin your own
+            </span>
+          )}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          {shortcuts.map((shortcut) => (
+            <Link
+              key={shortcut.href}
+              href={shortcut.href}
+              className="flex items-center gap-2 rounded-md border p-3 font-medium transition-colors hover:bg-muted/50"
+            >
+              <shortcut.icon className="size-4 text-muted-foreground" />
+              {shortcut.label}
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.9fr]">
         <Card>

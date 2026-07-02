@@ -5,8 +5,10 @@ import {
   whtMonthlyFilings,
   documentLineItems,
   exceptionQueue,
+  transactions,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
+import { getSuggestionCounts } from "./ai-suggestions";
 import {
   whtEfilingDeadline,
   formatBangkokDate,
@@ -235,6 +237,47 @@ export async function getOwnerHomeMetrics(
     outstandingFilings: outstandingResult[0]?.count ?? 0,
     upcomingDeadlines,
     openExceptions,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline attention counts (Home cockpit "Needs your attention" block)
+// ---------------------------------------------------------------------------
+
+export interface AttentionCounts {
+  documentsNeedingReview: number;
+  unmatchedTransactions: number;
+  pendingAiSuggestions: number;
+}
+
+export async function getAttentionCounts(
+  orgId: string
+): Promise<AttentionCounts> {
+  const [docsRow, unmatchedRow, suggestionCounts] = await Promise.all([
+    db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(documents)
+      .where(
+        and(...orgScope(documents, orgId), eq(documents.needsReview, true))
+      ),
+    // Same population as getReconciliationStats: real bank lines only.
+    db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(transactions)
+      .where(
+        and(
+          ...orgScope(transactions, orgId),
+          eq(transactions.isPettyCash, false),
+          eq(transactions.reconciliationStatus, "unmatched")
+        )
+      ),
+    getSuggestionCounts(orgId),
+  ]);
+
+  return {
+    documentsNeedingReview: docsRow[0]?.count ?? 0,
+    unmatchedTransactions: unmatchedRow[0]?.count ?? 0,
+    pendingAiSuggestions: suggestionCounts.pending,
   };
 }
 

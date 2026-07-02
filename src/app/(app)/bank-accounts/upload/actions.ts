@@ -354,12 +354,20 @@ export async function createAccountAndImportAction(
   const orgId = await getVerifiedOrgId();
   if (!orgId) return { error: "No organization selected" };
 
-  const account = await createBankAccount({
-    orgId,
-    bankCode: input.bankCode,
-    accountNumber: input.accountNumber,
-    accountName: input.accountName,
-  });
+  // Reuse an existing (non-soft-deleted) account with the same bank code +
+  // account number — repeated uploads must not duplicate accounts.
+  const account =
+    (await findBankAccountByNumber(
+      orgId,
+      input.bankCode,
+      input.accountNumber
+    )) ??
+    (await createBankAccount({
+      orgId,
+      bankCode: input.bankCode,
+      accountNumber: input.accountNumber,
+      accountName: input.accountName,
+    }));
 
   return confirmImportAction({
     bankAccountId: account.id,

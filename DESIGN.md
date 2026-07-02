@@ -70,8 +70,9 @@
 - **Border radius:** Hierarchical — sm: `calc(0.625rem * 0.6)`, md: `calc(0.625rem * 0.8)`, lg: `0.625rem`, full: `9999px`
 
 ## Navigation
-- **Desktop:** Gamma-style two-tier shell. Tier 1 is icon-first category navigation; Tier 2 shows grouped links for the active category. Workspace/org controls sit at the top of Tier 2.
-- **Mobile:** Hamburger menu opens a Sheet with tier categories and section links; it must expose the same destinations as desktop.
+- **Desktop:** Gamma-style two-tier shell. Tier 1 is icon-first category navigation (7 main categories + a Settings gear anchored at the strip bottom); Tier 2 shows grouped links for the active category. Workspace/org controls sit at the top of Tier 2.
+- **Long-tail groups:** Operations tier-2 sections are collapsible accordions, default collapsed; the section containing the active route auto-opens. Openness is derived state (user override wins), no persistence in v1.
+- **Mobile:** Hamburger menu opens a Sheet with tier categories (4-column grid) and section links; it must expose the same destinations as desktop, including the accordions.
 - **Active state:** Category and item active states are route-derived. Use longest-prefix style behavior so sibling paths such as `/tax/vat` and `/tax/vat/forecast` do not mis-highlight.
 - **Keyboard:** Tier-1 navigation supports arrow keys plus Home/End. Focus states must remain visible and use the shared ring token.
 - **Heading hierarchy:** Section headings use `text-foreground/40` (subordinate labels), clickable items use `text-muted-foreground` (interactive), active items use `bg-accent text-accent-foreground font-semibold`
@@ -107,3 +108,4 @@
 | 2026-07-02 | Kit primitives added: PageHeader, StatCard, Alert, EmptyState, StatusBadge, Amount | Review found the same patterns hand-rolled on ~40 pages with drifting details |
 | 2026-07-02 | Nav group headers darkened to text-foreground/70 + border-t separators between tier-2 groups | Founder walkthrough: tax menu group headers read weaker than items, groups blurred together; separators were already specified but never implemented |
 | 2026-07-02 | Tier-1 tooltips via portal-based kit Tooltip (Base UI) | Old absolutely-positioned hover span was clipped by the icon strip's scroll container, so labels never appeared |
+| 2026-07-02 | Guided-compliance shell: Sales & POS and Compliance tier-1, Operations accordion replaces 29-item More, Settings gear anchored at strip bottom | Founder-approved IA proposal (docs/reviews/nav-ia-proposal-2026-07-02.md) — non-professionals see the monthly loop, not the whole ledger |

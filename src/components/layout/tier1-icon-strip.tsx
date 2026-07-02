@@ -25,23 +25,59 @@ export function Tier1IconStrip({
 }: Tier1IconStripProps) {
   const t = useTranslations("nav");
   const router = useRouter();
+  const mainCategories = categories.filter((c) => c.anchor !== "bottom");
+  const bottomCategories = categories.filter((c) => c.anchor === "bottom");
 
   function handleKeyDown(
     event: KeyboardEvent<HTMLAnchorElement>,
     index: number
   ) {
     const keyToIndex: Record<string, number> = {
-      ArrowDown: (index + 1) % categories.length,
-      ArrowRight: (index + 1) % categories.length,
-      ArrowUp: (index - 1 + categories.length) % categories.length,
-      ArrowLeft: (index - 1 + categories.length) % categories.length,
+      ArrowDown: (index + 1) % mainCategories.length,
+      ArrowRight: (index + 1) % mainCategories.length,
+      ArrowUp: (index - 1 + mainCategories.length) % mainCategories.length,
+      ArrowLeft: (index - 1 + mainCategories.length) % mainCategories.length,
       Home: 0,
-      End: categories.length - 1,
+      End: mainCategories.length - 1,
     };
     const nextIndex = keyToIndex[event.key];
     if (nextIndex === undefined) return;
     event.preventDefault();
-    router.push(categories[nextIndex].href);
+    router.push(mainCategories[nextIndex].href);
+  }
+
+  function renderIcon(category: NavCategory, index?: number) {
+    const active = activeCategory.labelKey === category.labelKey;
+    const label = t(category.labelKey);
+    return (
+      <Tooltip key={category.labelKey}>
+        <TooltipTrigger
+          render={
+            <Link
+              href={category.href}
+              aria-label={label}
+              aria-current={active ? "page" : undefined}
+              onKeyDown={
+                index === undefined
+                  ? undefined
+                  : (event) => handleKeyDown(event, index)
+              }
+              className={cn(
+                "flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors",
+                active
+                  ? "bg-accent text-primary"
+                  : "hover:bg-accent/60 hover:text-foreground"
+              )}
+            />
+          }
+        >
+          <category.icon className="size-5" />
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    );
   }
 
   return (
@@ -54,37 +90,16 @@ export function Tier1IconStrip({
       <TooltipProvider delay={200} closeDelay={0}>
         <nav
           aria-label="Primary navigation"
-          className="flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2"
+          className="flex flex-1 flex-col items-center px-2"
         >
-          {categories.map((category, index) => {
-            const active = activeCategory.labelKey === category.labelKey;
-            const label = t(category.labelKey);
-            return (
-              <Tooltip key={category.labelKey}>
-                <TooltipTrigger
-                  render={
-                    <Link
-                      href={category.href}
-                      aria-label={label}
-                      aria-current={active ? "page" : undefined}
-                      onKeyDown={(event) => handleKeyDown(event, index)}
-                      className={cn(
-                        "flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors",
-                        active
-                          ? "bg-accent text-primary"
-                          : "hover:bg-accent/60 hover:text-foreground"
-                      )}
-                    />
-                  }
-                >
-                  <category.icon className="size-5" />
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+          <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+            {mainCategories.map((category, index) => renderIcon(category, index))}
+          </div>
+          {bottomCategories.length > 0 && (
+            <div className="flex flex-col items-center gap-1 border-t pt-2">
+              {bottomCategories.map((category) => renderIcon(category))}
+            </div>
+          )}
         </nav>
       </TooltipProvider>
     </div>

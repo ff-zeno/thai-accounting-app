@@ -6,6 +6,7 @@ import {
   Bot,
   BookOpen,
   Boxes,
+  Briefcase,
   Calendar,
   Camera,
   ClipboardList,
@@ -16,9 +17,7 @@ import {
   Landmark,
   Layers3,
   Lightbulb,
-  LineChart,
   LockKeyhole,
-  MoreHorizontal,
   PackageSearch,
   Receipt,
   Settings,
@@ -38,6 +37,8 @@ export interface NavItem {
 export interface NavSection {
   labelKey: string;
   items: NavItem[];
+  /** Collapsible sections render as accordions, default collapsed unless active. */
+  collapsible?: boolean;
 }
 
 export interface NavCategory {
@@ -45,6 +46,8 @@ export interface NavCategory {
   icon: LucideIcon;
   href: string;
   sections: NavSection[];
+  /** "bottom" anchors the category below the main icon strip (Settings gear). */
+  anchor?: "bottom";
 }
 
 export const navCategories: NavCategory[] = [
@@ -107,7 +110,20 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    labelKey: "tax",
+    labelKey: "salesPos",
+    icon: ShoppingCart,
+    href: "/sales",
+    sections: [
+      {
+        labelKey: "salesPos",
+        items: [
+          { labelKey: "salesOverview", href: "/sales", icon: ShoppingCart },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "compliance",
     icon: Receipt,
     href: "/tax/vat",
     sections: [
@@ -142,38 +158,31 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    labelKey: "more",
-    icon: MoreHorizontal,
+    labelKey: "operations",
+    icon: Briefcase,
     href: "/accounting",
     sections: [
       {
+        labelKey: "accounting",
+        collapsible: true,
+        items: [
+          { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
+          { labelKey: "journal", href: "/accounting/journal", icon: BookOpen },
+          { labelKey: "postingExceptions", href: "/accounting/posting-exceptions", icon: Activity },
+          { labelKey: "reports", href: "/accounting/reports", icon: BarChart3 },
+        ],
+      },
+      {
         labelKey: "inventoryImports",
+        collapsible: true,
         items: [
           { labelKey: "inventoryControl", href: "/inventory", icon: Boxes },
           { labelKey: "importsControl", href: "/imports", icon: PackageSearch },
         ],
       },
       {
-        labelKey: "accountingReports",
-        items: [
-          { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
-          { labelKey: "journal", href: "/accounting/journal", icon: BookOpen },
-          { labelKey: "postingExceptions", href: "/accounting/posting-exceptions", icon: Activity },
-          { labelKey: "trialBalance", href: "/accounting/reports/trial-balance", icon: BarChart3 },
-          { labelKey: "balanceSheet", href: "/accounting/reports/balance-sheet", icon: BarChart3 },
-          { labelKey: "profitLoss", href: "/accounting/reports/profit-loss", icon: BarChart3 },
-          { labelKey: "generalLedgerReport", href: "/accounting/reports/general-ledger", icon: BookOpen },
-          { labelKey: "reports", href: "/reports", icon: BarChart3 },
-          { labelKey: "arAging", href: "/analytics/ar-aging", icon: LineChart },
-          { labelKey: "apAging", href: "/analytics/ap-aging", icon: LineChart },
-          { labelKey: "cashForecast", href: "/analytics/cash-flow", icon: LineChart },
-          { labelKey: "concentration", href: "/analytics/concentration", icon: BarChart3 },
-          { labelKey: "profitability", href: "/analytics/profitability", icon: BarChart3 },
-          { labelKey: "fxRates", href: "/analytics/fx-rates", icon: Landmark },
-        ],
-      },
-      {
         labelKey: "payrollAssets",
+        collapsible: true,
         items: [
           { labelKey: "payrollControl", href: "/payroll", icon: UsersRound },
           { labelKey: "fixedAssetRegister", href: "/fixed-assets", icon: ClipboardList },
@@ -182,16 +191,17 @@ export const navCategories: NavCategory[] = [
       },
       {
         labelKey: "yearEndClose",
+        collapsible: true,
         items: [
           { labelKey: "closeChecklist", href: "/close", icon: LockKeyhole },
           { labelKey: "citWorkbench", href: "/year-end/cit", icon: Landmark },
         ],
       },
       {
-        labelKey: "management",
+        labelKey: "masterData",
+        collapsible: true,
         items: [
           { labelKey: "vendors", href: "/vendors", icon: Users },
-          { labelKey: "settings", href: "/settings", icon: Settings },
           { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
           { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
           { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },
@@ -199,14 +209,26 @@ export const navCategories: NavCategory[] = [
       },
       {
         labelKey: "toolsAdmin",
+        collapsible: true,
         items: [
-          { labelKey: "salesControl", href: "/sales", icon: ShoppingCart },
           { labelKey: "accountingCopilot", href: "/copilot", icon: Bot },
-          {
-            labelKey: "extractionHealth",
-            href: "/admin/extraction-health",
-            icon: Activity,
-          },
+          { labelKey: "exports", href: "/reports", icon: Upload },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "settings",
+    icon: Settings,
+    href: "/settings",
+    anchor: "bottom",
+    sections: [
+      {
+        labelKey: "settings",
+        items: [
+          { labelKey: "organizationSettings", href: "/settings", icon: Settings },
+          { labelKey: "aiSettings", href: "/settings/ai", icon: Bot },
+          { labelKey: "extractionHealth", href: "/admin/extraction-health", icon: Activity },
         ],
       },
     ],

@@ -1,6 +1,14 @@
 # Navigation & IA Proposal — Guided Compliance Shell
 
-**Date:** 2026-07-02 · **Source:** founder walkthrough feedback · **Status:** PROPOSED (awaiting founder decisions)
+**Date:** 2026-07-02 · **Source:** founder walkthrough feedback · **Status:** APPROVED 2026-07-02 (all four decisions)
+
+> **Founder decisions (2026-07-02):** 1) Tier-1 structure approved as proposed (incl. Tax→Compliance,
+> Sales & POS). 2) Both accordions AND Reports hub. 3) Real per-user pins (dynamic, user-based config).
+> 4) Education greenlit and EXPANDED: a Help button on every page opening a right sidebar with
+> English/Thai content, plus in-app flow charts (React Flow) for hard concepts — education is core product.
+> Implementation notes: `/reports` is actually the data-exports page, so the Reports hub lives at
+> `/accounting/reports` (new index route, no moves). `organizations` already has `is_vat_registered`
+> and `has_pos_sales`; the tax profile adds `has_employees` + `has_imported_services` columns only.
 **Mode:** Expansion — the goal is not menu cleanup but "the interface teaches a non-tax-professional what to do and when."
 
 ## The problem, restated

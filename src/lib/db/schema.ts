@@ -378,6 +378,8 @@ export const organizations = pgTable("organizations", {
   addressTh: text("address_th"),
   isVatRegistered: boolean("is_vat_registered").default(false),
   hasPosSales: boolean("has_pos_sales").default(false).notNull(),
+  hasEmployees: boolean("has_employees").default(false).notNull(),
+  hasImportedServices: boolean("has_imported_services").default(false).notNull(),
   transferPricingRequired: boolean("transfer_pricing_required")
     .default(false)
     .notNull(),
@@ -5058,4 +5060,30 @@ export const globalExemplarPoolRelations = relations(
       references: [exemplarConsensus.id],
     }),
   })
+);
+
+// ---------------------------------------------------------------------------
+// User navigation pins (Home dashboard favorites) — per user, per org
+// ---------------------------------------------------------------------------
+
+export const userNavPins = pgTable(
+  "user_nav_pins",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    userId: text("user_id").notNull(),
+    href: text("href").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex("user_nav_pins_org_user_href_uniq").on(
+      t.orgId,
+      t.userId,
+      t.href
+    ),
+    index("user_nav_pins_org_user_idx").on(t.orgId, t.userId),
+  ]
 );

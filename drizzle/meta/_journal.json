@@ -526,6 +526,13 @@
       "when": 1782384000000,
       "tag": "0074_tax_config_effective_dating",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1782950400000,
+      "tag": "0075_user_nav_pins_and_org_tax_profile",
+      "breakpoints": true
     }
   ]
 }

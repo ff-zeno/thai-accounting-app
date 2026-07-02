@@ -10,7 +10,11 @@ import {
   isUserMemberOfOrg,
 } from "@/lib/db/queries/organizations";
 import { getCurrentUser } from "@/lib/utils/auth";
+import { listPins } from "@/lib/db/queries/user-nav-pins";
+import { isKnownNavHref } from "@/lib/nav/pins";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelpSidebar } from "@/components/help/help-sidebar";
 import { NoOrgGate } from "@/components/layout/no-org-gate";
 
 export default async function AppLayout({
@@ -49,20 +53,36 @@ export default async function AppLayout({
     branchNumber: o.branchNumber,
   }));
 
+  // User nav pins — silently drop pins whose href left the nav structure.
+  const pins =
+    dbUser && validActiveOrgId ? await listPins(validActiveOrgId, dbUser.id) : [];
+  const pinnedHrefs = pins.map((pin) => pin.href).filter(isKnownNavHref);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
       <div className="hidden md:flex">
-        <TwoTierSidebar orgs={orgList} activeOrgId={validActiveOrgId} />
+        <TwoTierSidebar
+          orgs={orgList}
+          activeOrgId={validActiveOrgId}
+          pinnedHrefs={pinnedHrefs}
+        />
       </div>
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
         <header className="flex h-14 items-center gap-2 border-b px-4 md:hidden">
-          <MobileDrawer orgs={orgList} activeOrgId={validActiveOrgId} />
+          <MobileDrawer
+            orgs={orgList}
+            activeOrgId={validActiveOrgId}
+            pinnedHrefs={pinnedHrefs}
+          />
           <span className="text-lg font-semibold text-primary">Long Dtua</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <TooltipProvider delay={200} closeDelay={0}>
+              <HelpSidebar />
+            </TooltipProvider>
             <UserButton />
           </div>
         </header>

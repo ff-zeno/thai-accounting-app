@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import {
@@ -304,14 +305,18 @@ export function SmartUploadForm() {
                 {state.balanceWarning}
               </p>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => setState({ step: "drop" })}
-            >
-              Upload another
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" render={<Link href="/reconciliation" />}>
+                View reconciliation
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setState({ step: "drop" })}
+              >
+                Upload another
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

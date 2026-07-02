@@ -7,6 +7,7 @@ import {
   BookOpen,
   Boxes,
   Calendar,
+  Camera,
   ClipboardList,
   FileText,
   FolderKanban,
@@ -83,6 +84,24 @@ export const navCategories: NavCategory[] = [
           { labelKey: "expenses", href: "/documents/expenses", icon: FileText },
           { labelKey: "income", href: "/documents/income", icon: FileText },
           { labelKey: "upload", href: "/documents/upload", icon: Upload },
+          { labelKey: "capture", href: "/capture", icon: Camera },
+        ],
+      },
+    ],
+  },
+  {
+    labelKey: "reconciliationGroup",
+    icon: GitCompareArrows,
+    href: "/reconciliation",
+    sections: [
+      {
+        labelKey: "reconciliationGroup",
+        items: [
+          { labelKey: "overview", href: "/reconciliation", icon: GitCompareArrows },
+          { labelKey: "aiReview", href: "/reconciliation/ai-review", icon: Bot },
+          { labelKey: "reconciliationReview", href: "/reconciliation/review", icon: ArrowRightLeft },
+          { labelKey: "insights", href: "/reconciliation/insights", icon: Lightbulb },
+          { labelKey: "reconciliationRules", href: "/settings/reconciliation-rules", icon: Settings },
         ],
       },
     ],
@@ -127,14 +146,6 @@ export const navCategories: NavCategory[] = [
     icon: MoreHorizontal,
     href: "/accounting",
     sections: [
-      {
-        labelKey: "reconciliationGroup",
-        items: [
-          { labelKey: "reconciliation", href: "/reconciliation", icon: GitCompareArrows },
-          { labelKey: "reconciliationReview", href: "/reconciliation/review", icon: ArrowRightLeft },
-          { labelKey: "insights", href: "/reconciliation/insights", icon: Lightbulb },
-        ],
-      },
       {
         labelKey: "inventoryImports",
         items: [
@@ -181,7 +192,6 @@ export const navCategories: NavCategory[] = [
         items: [
           { labelKey: "vendors", href: "/vendors", icon: Users },
           { labelKey: "settings", href: "/settings", icon: Settings },
-          { labelKey: "reconciliationRules", href: "/settings/reconciliation-rules", icon: GitCompareArrows },
           { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
           { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
           { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },

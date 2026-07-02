@@ -184,7 +184,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         filingId: filing?.id ?? null,
         amountLabel: "WHT",
         amount: filing?.totalWhtAmount,
-        href: `/tax/monthly-filings?year=${selectedYear}&month=${month}`,
+        href: `/tax/withholding/filings?year=${selectedYear}&month=${month}`,
       };
     });
     return { month, cells };

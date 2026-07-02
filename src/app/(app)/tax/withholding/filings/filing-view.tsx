@@ -131,10 +131,16 @@ function groupByVendor(certificates: CertificateRow[]): VendorGroup[] {
   );
 }
 
-export function FilingView() {
+export function FilingView({
+  initialYear,
+  initialMonth,
+}: {
+  initialYear?: number;
+  initialMonth?: number;
+}) {
   const currentDate = new Date();
-  const [year, setYear] = useState(currentDate.getFullYear());
-  const [month, setMonth] = useState(currentDate.getMonth() + 1);
+  const [year, setYear] = useState(initialYear ?? currentDate.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? currentDate.getMonth() + 1);
   const [activeTab, setActiveTab] = useState<FormType>("pnd3");
   const [isPending, startTransition] = useTransition();
   const [filings, setFilings] = useState<Filing[]>([]);

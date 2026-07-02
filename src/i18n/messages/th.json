@@ -79,6 +79,7 @@
     "toolsAdmin": "เครื่องมือ/ผู้ดูแล",
     "reconciliationGroup": "กระทบยอด",
     "reconciliationReview": "ตรวจสอบการจับคู่",
+    "aiReview": "ตรวจสอบ AI",
     "inventoryControl": "ควบคุมสินค้าคงเหลือ",
     "importsControl": "ควบคุมการนำเข้า",
     "fixedAssets": "สินทรัพย์ถาวร",

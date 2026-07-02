@@ -298,6 +298,14 @@ export default async function PayrollPage() {
                     <Button type="submit">Build PND.1 Kor</Button>
                   </div>
                 </form>
+                <p className="mt-3 text-sm">
+                  <Link
+                    className="underline-offset-4 hover:underline"
+                    href="/payroll/filings/pnd1-kor"
+                  >
+                    View PND.1 Kor filings
+                  </Link>
+                </p>
               </CardContent>
             </Card>
 

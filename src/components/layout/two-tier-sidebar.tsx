@@ -41,7 +41,7 @@ export function TwoTierSidebar({ orgs, activeOrgId }: TwoTierSidebarProps) {
           <div className="p-3">
             <div className="mb-3 flex items-center gap-2.5 text-primary">
               <span className="text-lg font-semibold tracking-tight">
-                Long Tua
+                Long Dtua
               </span>
             </div>
             <OrgSwitcher

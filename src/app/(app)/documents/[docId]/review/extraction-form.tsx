@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Check, Loader2 } from "lucide-react";
@@ -639,9 +640,31 @@ export function ExtractionForm({
       )}
 
       {isConfirmed && (
-        <div className="flex items-center gap-2 border-t p-4 text-green-600">
-          <Check className="size-4" />
-          <span className="text-sm font-medium">{t("confirmed")}</span>
+        <div className="flex items-center gap-2 border-t p-4">
+          <Check className="size-4 text-green-600" />
+          <span className="text-sm font-medium text-green-600">
+            {t("confirmed")}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
+                  href={
+                    doc.direction === "expense"
+                      ? "/documents/expenses"
+                      : "/documents/income"
+                  }
+                />
+              }
+            >
+              View documents
+            </Button>
+            <Button size="sm" render={<Link href="/reconciliation" />}>
+              Go to reconciliation
+            </Button>
+          </div>
         </div>
       )}
 

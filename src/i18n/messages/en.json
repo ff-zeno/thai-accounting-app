@@ -79,6 +79,7 @@
     "toolsAdmin": "Tools/Admin",
     "reconciliationGroup": "Reconciliation",
     "reconciliationReview": "Review Matches",
+    "aiReview": "AI Review",
     "inventoryControl": "Inventory Control",
     "importsControl": "Imports Control",
     "fixedAssets": "Fixed Assets",

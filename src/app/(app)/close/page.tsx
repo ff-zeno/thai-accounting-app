@@ -47,6 +47,26 @@ async function postYearEndClose(formData: FormData) {
   await postYearEndCloseAction(formData);
 }
 
+// Deep links from checklist items to the page where each is resolved.
+const CHECKLIST_ITEM_LINKS: Record<string, { href: string; label: string }> = {
+  bank_reconciliation: { href: "/reconciliation", label: "Open reconciliation" },
+  ar_aging_reviewed: { href: "/analytics/ar-aging", label: "Open AR aging" },
+  ap_aging_reviewed: { href: "/analytics/ap-aging", label: "Open AP aging" },
+  pos_settlement_reconciled: { href: "/sales", label: "Open sales control tower" },
+  cash_deposits_matched: { href: "/sales", label: "Open sales control tower" },
+  pp30_prepared: { href: "/tax/vat", label: "Open VAT workspace" },
+  pnd_prepared: { href: "/tax/withholding/filings", label: "Open WHT filings" },
+  sso_prepared: { href: "/payroll/filings/sso", label: "Open SSO filings" },
+  month_end_adjustments: { href: "/accounting/journal", label: "Open journal" },
+  fx_revaluation_run: { href: "/analytics/fx-rates", label: "Open FX rates" },
+  depreciation_posted: { href: "/fixed-assets", label: "Open fixed assets" },
+  trial_balance_reviewed: {
+    href: "/accounting/reports/trial-balance",
+    label: "Open trial balance",
+  },
+  period_locked: { href: "/accounting", label: "Open general ledger" },
+};
+
 export default async function ClosePage() {
   const orgId = await getActiveOrgId();
   const dashboard = orgId ? await getCloseDashboard(orgId) : null;
@@ -57,7 +77,11 @@ export default async function ClosePage() {
       <PageHeader
         title="Close Checklist"
         description="Monthly close control list for reconciliations, tax prep, adjustments, and lock readiness."
-      />
+      >
+        <Button variant="outline" render={<Link href="/year-end/cit" />}>
+          CIT Workbench
+        </Button>
+      </PageHeader>
 
       <Alert variant="warning">
         <AlertTriangle />
@@ -190,38 +214,49 @@ export default async function ClosePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {dashboard.currentItems.map((item) => (
-                  <form
-                    key={item.id}
-                    action={updateItem}
-                    className="grid gap-3 rounded-md border p-3 md:grid-cols-[48px_1fr_140px_180px]"
-                  >
-                    <div className="text-sm text-muted-foreground">{item.sequence}</div>
-                    <div>
-                      <div className="font-medium">{item.description}</div>
-                      <div className="text-xs text-muted-foreground">{item.itemKey}</div>
-                    </div>
-                    <NativeSelect
-                      name="status"
-                      defaultValue={item.status}
-                      className="w-full"
+                {dashboard.currentItems.map((item) => {
+                  const link = CHECKLIST_ITEM_LINKS[item.itemKey];
+                  return (
+                    <form
+                      key={item.id}
+                      action={updateItem}
+                      className="grid gap-3 rounded-md border p-3 md:grid-cols-[48px_1fr_140px_180px]"
                     >
-                      <option value="pending">Pending</option>
-                      <option value="done">Done</option>
-                      <option value="skipped">Skipped</option>
-                      <option value="blocked">Blocked</option>
-                    </NativeSelect>
-                    <div className="flex items-center gap-2">
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <Button type="submit" size="sm" variant="outline">
-                        Save
-                      </Button>
-                      {item.status === "done" ? (
-                        <CheckCircle2 className="size-4 text-success" />
-                      ) : null}
-                    </div>
-                  </form>
-                ))}
+                      <div className="text-sm text-muted-foreground">{item.sequence}</div>
+                      <div>
+                        <div className="font-medium">{item.description}</div>
+                        <div className="text-xs text-muted-foreground">{item.itemKey}</div>
+                        {link ? (
+                          <Link
+                            href={link.href}
+                            className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                          >
+                            {link.label}
+                          </Link>
+                        ) : null}
+                      </div>
+                      <NativeSelect
+                        name="status"
+                        defaultValue={item.status}
+                        className="w-full"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="done">Done</option>
+                        <option value="skipped">Skipped</option>
+                        <option value="blocked">Blocked</option>
+                      </NativeSelect>
+                      <div className="flex items-center gap-2">
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <Button type="submit" size="sm" variant="outline">
+                          Save
+                        </Button>
+                        {item.status === "done" ? (
+                          <CheckCircle2 className="size-4 text-success" />
+                        ) : null}
+                      </div>
+                    </form>
+                  );
+                })}
               </div>
               <form action={closeChecklist} className="mt-4">
                 <input

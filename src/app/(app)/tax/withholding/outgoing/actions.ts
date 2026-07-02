@@ -112,7 +112,7 @@ export async function generateCertificatePdfAction(
       )
     );
 
-  revalidatePath("/tax/wht-certificates");
+  revalidatePath("/tax/withholding/outgoing");
   return { url };
 }
 
@@ -134,7 +134,7 @@ export async function reissueCertificateAction(
 
   try {
     const result = await reissueWhtCertificate(orgId, certId, reason);
-    revalidatePath("/tax/wht-certificates");
+    revalidatePath("/tax/withholding/outgoing");
     return result;
   } catch (error) {
     return {

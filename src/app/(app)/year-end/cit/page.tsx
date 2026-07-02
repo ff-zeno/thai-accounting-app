@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AlertTriangle, Landmark } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getCitDashboard } from "@/lib/db/queries/cit-filings";
@@ -182,7 +183,11 @@ export default async function CitPage() {
       <PageHeader
         title="CIT Workbench"
         description="PND.51 projected-profit draft surface and CIT filing working-paper foundation."
-      />
+      >
+        <Button variant="outline" render={<Link href="/close" />}>
+          Close Checklist
+        </Button>
+      </PageHeader>
 
       <Alert variant="warning">
         <AlertTriangle />

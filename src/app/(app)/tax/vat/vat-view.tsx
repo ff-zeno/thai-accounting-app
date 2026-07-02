@@ -228,10 +228,16 @@ function centsToMoney(cents: bigint): string {
 // Main component
 // ---------------------------------------------------------------------------
 
-export function VatView() {
+export function VatView({
+  initialYear,
+  initialMonth,
+}: {
+  initialYear?: number;
+  initialMonth?: number;
+}) {
   const currentDate = new Date();
-  const [year, setYear] = useState(currentDate.getFullYear());
-  const [month, setMonth] = useState(currentDate.getMonth() + 1);
+  const [year, setYear] = useState(initialYear ?? currentDate.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? currentDate.getMonth() + 1);
   const [isPending, startTransition] = useTransition();
   const [dashboard, setDashboard] = useState<VatLedgerPeriodDashboard | null>(null);
   const [loaded, setLoaded] = useState(false);

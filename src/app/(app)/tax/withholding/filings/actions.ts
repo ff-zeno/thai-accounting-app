@@ -41,7 +41,7 @@ export async function refreshFilingAction(
     deadline,
   });
 
-  revalidatePath("/tax/monthly-filings");
+  revalidatePath("/tax/withholding/filings");
   return { success: true, filingId };
 }
 
@@ -54,7 +54,7 @@ export async function markAsFiledAction(filingId: string) {
 
   await markFilingAsFiled(orgId, filingId, userId);
 
-  revalidatePath("/tax/monthly-filings");
+  revalidatePath("/tax/withholding/filings");
   return { success: true };
 }
 
@@ -67,7 +67,7 @@ export async function voidFilingAction(filingId: string) {
 
   await voidFiling(orgId, filingId);
 
-  revalidatePath("/tax/monthly-filings");
+  revalidatePath("/tax/withholding/filings");
   return { success: true };
 }
 

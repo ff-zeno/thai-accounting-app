@@ -118,7 +118,10 @@ async function seedForeignVendorReviewFixture() {
 
 async function seedTikTokUploadReplayFixture() {
   const stamp = Date.now();
-  const targetYear = 2029 + (stamp % 20);
+  // Per-run-unique VAT period in the PAST (2000-2014) so confirmed fixture
+  // documents can never sort above real documents in date-sorted views, and
+  // staying below 2015 keeps them clear of any plausible real period.
+  const targetYear = 2000 + (stamp % 15);
   const targetMonth = (Math.floor(stamp / 1000) % 12) + 1;
   const issueDate = `${targetYear}-${String(targetMonth).padStart(2, "0")}-15`;
   const fixtureKey = `e2e-tiktok-pp36-${stamp}`;

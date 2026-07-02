@@ -8,6 +8,7 @@ import {
   Boxes,
   Briefcase,
   Calendar,
+  CalendarCheck,
   Camera,
   ClipboardList,
   FileText,
@@ -125,8 +126,12 @@ export const navCategories: NavCategory[] = [
   {
     labelKey: "compliance",
     icon: Receipt,
-    href: "/tax/vat",
+    href: "/tax",
     sections: [
+      {
+        labelKey: "compliance",
+        items: [{ labelKey: "thisMonth", href: "/tax", icon: CalendarCheck }],
+      },
       {
         labelKey: "taxVat",
         items: [

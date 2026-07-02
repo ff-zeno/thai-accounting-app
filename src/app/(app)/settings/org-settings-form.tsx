@@ -47,10 +47,37 @@ interface OrgSettingsFormProps {
     address: string | null;
     addressTh: string | null;
     isVatRegistered: boolean | null;
+    hasPosSales: boolean;
+    hasEmployees: boolean;
+    hasImportedServices: boolean;
     fiscalYearEndMonth: number | null;
     fiscalYearEndDay: number | null;
   };
 }
+
+const TAX_PROFILE_TOGGLES = [
+  {
+    name: "isVatRegistered",
+    label: "VAT registered",
+    description: "Shows the monthly PP 30 VAT return obligation.",
+  },
+  {
+    name: "hasEmployees",
+    label: "Has employees",
+    description: "Shows the monthly PND 1 payroll withholding and SSO obligations.",
+  },
+  {
+    name: "hasImportedServices",
+    label: "Imports foreign services",
+    description:
+      "Shows the PP 36 self-assessed VAT obligation for foreign ads, software and cloud services.",
+  },
+  {
+    name: "hasPosSales",
+    label: "POS sales",
+    description: "Enables point-of-sale settlement and cash-deposit tracking.",
+  },
+] as const;
 
 export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -147,13 +174,33 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="isVatRegistered"
-              name="isVatRegistered"
-              defaultChecked={org.isVatRegistered ?? false}
-            />
-            <Label htmlFor="isVatRegistered">VAT Registered</Label>
+          <div className="space-y-4 border-t pt-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Tax profile</p>
+              <p className="text-sm text-muted-foreground">
+                These switches control which monthly obligations appear on
+                your Compliance page.
+              </p>
+            </div>
+            {TAX_PROFILE_TOGGLES.map((toggle) => (
+              <div key={toggle.name} className="flex items-start gap-3">
+                <Switch
+                  id={toggle.name}
+                  name={toggle.name}
+                  defaultChecked={
+                    toggle.name === "isVatRegistered"
+                      ? (org.isVatRegistered ?? false)
+                      : org[toggle.name]
+                  }
+                />
+                <div className="space-y-0.5">
+                  <Label htmlFor={toggle.name}>{toggle.label}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {toggle.description}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

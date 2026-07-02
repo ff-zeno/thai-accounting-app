@@ -1,6 +1,8 @@
 import { computeCounterpartyConcentration } from "@/lib/analytics/kpi-engine";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,12 +55,12 @@ export default async function ConcentrationPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Concentration</h1>
-        <p className="text-sm text-muted-foreground">
-          Top customers by confirmed revenue and top vendors by confirmed spend from {periodStart} to {periodEnd}.
-        </p>
-      </div>
+      <PageHeader
+        title="Concentration"
+        description={`Top customers by confirmed revenue and top vendors by confirmed spend from ${periodStart} to ${periodEnd}.`}
+      >
+        <ReportSwitcher current="/analytics/concentration" />
+      </PageHeader>
 
       <form className="flex flex-wrap items-end gap-3" action="/analytics/concentration">
         <label className="grid gap-1 text-sm">

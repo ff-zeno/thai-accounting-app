@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import {
   getGeneralLedgerDetail,
   getGlAccounts,
@@ -70,12 +72,12 @@ export default async function GeneralLedgerReportPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">General Ledger Detail</h1>
-        <p className="text-sm text-muted-foreground">
-          Line-level ledger detail with journal and source references.
-        </p>
-      </div>
+      <PageHeader
+        title="General Ledger Detail"
+        description="Line-level ledger detail with journal and source references."
+      >
+        <ReportSwitcher current="/accounting/reports/general-ledger" />
+      </PageHeader>
 
       {!orgId ? (
         <Card>

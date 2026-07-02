@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import {
   buildTrialBalance,
   seedStandardGlAccounts,
@@ -46,12 +48,12 @@ export default async function TrialBalancePage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Trial Balance</h1>
-        <p className="text-sm text-muted-foreground">
-          Account debit and credit totals derived from posted journal lines.
-        </p>
-      </div>
+      <PageHeader
+        title="Trial Balance"
+        description="Account debit and credit totals derived from posted journal lines."
+      >
+        <ReportSwitcher current="/accounting/reports/trial-balance" />
+      </PageHeader>
 
       {!orgId ? (
         <Card>

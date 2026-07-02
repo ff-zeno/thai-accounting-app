@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import {
   buildFinancialStatementSummary,
   seedStandardGlAccounts,
@@ -48,12 +50,12 @@ export default async function ProfitLossPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profit and Loss</h1>
-        <p className="text-sm text-muted-foreground">
-          Revenue, COGS, expense, gross-profit, and net-income summary from journal lines.
-        </p>
-      </div>
+      <PageHeader
+        title="Profit and Loss"
+        description="Revenue, COGS, expense, gross-profit, and net-income summary from journal lines."
+      >
+        <ReportSwitcher current="/accounting/reports/profit-loss" />
+      </PageHeader>
 
       {!orgId || !summary ? (
         <Card>

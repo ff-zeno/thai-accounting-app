@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import {
   buildFinancialStatementSummary,
   seedStandardGlAccounts,
@@ -51,12 +53,12 @@ export default async function BalanceSheetPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Balance Sheet</h1>
-        <p className="text-sm text-muted-foreground">
-          Assets, liabilities, equity, current-year result, and balance check from journal lines.
-        </p>
-      </div>
+      <PageHeader
+        title="Balance Sheet"
+        description="Assets, liabilities, equity, current-year result, and balance check from journal lines."
+      >
+        <ReportSwitcher current="/accounting/reports/balance-sheet" />
+      </PageHeader>
 
       {!orgId || !summary ? (
         <Card>

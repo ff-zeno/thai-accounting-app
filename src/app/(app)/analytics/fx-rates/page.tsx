@@ -4,6 +4,8 @@ import {
   getRecentBotFxRates,
 } from "@/lib/db/queries/fx-rates-bot";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,12 +57,12 @@ export default async function FxRatesPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">BOT FX Rates</h1>
-        <p className="text-sm text-muted-foreground">
-          Controlled reference-rate table for FX revaluation. BOT API ingestion runs when credentials are configured; manual entries remain the fallback and must keep source URL evidence.
-        </p>
-      </div>
+      <PageHeader
+        title="BOT FX Rates"
+        description="Controlled reference-rate table for FX revaluation. BOT API ingestion runs when credentials are configured; manual entries remain the fallback and must keep source URL evidence."
+      >
+        <ReportSwitcher current="/analytics/fx-rates" />
+      </PageHeader>
 
       {messages.error ? (
         <Alert variant="destructive">

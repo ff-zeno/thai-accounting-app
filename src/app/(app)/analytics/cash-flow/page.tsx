@@ -3,6 +3,8 @@ import {
   computeCounterpartyConcentration,
 } from "@/lib/analytics/kpi-engine";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -44,12 +46,12 @@ export default async function CashFlowPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Cash Forecast</h1>
-        <p className="text-sm text-muted-foreground">
-          THB cash, 30-day AR/AP forecast, runway, and concentration as of {asOfDate}.
-        </p>
-      </div>
+      <PageHeader
+        title="Cash Forecast"
+        description={`THB cash, 30-day AR/AP forecast, runway, and concentration as of ${asOfDate}.`}
+      >
+        <ReportSwitcher current="/analytics/cash-flow" />
+      </PageHeader>
 
       {!forecast ? (
         <Card>

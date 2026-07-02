@@ -5,6 +5,8 @@ import {
 } from "@/lib/analytics/segmented-profitability";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,12 +44,12 @@ export default async function ProfitabilityPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profitability</h1>
-        <p className="text-sm text-muted-foreground">
-          GL revenue, COGS, expenses, margin, and operating profit from {periodStart} to {periodEnd}.
-        </p>
-      </div>
+      <PageHeader
+        title="Profitability"
+        description={`GL revenue, COGS, expenses, margin, and operating profit from ${periodStart} to ${periodEnd}.`}
+      >
+        <ReportSwitcher current="/analytics/profitability" />
+      </PageHeader>
 
       <form className="flex flex-wrap items-end gap-3" action="/analytics/profitability">
         <label className="grid gap-1 text-sm">

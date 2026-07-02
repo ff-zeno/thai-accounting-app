@@ -1,5 +1,7 @@
 import { buildAgingSnapshot, summarizeAging } from "@/lib/analytics/aging";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -21,12 +23,12 @@ export default async function ApAgingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">AP Aging</h1>
-        <p className="text-sm text-muted-foreground">
-          Open expense documents bucketed by due date as of {asOfDate}.
-        </p>
-      </div>
+      <PageHeader
+        title="AP Aging"
+        description={`Open expense documents bucketed by due date as of ${asOfDate}.`}
+      >
+        <ReportSwitcher current="/analytics/ap-aging" />
+      </PageHeader>
       <div className="grid gap-4 md:grid-cols-5">
         <StatCard label="Current" value={<Amount value={summary.current} />} />
         <StatCard label="1-30" value={<Amount value={summary.days1To30} />} />

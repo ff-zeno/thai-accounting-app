@@ -20,11 +20,12 @@
 - **Thai glyphs:** Noto Sans Thai — full Unicode coverage, weight-matched to Geist
 - **Loading:** Google Fonts via `next/font` (Geist bundled with Next.js, Noto Sans Thai from Google)
 - **Scale:**
-  - Page heading: 32px / 700 / -0.02em tracking
-  - Section heading: 24px / 600 / -0.01em tracking
-  - Card heading: 18px / 600
-  - Body: 14px / 400 / 1.7 line-height
-  - Caption: 12px / 400
+  - Page heading: 24px / 600 / -0.01em tracking (`text-2xl font-semibold tracking-tight` — use the `PageHeader` component)
+  - Section heading: 18px / 600
+  - Card heading: 16px / 500 (`CardTitle` default — do not override per page)
+  - Body: 14px / 400
+  - Caption: 12px / 400 — the smallest size; never `text-[10px]`
+- **Financial numbers:** always `tabular-nums` (via the `Amount` component), right-aligned in tables. Geist Mono is reserved for identifiers (account numbers, tax IDs, references) — never for money.
   - Nav heading: 11px / 600 / uppercase / 0.08em tracking / text-foreground/40
   - Nav item: 14px / 500 / text-muted-foreground
   - Nav active: 14px / 600 / text-accent-foreground
@@ -43,12 +44,14 @@
   - Border: `oklch(0.922 0 0)`
   - Muted foreground: `oklch(0.556 0 0)`
   - Foreground: `oklch(0.145 0 0)`
-- **Semantic:** 
-  - Success: `#2e7d32` (green)
-  - Warning: `#f57c00` (amber)
-  - Error/Destructive: `oklch(0.577 0.245 27.325)` (red)
-  - Info: `#1565c0` (blue)
-- **Dark mode:** Invert lightness on neutrals, reduce saturation 10-20% on semantic colors. Surfaces use oklch lightness 0.17-0.28
+- **Semantic (implemented as tokens in `globals.css` — use these, never raw Tailwind palette classes):**
+  - Success: `--success` `oklch(0.52 0.14 150)` — green
+  - Warning: `--warning` `oklch(0.55 0.14 60)` — amber, darkened from `#f57c00` for AA text contrast
+  - Error/Destructive: `--destructive` `oklch(0.577 0.245 27.325)` — red
+  - Info: `--info` `oklch(0.47 0.14 255)` — blue
+  - Soft usage via opacity modifiers: `bg-success/10 border-success/30 text-success`; solid usage pairs with `*-foreground`. Badge has `success`/`warning`/`info` variants; banners use the `Alert` component.
+- **Charts:** warm lightness-stepped ramp `--chart-1..5` (hues 60–100) — never blue/violet series colors
+- **Dark mode:** Invert lightness on neutrals, reduce saturation 10-20% on semantic colors. Surfaces use oklch lightness 0.17-0.28. Semantic tokens carry their own dark values — raw palette classes with hand-written `dark:` variants are a smell
 
 ## Spacing
 - **Base unit:** 4px
@@ -98,3 +101,7 @@
 | 2026-04-01 | App renamed to Long Dtua (ลงตัว) | "Everything falls into place" — product identity |
 | 2026-04-01 | No left-border nav indicators | User preference — use bg highlight + font-weight for active state |
 | 2026-05-16 | Two-tier navigation shell adopted | Keeps 50+ accounting/tax destinations scannable while preserving existing route compatibility |
+| 2026-07-02 | Semantic success/warning/info tokens implemented | UI review found ~127 raw palette usages across 26 files with inconsistent dark mode; tokens + Alert/Badge variants replace them |
+| 2026-07-02 | Page heading standardized at 24px/600 | The de-facto standard on all 49 pages; doc updated to match reality instead of forcing a 32px retrofit |
+| 2026-07-02 | tabular-nums mandated for money; mono reserved for IDs | Review found a 29-file font-mono / 12-file tabular-nums split on financial columns |
+| 2026-07-02 | Kit primitives added: PageHeader, StatCard, Alert, EmptyState, StatusBadge, Amount | Review found the same patterns hand-rolled on ~40 pages with drifting details |

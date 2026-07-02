@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/native-select";
+import { StatusBadge } from "@/components/status-badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
@@ -102,17 +104,6 @@ function formatAmount(value: string | null): string {
   });
 }
 
-function getStatusVariant(status: string) {
-  switch (status) {
-    case "filed":
-      return "default" as const;
-    case "paid":
-      return "default" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
 function groupByVendor(certificates: CertificateRow[]): VendorGroup[] {
   const map = new Map<string, VendorGroup>();
 
@@ -193,39 +184,39 @@ export function FilingView() {
               <label className="text-sm font-medium text-muted-foreground">
                 Year
               </label>
-              <select
+              <NativeSelect
                 value={year}
                 onChange={(e) => {
                   setYear(Number(e.target.value));
                   setLoaded(false);
                 }}
-                className="flex h-8 w-24 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-24"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>
                     {y}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-muted-foreground">
                 Month
               </label>
-              <select
+              <NativeSelect
                 value={month}
                 onChange={(e) => {
                   setMonth(Number(e.target.value));
                   setLoaded(false);
                 }}
-                className="flex h-8 w-36 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-36"
               >
                 {MONTHS.map((name, i) => (
                   <option key={i + 1} value={i + 1}>
                     {name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <Button
               onClick={handleLoadData}
@@ -269,7 +260,7 @@ export function FilingView() {
                     </Badge>
                   )}
                   {filing?.periodLocked && (
-                    <Lock className="ml-1 size-3 text-amber-500" />
+                    <Lock className="ml-1 size-3 text-warning" />
                   )}
                 </TabsTrigger>
               );
@@ -345,10 +336,15 @@ function FilingTabContent({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={getStatusVariant(status)}>
-              {isLocked && <Lock className="mr-1 size-3" />}
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </Badge>
+            <StatusBadge
+              status={status}
+              label={
+                <>
+                  {isLocked && <Lock className="mr-1 size-3" />}
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </>
+              }
+            />
             {filing && status === "draft" && certCount > 0 && (
               <MarkAsFiledDialog
                 filingId={filing.id}
@@ -403,10 +399,10 @@ function FilingTabContent({
                     {group.vendorTaxId ?? "-"}
                   </TableCell>
                   <TableCell>{group.certificates.length}</TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-right tabular-nums">
                     {formatAmount(group.totalBase.toFixed(2))}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-right tabular-nums">
                     {formatAmount(group.totalWht.toFixed(2))}
                   </TableCell>
                 </TableRow>
@@ -418,10 +414,10 @@ function FilingTabContent({
                   Total
                 </TableCell>
                 <TableCell className="font-medium">{certCount}</TableCell>
-                <TableCell className="text-right font-mono font-medium">
+                <TableCell className="text-right font-medium tabular-nums">
                   {formatAmount(filing?.totalBaseAmount ?? "0.00")}
                 </TableCell>
-                <TableCell className="text-right font-mono font-medium">
+                <TableCell className="text-right font-medium tabular-nums">
                   {formatAmount(filing?.totalWhtAmount ?? "0.00")}
                 </TableCell>
               </TableRow>
@@ -465,7 +461,7 @@ function MarkAsFiledDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-5 text-amber-500" />
+            <AlertTriangle className="size-5 text-warning" />
             Confirm Filing
           </DialogTitle>
           <DialogDescription>

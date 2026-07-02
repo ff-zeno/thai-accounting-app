@@ -1,14 +1,17 @@
-import { FileText } from "lucide-react";
+import { AlertTriangle, FileText } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getPosSalesWorkflowDashboard } from "@/lib/db/queries/pos-sales-ledger";
 import { buildOutputTaxReport } from "@/lib/tax/output-tax-report";
 import { buildInputTaxReport } from "@/lib/tax/input-tax-report";
 import { buildInventoryMovementReport } from "@/lib/tax/inventory-movement-report";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Table,
   TableBody,
@@ -175,20 +178,19 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Statutory Tax Reports
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Section 87 output tax report by Bangkok tax month and place of business.
-        </p>
-      </div>
+      <PageHeader
+        title="Statutory Tax Reports"
+        description="Section 87 output tax report by Bangkok tax month and place of business."
+      />
 
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        Statutory reports are CSV-first v1 workpapers. Excel/PDF formats,
-        branch-level input propagation, processor-fee VAT lanes, and PP36 reclaim
-        lanes remain deferred until source establishment mapping is complete.
-      </div>
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          Statutory reports are CSV-first v1 workpapers. Excel/PDF formats,
+          branch-level input propagation, processor-fee VAT lanes, and PP36 reclaim
+          lanes remain deferred until source establishment mapping is complete.
+        </AlertDescription>
+      </Alert>
 
       {!orgId || !dashboard || !selectedEstablishment || !outputReport || !inputReport || !inventoryReport ? (
         <Card>
@@ -231,10 +233,10 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="establishmentId">Place of business</Label>
-                  <select
+                  <NativeSelect
                     id="establishmentId"
                     name="establishmentId"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue={selectedEstablishment.id}
                   >
                     {dashboard.establishments.map((establishment) => (
@@ -243,7 +245,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                         {establishment.nameEn ?? establishment.nameTh ?? ""}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="flex items-end">
                   <Button type="submit">Apply</Button>
@@ -311,12 +313,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle>Output Tax Report</CardTitle>
-                <a
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all hover:bg-muted hover:text-foreground"
-                  href={outputExportHref}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href={outputExportHref} />}
                 >
                   Download Output CSV
-                </a>
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -346,13 +349,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                           {row.taxInvoiceType} {row.taxInvoiceNumber}
                         </TableCell>
                         <TableCell>{row.channel}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.taxBaseExVat)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.vatAmount)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.amountIncludingVat)}
                         </TableCell>
                       </TableRow>
@@ -390,13 +393,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                         <TableCell className="text-right">
                           {row.saleCount}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.taxBaseExVat)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.vatAmount)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.amountIncludingVat)}
                         </TableCell>
                       </TableRow>
@@ -411,12 +414,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle>Input Tax Report</CardTitle>
-                <a
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all hover:bg-muted hover:text-foreground"
-                  href={inputExportHref}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href={inputExportHref} />}
                 >
                   Download Input CSV
-                </a>
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -475,10 +479,10 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                           {row.taxInvoiceSubtype} {row.taxInvoiceNo}
                         </TableCell>
                         <TableCell>{row.status}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.baseAmount)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.vatAmount)}
                         </TableCell>
                       </TableRow>
@@ -493,12 +497,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle>Goods and Raw Materials Report</CardTitle>
-                <a
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all hover:bg-muted hover:text-foreground"
-                  href={inventoryExportHref}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href={inventoryExportHref} />}
                 >
                   Download Goods CSV
-                </a>
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -568,22 +573,22 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                           </div>
                         </TableCell>
                         <TableCell>{row.unitOfMeasure}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {quantity(row.openingQuantity)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {quantity(row.inboundQuantity)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {quantity(row.outboundQuantity)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {quantity(row.netQuantity)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {quantity(row.closingQuantity)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.movementValue)}
                         </TableCell>
                       </TableRow>
@@ -632,16 +637,16 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {shortId(row.journalEntryId)}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell className="text-right tabular-nums">
                             {quantity(row.inboundQuantity)}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell className="text-right tabular-nums">
                             {quantity(row.outboundQuantity)}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell className="text-right tabular-nums">
                             {quantity(row.netQuantity)}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell className="text-right tabular-nums">
                             {amount(row.totalCost)}
                           </TableCell>
                         </TableRow>

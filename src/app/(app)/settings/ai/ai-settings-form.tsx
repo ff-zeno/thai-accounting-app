@@ -1,9 +1,13 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -21,21 +25,13 @@ import {
 } from "@/lib/ai/models-catalog";
 
 // ---------------------------------------------------------------------------
-// Provider icons (colored circles with initials)
+// Provider icons (neutral circles with initials)
 // ---------------------------------------------------------------------------
 
-const PROVIDER_COLORS: Record<string, string> = {
-  Google: "bg-blue-500",
-  OpenAI: "bg-emerald-600",
-};
-
 function ProviderIcon({ provider }: { provider: string }) {
-  const color = PROVIDER_COLORS[provider] ?? "bg-gray-500";
   const initials = provider.slice(0, 2).toUpperCase();
   return (
-    <span
-      className={`inline-flex size-6 items-center justify-center rounded-md text-[10px] font-bold text-white ${color}`}
-    >
+    <span className="inline-flex size-6 items-center justify-center rounded-md bg-muted text-xs font-bold text-foreground">
       {initials}
     </span>
   );
@@ -99,7 +95,7 @@ function ModelPicker({
               !value ? "bg-accent font-medium" : ""
             }`}
           >
-            <span className="inline-flex size-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+            <span className="inline-flex size-6 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">
               DF
             </span>
             <div className="flex-1">
@@ -113,7 +109,7 @@ function ModelPicker({
 
           {providers.map((provider) => (
             <div key={provider}>
-              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {provider}
               </p>
               {models
@@ -295,26 +291,29 @@ export function AiSettingsForm({ settings }: AiSettingsFormProps) {
             <h3 className="text-sm font-medium text-muted-foreground">
               Copilot Controls
             </h3>
-            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-              Copilot live model orchestration is preview-only. These settings store
-              provider preferences and secret references, but the current Copilot UI
-              still routes prompts through deterministic audited tools until live
-              orchestration is enabled in a later phase.
-            </div>
+            <Alert variant="warning">
+              <AlertTriangle />
+              <AlertDescription>
+                Copilot live model orchestration is preview-only. These settings store
+                provider preferences and secret references, but the current Copilot UI
+                still routes prompts through deterministic audited tools until live
+                orchestration is enabled in a later phase.
+              </AlertDescription>
+            </Alert>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="copilotProvider">Provider</Label>
-                <select
+                <NativeSelect
                   id="copilotProvider"
                   name="copilotProvider"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  className="w-full"
                   defaultValue={settings?.copilotProvider ?? ""}
                 >
                   <option value="">No live model</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic</option>
                   <option value="openrouter">OpenRouter</option>
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="copilotModel">Model</Label>
@@ -358,16 +357,14 @@ export function AiSettingsForm({ settings }: AiSettingsFormProps) {
               </div>
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     name="copilotLiveModelEnabled"
                     defaultChecked={settings?.copilotLiveModelEnabled ?? false}
                   />
                   Enable live model orchestration
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     name="copilotWriteToolsEnabled"
                     defaultChecked={settings?.copilotWriteToolsEnabled ?? false}
                   />

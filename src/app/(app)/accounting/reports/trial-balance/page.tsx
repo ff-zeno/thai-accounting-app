@@ -5,6 +5,8 @@ import {
   buildTrialBalance,
   seedStandardGlAccounts,
 } from "@/lib/db/queries/general-ledger";
+import { Amount } from "@/components/ui/amount";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,13 +20,6 @@ import {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 export default async function TrialBalancePage({
@@ -76,12 +71,9 @@ export default async function TrialBalancePage({
             <CardContent>
               <form className="grid gap-3 md:grid-cols-[1fr_auto]" action="/accounting/reports/trial-balance">
                 <Input name="asOfDate" type="date" defaultValue={asOfDate} />
-                <button
-                  type="submit"
-                  className="h-9 rounded-md border border-input px-3 text-sm hover:bg-muted"
-                >
+                <Button type="submit" variant="outline" size="sm">
                   Refresh
-                </button>
+                </Button>
               </form>
             </CardContent>
           </Card>
@@ -90,12 +82,17 @@ export default async function TrialBalancePage({
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-3">
                 <span>Accounts as of {asOfDate}</span>
-                <Link
-                  href={`/api/accounting/trial-balance.csv?asOfDate=${asOfDate}`}
-                  className="text-sm font-normal text-muted-foreground underline-offset-4 hover:underline"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={
+                    <Link
+                      href={`/api/accounting/trial-balance.csv?asOfDate=${asOfDate}`}
+                    />
+                  }
                 >
                   Download CSV
-                </Link>
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -105,9 +102,9 @@ export default async function TrialBalancePage({
                     <TableHead>Code</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Debit</TableHead>
-                    <TableHead>Credit</TableHead>
-                    <TableHead>Net</TableHead>
+                    <TableHead className="text-right tabular-nums">Debit</TableHead>
+                    <TableHead className="text-right tabular-nums">Credit</TableHead>
+                    <TableHead className="text-right tabular-nums">Net</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -123,17 +120,27 @@ export default async function TrialBalancePage({
                       </TableCell>
                       <TableCell>{row.accountNameEn}</TableCell>
                       <TableCell>{row.accountType}</TableCell>
-                      <TableCell>{amount(row.debitTotal)}</TableCell>
-                      <TableCell>{amount(row.creditTotal)}</TableCell>
-                      <TableCell>{amount(row.netBalance)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={row.debitTotal} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={row.creditTotal} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={row.netBalance} />
+                      </TableCell>
                     </TableRow>
                   ))}
                   <TableRow>
                     <TableCell colSpan={3} className="font-medium">
                       Total
                     </TableCell>
-                    <TableCell className="font-medium">{amount(String(totals.debit))}</TableCell>
-                    <TableCell className="font-medium">{amount(String(totals.credit))}</TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      <Amount value={totals.debit} />
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      <Amount value={totals.credit} />
+                    </TableCell>
                     <TableCell />
                   </TableRow>
                 </TableBody>

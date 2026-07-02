@@ -78,7 +78,7 @@ export default async function InsightsPage() {
   const totalMatches = layerData.reduce((sum, l) => sum + l.matchCount, 0);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

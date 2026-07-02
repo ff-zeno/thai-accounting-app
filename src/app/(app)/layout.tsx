@@ -61,7 +61,7 @@ export default async function AppLayout({
         {/* Mobile header */}
         <header className="flex h-14 items-center gap-2 border-b px-4 md:hidden">
           <MobileDrawer orgs={orgList} activeOrgId={validActiveOrgId} />
-          <span className="text-lg font-semibold text-primary">Long Tua</span>
+          <span className="text-lg font-semibold text-primary">Long Dtua</span>
           <div className="ml-auto">
             <UserButton />
           </div>

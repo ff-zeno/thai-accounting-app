@@ -9,6 +9,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfidenceBadge } from "@/components/reconciliation/confidence-badge";
@@ -89,7 +90,7 @@ export function MatchedTransactions({ matches }: { matches: MatchRow[] }) {
                   <p className="truncate text-sm font-medium">
                     {match.txnCounterparty || match.txnDescription || "Unknown"}
                   </p>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-xs">
                     {match.matchType.replace("_", " ")}
                   </Badge>
                 </div>
@@ -101,16 +102,15 @@ export function MatchedTransactions({ matches }: { matches: MatchRow[] }) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span
-                  className={`whitespace-nowrap font-mono text-sm tabular-nums ${
-                    match.txnType === "credit" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {match.txnType === "debit" ? "-" : "+"}
-                  {parseFloat(match.txnAmount).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                <Amount
+                  signed
+                  value={
+                    match.txnType === "debit"
+                      ? `-${match.txnAmount}`
+                      : match.txnAmount
+                  }
+                  className="whitespace-nowrap text-sm"
+                />
                 {match.confidence && (
                   <ConfidenceBadge confidence={match.confidence} />
                 )}

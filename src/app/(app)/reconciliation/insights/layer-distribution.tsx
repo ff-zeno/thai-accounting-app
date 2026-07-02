@@ -9,16 +9,16 @@ import {
 import type { LayerMatchRate } from "@/lib/db/queries/reconciliation-metrics";
 
 const LAYER_COLORS: Record<string, string> = {
-  exact: "bg-green-600",
-  fuzzy: "bg-blue-500",
-  reference: "bg-violet-500",
-  alias: "bg-amber-500",
-  pattern: "bg-cyan-500",
-  rule: "bg-indigo-500",
-  multi_signal: "bg-pink-500",
-  split: "bg-orange-500",
-  manual: "bg-gray-500",
-  unknown: "bg-gray-400",
+  exact: "bg-chart-1",
+  fuzzy: "bg-chart-2",
+  reference: "bg-chart-3",
+  alias: "bg-chart-4",
+  pattern: "bg-chart-5",
+  rule: "bg-chart-1",
+  multi_signal: "bg-chart-2",
+  split: "bg-chart-3",
+  manual: "bg-muted-foreground",
+  unknown: "bg-muted-foreground",
 };
 
 const LAYER_LABELS: Record<string, string> = {
@@ -65,7 +65,7 @@ export function LayerDistribution({ data }: Props) {
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted">
                   <div
-                    className={`h-2 rounded-full transition-all ${LAYER_COLORS[row.layer] ?? "bg-gray-400"}`}
+                    className={`h-2 rounded-full transition-all ${LAYER_COLORS[row.layer] ?? "bg-muted-foreground"}`}
                     style={{
                       width: `${(row.matchCount / maxCount) * 100}%`,
                     }}

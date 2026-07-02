@@ -15,7 +15,7 @@ export function LearningIndicator({
 
   if (tierUsed >= 3) {
     return (
-      <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+      <div className="flex items-center gap-1.5 rounded-md bg-success/10 px-2.5 py-1.5 text-xs text-success">
         <Zap className="size-3.5 shrink-0" />
         <span>
           AI used a compiled pattern for this vendor

@@ -1,6 +1,8 @@
-import { FileText } from "lucide-react";
+import { AlertTriangle, FileText } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getCertificatesWithVendors } from "@/lib/db/queries/wht-certificates";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   CertificateTable,
   type CertificateRow,
@@ -40,20 +42,19 @@ export default async function WhtCertificatesPage() {
   }));
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Outgoing WHT
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Withholding tax we deduct when paying vendors, including certificates issued to payees.
-        </p>
-      </div>
-      <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        Certificate generation and register links are covered locally. Before relying
-        on uploaded certificate URLs in production, run live Blob/Inngest storage QA
-        and confirm generated PDFs are retrievable from browser storage links.
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Outgoing WHT"
+        description="Withholding tax we deduct when paying vendors, including certificates issued to payees."
+      />
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          Certificate generation and register links are covered locally. Before relying
+          on uploaded certificate URLs in production, run live Blob/Inngest storage QA
+          and confirm generated PDFs are retrievable from browser storage links.
+        </AlertDescription>
+      </Alert>
       <CertificateTable certificates={certificates} />
     </div>
   );

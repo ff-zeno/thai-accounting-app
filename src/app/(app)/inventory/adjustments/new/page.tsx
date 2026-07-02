@@ -5,8 +5,11 @@ import { getInventorySkuOptions } from "@/lib/db/queries/inventory";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
 
 async function submitAdjustment(formData: FormData) {
   "use server";
@@ -19,28 +22,23 @@ export default async function NewInventoryAdjustmentPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            New Inventory Adjustment
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Record shrinkage, found stock, or manual stock corrections as immutable inventory movements.
-          </p>
-        </div>
+      <PageHeader
+        title="New Inventory Adjustment"
+        description="Record shrinkage, found stock, or manual stock corrections as immutable inventory movements."
+      >
         <Button variant="outline" render={<Link href="/inventory" />}>
           <ArrowLeft className="mr-2 size-4" />
           Inventory
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Boxes className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to record inventory adjustments.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Boxes />}
+              title="Select an organization to record inventory adjustments."
+            />
           </CardContent>
         </Card>
       ) : (
@@ -52,33 +50,28 @@ export default async function NewInventoryAdjustmentPage() {
             <form action={submitAdjustment} className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="skuId">SKU</Label>
-                <select
-                  id="skuId"
-                  name="skuId"
-                  required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                >
+                <NativeSelect id="skuId" name="skuId" required className="w-full">
                   <option value="">Select SKU</option>
                   {skus.map((sku) => (
                     <option key={sku.id} value={sku.id}>
                       {sku.skuCode}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="movementType">Type</Label>
-                <select
+                <NativeSelect
                   id="movementType"
                   name="movementType"
                   required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  className="w-full"
                   defaultValue="adjustment_out"
                 >
                   <option value="adjustment_in">Found stock</option>
                   <option value="adjustment_out">Adjustment out</option>
                   <option value="shrinkage">Shrinkage</option>
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="movementDate">Date</Label>

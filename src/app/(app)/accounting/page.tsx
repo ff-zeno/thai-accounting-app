@@ -2,10 +2,14 @@ import Link from "next/link";
 import { AlertTriangle, BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getGeneralLedgerDashboard } from "@/lib/db/queries/general-ledger";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -41,13 +45,6 @@ async function submitGlPeriodLock(formData: FormData) {
   await lockGlPeriodAction(formData);
 }
 
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 export default async function AccountingPage() {
   const orgId = await getActiveOrgId();
   const dashboard = orgId ? await getGeneralLedgerDashboard(orgId) : null;
@@ -72,38 +69,26 @@ export default async function AccountingPage() {
         </Card>
       ) : (
         <>
-          <Card className="border-amber-200 bg-amber-50 text-amber-950">
-            <CardContent className="flex gap-3 py-4 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">General ledger is compact v1.</p>
-                <p className="mt-1 text-amber-900">
-                  Chart of accounts, paired opening balances, two-line manual journals, reversals,
-                  posting queue, close readiness, CSV reports, and drill-through are testable.
-                  Bulk opening balance import, advanced journal grids, richer statement drilldowns,
-                  and full close workflow orchestration remain deferred.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>General ledger is compact v1.</AlertTitle>
+            <AlertDescription>
+              Chart of accounts, paired opening balances, two-line manual journals, reversals,
+              posting queue, close readiness, CSV reports, and drill-through are testable.
+              Bulk opening balance import, advanced journal grids, richer statement drilldowns,
+              and full close workflow orchestration remain deferred.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Accounts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.accountCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.summary.postableAccountCount} postable.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-3 text-sm">
+            <StatCard
+              label="Accounts"
+              value={dashboard.summary.accountCount}
+              hint={`${dashboard.summary.postableAccountCount} postable.`}
+            />
+            <StatCard
+              label={
+                <span className="flex items-center justify-between gap-3">
                   <span>Journal Entries</span>
                   <Link
                     href="/accounting/reports/trial-balance"
@@ -111,140 +96,86 @@ export default async function AccountingPage() {
                   >
                     Trial balance
                   </Link>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.entryCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Balanced by database invariant.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Opening Balance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">Ready</div>
-                <p className="text-xs text-muted-foreground">
-                  Posts paired debit/credit lines.
-                </p>
-              </CardContent>
-            </Card>
+                </span>
+              }
+              value={dashboard.summary.entryCount}
+              hint="Balanced by database invariant."
+            />
+            <StatCard
+              label="Opening Balance"
+              value="Ready"
+              hint="Posts paired debit/credit lines."
+            />
           </div>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Assets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.statements.balanceSheet.assets)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  As of {dashboard.statements.asOfDate}.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Liabilities + Equity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(
-                    String(
-                      Number(dashboard.statements.balanceSheet.liabilities) +
-                        Number(dashboard.statements.balanceSheet.equity)
-                    )
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
+            <StatCard
+              label="Assets"
+              value={<Amount value={dashboard.statements.balanceSheet.assets} />}
+              hint={`As of ${dashboard.statements.asOfDate}.`}
+            />
+            <StatCard
+              label="Liabilities + Equity"
+              value={
+                <Amount
+                  value={
+                    Number(dashboard.statements.balanceSheet.liabilities) +
+                    Number(dashboard.statements.balanceSheet.equity)
+                  }
+                />
+              }
+              hint={
+                <>
                   Current net income shown separately.
-                </p>
-                <Link
-                  href="/accounting/reports/balance-sheet"
-                  className="mt-2 block text-xs text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  Open balance sheet
-                </Link>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.statements.profitAndLoss.revenue)}
-                </div>
-                <p className="text-xs text-muted-foreground">Year-to-date.</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Net Income</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.statements.profitAndLoss.netIncome)}
-                </div>
-                <p className="text-xs text-muted-foreground">
+                  <Link
+                    href="/accounting/reports/balance-sheet"
+                    className="mt-2 block underline-offset-4 hover:underline"
+                  >
+                    Open balance sheet
+                  </Link>
+                </>
+              }
+            />
+            <StatCard
+              label="Revenue"
+              value={<Amount value={dashboard.statements.profitAndLoss.revenue} />}
+              hint="Year-to-date."
+            />
+            <StatCard
+              label="Net Income"
+              value={<Amount value={dashboard.statements.profitAndLoss.netIncome} />}
+              hint={
+                <>
                   P&L summary from journal lines.
-                </p>
-                <Link
-                  href="/accounting/reports/profit-loss"
-                  className="mt-2 block text-xs text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  Open profit and loss
-                </Link>
-              </CardContent>
-            </Card>
+                  <Link
+                    href="/accounting/reports/profit-loss"
+                    className="mt-2 block underline-offset-4 hover:underline"
+                  >
+                    Open profit and loss
+                  </Link>
+                </>
+              }
+            />
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Inventory 1160</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.inventoryReconciliation.glInventoryBalance)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  GL inventory balance as of {dashboard.inventoryReconciliation.asOfDate}.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">SKU Inventory</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.inventoryReconciliation.skuCurrentValue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Sum of SKU current value.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Inventory Variance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.inventoryReconciliation.variance)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  GL 1160 minus SKU value.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Inventory 1160"
+              value={
+                <Amount value={dashboard.inventoryReconciliation.glInventoryBalance} />
+              }
+              hint={`GL inventory balance as of ${dashboard.inventoryReconciliation.asOfDate}.`}
+            />
+            <StatCard
+              label="SKU Inventory"
+              value={<Amount value={dashboard.inventoryReconciliation.skuCurrentValue} />}
+              hint="Sum of SKU current value."
+            />
+            <StatCard
+              label="Inventory Variance"
+              value={<Amount value={dashboard.inventoryReconciliation.variance} />}
+              hint="GL 1160 minus SKU value."
+            />
           </div>
 
           <Card>
@@ -259,10 +190,10 @@ export default async function AccountingPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="debitAccountId">Debit account</Label>
-                  <select
+                  <NativeSelect
                     id="debitAccountId"
                     name="debitAccountId"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue={dashboard.accounts[0]?.id}
                   >
                     {dashboard.accounts.map((account) => (
@@ -270,14 +201,14 @@ export default async function AccountingPage() {
                         {account.accountCode} {account.nameEn}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="creditAccountId">Credit account</Label>
-                  <select
+                  <NativeSelect
                     id="creditAccountId"
                     name="creditAccountId"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue={dashboard.accounts[1]?.id}
                   >
                     {dashboard.accounts.map((account) => (
@@ -285,7 +216,7 @@ export default async function AccountingPage() {
                         {account.accountCode} {account.nameEn}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount">Amount</Label>
@@ -314,10 +245,10 @@ export default async function AccountingPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="manualDebitAccountId">Debit account</Label>
-                  <select
+                  <NativeSelect
                     id="manualDebitAccountId"
                     name="manualDebitAccountId"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue={dashboard.accounts[0]?.id}
                   >
                     {dashboard.accounts.map((account) => (
@@ -325,14 +256,14 @@ export default async function AccountingPage() {
                         {account.accountCode} {account.nameEn}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="manualCreditAccountId">Credit account</Label>
-                  <select
+                  <NativeSelect
                     id="manualCreditAccountId"
                     name="manualCreditAccountId"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue={dashboard.accounts[1]?.id}
                   >
                     {dashboard.accounts.map((account) => (
@@ -340,7 +271,7 @@ export default async function AccountingPage() {
                         {account.accountCode} {account.nameEn}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="manualAmount">Amount</Label>
@@ -369,10 +300,10 @@ export default async function AccountingPage() {
               <form action={submitReversal} className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
                   <Label htmlFor="journalEntryId">Journal entry</Label>
-                  <select
+                  <NativeSelect
                     id="journalEntryId"
                     name="journalEntryId"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue={dashboard.recentEntries[0]?.id}
                   >
                     {dashboard.recentEntries
@@ -382,7 +313,7 @@ export default async function AccountingPage() {
                           {entry.entryNumber} {entry.description}
                         </option>
                       ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reversalDate">Reversal date</Label>
@@ -528,8 +459,8 @@ export default async function AccountingPage() {
                     <TableRow>
                       <TableHead>Number</TableHead>
                       <TableHead>Date</TableHead>
-                      <TableHead>Debit</TableHead>
-                      <TableHead>Credit</TableHead>
+                      <TableHead className="text-right tabular-nums">Debit</TableHead>
+                      <TableHead className="text-right tabular-nums">Credit</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -544,8 +475,12 @@ export default async function AccountingPage() {
                           </Link>
                         </TableCell>
                         <TableCell>{entry.entryDate}</TableCell>
-                        <TableCell>{amount(entry.totalDebit)}</TableCell>
-                        <TableCell>{amount(entry.totalCredit)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <Amount value={entry.totalDebit} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <Amount value={entry.totalCredit} />
+                        </TableCell>
                       </TableRow>
                     ))}
                     {dashboard.recentEntries.length === 0 ? (

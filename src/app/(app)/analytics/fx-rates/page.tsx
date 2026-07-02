@@ -1,13 +1,15 @@
-import { AlertTriangle, Landmark } from "lucide-react";
+import { AlertTriangle, CircleCheck, Landmark } from "lucide-react";
 import {
   getBotFxRateCoverage,
   getRecentBotFxRates,
 } from "@/lib/db/queries/fx-rates-bot";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -61,14 +63,16 @@ export default async function FxRatesPage({
       </div>
 
       {messages.error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {messages.error}
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertTitle>{messages.error}</AlertTitle>
+        </Alert>
       ) : null}
       {messages.status ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-          {messages.status}
-        </div>
+        <Alert variant="success">
+          <CircleCheck />
+          <AlertTitle>{messages.status}</AlertTitle>
+        </Alert>
       ) : null}
 
       {!orgId ? (
@@ -82,33 +86,20 @@ export default async function FxRatesPage({
         </Card>
       ) : (
         <>
-          <Card className="border-amber-200 bg-amber-50 text-amber-950">
-            <CardContent className="flex gap-3 py-4 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">FX revaluation is AR/AP v1.</p>
-                <p className="mt-1 text-amber-900">
-                  Manual BOT rates, coverage checks, previous-month retry, and fully unpaid
-                  foreign AR/AP revaluation are testable. Partially paid documents, bank-account
-                  FX, WHT-credit FX, and realized settlement FX remain deferred.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>FX revaluation is AR/AP v1.</AlertTitle>
+            <AlertDescription>
+              Manual BOT rates, coverage checks, previous-month retry, and fully unpaid
+              foreign AR/AP revaluation are testable. Partially paid documents, bank-account
+              FX, WHT-credit FX, and realized settlement FX remain deferred.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Rate Rows</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{coverage?.rateCount ?? 0}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Currencies</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{coverage?.currencyCount ?? 0}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Latest Rate Date</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{coverage?.latestRateDate ?? "-"}</div></CardContent>
-            </Card>
+            <StatCard label="Rate Rows" value={coverage?.rateCount ?? 0} />
+            <StatCard label="Currencies" value={coverage?.currencyCount ?? 0} />
+            <StatCard label="Latest Rate Date" value={coverage?.latestRateDate ?? "-"} />
           </div>
 
           <Card>
@@ -199,9 +190,9 @@ export default async function FxRatesPage({
                       <TableRow key={`${rate.rateDate}-${rate.currency}`}>
                         <TableCell>{rate.rateDate}</TableCell>
                         <TableCell className="font-mono">{rate.currency}</TableCell>
-                        <TableCell className="text-right font-mono">{rate.buyingRate ?? "-"}</TableCell>
-                        <TableCell className="text-right font-mono">{rate.sellingRate ?? "-"}</TableCell>
-                        <TableCell className="text-right font-mono">{rate.midRate}</TableCell>
+                        <TableCell className="text-right tabular-nums">{rate.buyingRate ?? "-"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{rate.sellingRate ?? "-"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{rate.midRate}</TableCell>
                         <TableCell>{rate.fetchedAt.toISOString().slice(0, 10)}</TableCell>
                       </TableRow>
                     ))}

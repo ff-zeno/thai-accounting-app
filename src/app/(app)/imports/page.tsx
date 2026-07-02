@@ -2,10 +2,16 @@ import Link from "next/link";
 import { AlertTriangle, PackageSearch } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getImportsWorkflowDashboard } from "@/lib/db/queries/imports";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -19,13 +25,6 @@ import { createManualImportPacketAction } from "./actions";
 async function submitImportPacket(formData: FormData) {
   "use server";
   await createManualImportPacketAction(formData);
-}
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 function packetLabel(packet: {
@@ -42,95 +41,64 @@ export default async function ImportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Imports Control Tower
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Import packets, customs declarations, broker charges, import VAT evidence, and payment trace.
-        </p>
-      </div>
+      <PageHeader
+        title="Imports Control Tower"
+        description="Import packets, customs declarations, broker charges, import VAT evidence, and payment trace."
+      />
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <PackageSearch className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view import controls.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<PackageSearch />}
+              title="Select an organization to view import controls."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card className="border-amber-200 bg-amber-50 text-amber-950">
-            <CardContent className="flex gap-3 py-4 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">Imports are v1 packet controls.</p>
-                <p className="mt-1 text-amber-900">
-                  Manual packets, broker charge classification, payment links, audit trail, and
-                  finalize-to-inventory are testable. Open packet header edits, empty-packet
-                  deletion, child-line deletion, and document unlinking are available. Direct-clear
-                  customs depth, historical backfill/reversal tooling, and richer picker UX remain
-                  deferred.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>Imports are v1 packet controls.</AlertTitle>
+            <AlertDescription>
+              Manual packets, broker charge classification, payment links, audit trail, and
+              finalize-to-inventory are testable. Open packet header edits, empty-packet
+              deletion, child-line deletion, and document unlinking are available. Direct-clear
+              customs depth, historical backfill/reversal tooling, and richer picker UX remain
+              deferred.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Open Packets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.openCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.summary.finalizedCount} finalized.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Assessed Import VAT</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.assessedImportVat)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From customs declarations.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Duty / Pass-through</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.assessedDuty)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Broker pass-through lines {amount(dashboard.chargeSummary.passThroughCharges)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Broker VAT Lines</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.chargeSummary.importVatLines)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Service VAT {amount(dashboard.chargeSummary.serviceVat)}
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Open Packets"
+              value={dashboard.summary.openCount}
+              hint={`${dashboard.summary.finalizedCount} finalized.`}
+            />
+            <StatCard
+              label="Assessed Import VAT"
+              value={<Amount value={dashboard.summary.assessedImportVat} />}
+              hint="From customs declarations."
+            />
+            <StatCard
+              label="Duty / Pass-through"
+              value={<Amount value={dashboard.summary.assessedDuty} />}
+              hint={
+                <>
+                  Broker pass-through lines{" "}
+                  <Amount value={dashboard.chargeSummary.passThroughCharges} />
+                </>
+              }
+            />
+            <StatCard
+              label="Broker VAT Lines"
+              value={<Amount value={dashboard.chargeSummary.importVatLines} />}
+              hint={
+                <>
+                  Service VAT <Amount value={dashboard.chargeSummary.serviceVat} />
+                </>
+              }
+            />
           </div>
 
           <Card>
@@ -196,9 +164,7 @@ export default async function ImportsPage() {
             </CardHeader>
             <CardContent>
               {dashboard.openAgingPackets.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No open import packets need follow-up.
-                </p>
+                <EmptyState size="sm" title="No open import packets need follow-up." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -222,16 +188,16 @@ export default async function ImportsPage() {
                         </TableCell>
                         <TableCell>{packet.customsClearanceDate}</TableCell>
                         <TableCell>{packet.supplierName ?? "-"}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {packet.daysOpen}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {packet.linkedDocumentCount}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {packet.brokerChargeLineCount}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {packet.paymentCount}
                         </TableCell>
                       </TableRow>
@@ -248,9 +214,7 @@ export default async function ImportsPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentPackets.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No import packets recorded yet.
-                </p>
+                <EmptyState size="sm" title="No import packets recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -277,13 +241,17 @@ export default async function ImportsPage() {
                         <TableCell>
                           {packet.originalCurrency} @ {packet.fxRateAtClearance}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(packet.customsAssessedDutyThb)}
+                        <TableCell className="text-right">
+                          <Amount value={packet.customsAssessedDutyThb} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(packet.customsAssessedImportVatThb)}
+                        <TableCell className="text-right">
+                          <Amount value={packet.customsAssessedImportVatThb} />
                         </TableCell>
-                        <TableCell>{packet.isFinalized ? "finalized" : "open"}</TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            status={packet.isFinalized ? "finalized" : "open"}
+                          />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

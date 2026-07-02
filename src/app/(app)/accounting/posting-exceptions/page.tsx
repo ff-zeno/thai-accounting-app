@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getPostingOutboxDashboard } from "@/lib/db/queries/posting-outbox";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -96,12 +98,9 @@ export default async function PostingExceptionsPage({
                 action="/accounting/posting-exceptions"
               >
                 <Input name="throughDate" type="date" defaultValue={throughDate ?? ""} />
-                <button
-                  type="submit"
-                  className="h-9 rounded-md border border-input px-3 text-sm hover:bg-muted"
-                >
+                <Button type="submit" variant="outline" size="sm">
                   Apply
-                </button>
+                </Button>
               </form>
               <p className="mt-2 text-sm text-muted-foreground">
                 {throughDate ? `Showing rows through ${throughDate}.` : "Showing all queue rows."}
@@ -121,38 +120,10 @@ export default async function PostingExceptionsPage({
           </Card>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Pending</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">
-                {dashboard.summary.pending}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Retrying</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">
-                {dashboard.summary.retrying}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Failed</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">
-                {dashboard.summary.failed}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Posted</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">
-                {dashboard.summary.posted}
-              </CardContent>
-            </Card>
+            <StatCard label="Pending" value={dashboard.summary.pending} />
+            <StatCard label="Retrying" value={dashboard.summary.retrying} />
+            <StatCard label="Failed" value={dashboard.summary.failed} />
+            <StatCard label="Posted" value={dashboard.summary.posted} />
           </div>
 
           <Card>
@@ -225,7 +196,9 @@ export default async function PostingExceptionsPage({
                         {row.sourceEntityType}:{row.sourceEntityId}
                       </TableCell>
                       <TableCell>{row.eventType}</TableCell>
-                      <TableCell>{row.postingStatus}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={row.postingStatus} />
+                      </TableCell>
                       <TableCell>{row.postingAttempts}</TableCell>
                       <TableCell>{row.lastError ?? "n/a"}</TableCell>
                     </TableRow>

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -58,7 +60,7 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
-export async function VatInputLedgerPage() {
+async function VatInputLedgerSection() {
   const orgId = await getActiveOrgId();
   if (!orgId) return <NoOrgState label="input VAT" />;
 
@@ -85,71 +87,74 @@ export async function VatInputLedgerPage() {
     .limit(100);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Input VAT</h1>
-        <p className="text-sm text-muted-foreground">
-          Purchase-side VAT items, claim windows, allocation status, and filed claim periods.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Input VAT Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {rows.length === 0 ? (
-            <EmptyState label="input VAT items" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tax Invoice</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Eligible</TableHead>
-                  <TableHead>Claimed</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Base</TableHead>
-                  <TableHead className="text-right">VAT</TableHead>
+    <Card>
+      <CardHeader>
+        <CardTitle>Input VAT Items</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <EmptyState label="input VAT items" />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tax Invoice</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Eligible</TableHead>
+                <TableHead>Claimed</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Base</TableHead>
+                <TableHead className="text-right">VAT</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <div className="font-medium">{row.taxInvoiceNo ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.taxInvoiceDate ?? "-"}
+                    </div>
+                  </TableCell>
+                  <TableCell>{row.vendorName ?? "Unknown"}</TableCell>
+                  <TableCell>
+                    {formatPeriod(row.eligiblePeriodYear, row.eligiblePeriodMonth)}
+                  </TableCell>
+                  <TableCell>
+                    {formatPeriod(row.claimPeriodYear, row.claimPeriodMonth)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.baseAmount)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.vatAmount)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <div className="font-medium">{row.taxInvoiceNo ?? "-"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.taxInvoiceDate ?? "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>{row.vendorName ?? "Unknown"}</TableCell>
-                    <TableCell>
-                      {formatPeriod(row.eligiblePeriodYear, row.eligiblePeriodMonth)}
-                    </TableCell>
-                    <TableCell>
-                      {formatPeriod(row.claimPeriodYear, row.claimPeriodMonth)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{formatStatus(row.status)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.baseAmount)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.vatAmount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export async function VatInputLedgerPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Input VAT"
+        description="Purchase-side VAT items, claim windows, allocation status, and filed claim periods."
+      />
+      <VatInputLedgerSection />
     </div>
   );
 }
 
-export async function VatOutputLedgerPage() {
+async function VatOutputLedgerSection() {
   const orgId = await getActiveOrgId();
   if (!orgId) return <NoOrgState label="output VAT" />;
 
@@ -175,69 +180,72 @@ export async function VatOutputLedgerPage() {
     .limit(100);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Output VAT</h1>
-        <p className="text-sm text-muted-foreground">
-          Sales-side VAT items, tax-point periods, allocation status, and filed output VAT.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Output VAT Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {rows.length === 0 ? (
-            <EmptyState label="output VAT items" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tax Invoice</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Tax Point</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Base</TableHead>
-                  <TableHead className="text-right">VAT</TableHead>
+    <Card>
+      <CardHeader>
+        <CardTitle>Output VAT Items</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <EmptyState label="output VAT items" />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tax Invoice</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Tax Point</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Base</TableHead>
+                <TableHead className="text-right">VAT</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <div className="font-medium">{row.taxInvoiceNo ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.taxInvoiceDate}
+                    </div>
+                  </TableCell>
+                  <TableCell>{row.customerName ?? "Unknown"}</TableCell>
+                  <TableCell>{row.taxPointDate}</TableCell>
+                  <TableCell>
+                    {formatPeriod(row.outputPeriodYear, row.outputPeriodMonth)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.baseAmount)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.vatAmount)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <div className="font-medium">{row.taxInvoiceNo ?? "-"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.taxInvoiceDate}
-                      </div>
-                    </TableCell>
-                    <TableCell>{row.customerName ?? "Unknown"}</TableCell>
-                    <TableCell>{row.taxPointDate}</TableCell>
-                    <TableCell>
-                      {formatPeriod(row.outputPeriodYear, row.outputPeriodMonth)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{formatStatus(row.status)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.baseAmount)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.vatAmount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export async function VatOutputLedgerPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Output VAT"
+        description="Sales-side VAT items, tax-point periods, allocation status, and filed output VAT."
+      />
+      <VatOutputLedgerSection />
     </div>
   );
 }
 
-export async function VatFilingsLedgerPage() {
+async function VatFilingsLedgerSection() {
   const orgId = await getActiveOrgId();
   if (!orgId) return <NoOrgState label="VAT filings" />;
 
@@ -265,78 +273,81 @@ export async function VatFilingsLedgerPage() {
     .limit(100);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">VAT Filings</h1>
-        <p className="text-sm text-muted-foreground">
-          Draft and filed VAT returns, including ordinary filings and amendments.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Filing Ledger</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {rows.length === 0 ? (
-            <EmptyState label="VAT filings" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead className="text-right">Output</TableHead>
-                  <TableHead className="text-right">Input</TableHead>
-                  <TableHead className="text-right">PP36</TableHead>
-                  <TableHead className="text-right">Net</TableHead>
-                  <TableHead className="text-right">Drilldown</TableHead>
+    <Card>
+      <CardHeader>
+        <CardTitle>Filing Ledger</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <EmptyState label="VAT filings" />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead className="text-right">Output</TableHead>
+                <TableHead className="text-right">Input</TableHead>
+                <TableHead className="text-right">PP36</TableHead>
+                <TableHead className="text-right">Net</TableHead>
+                <TableHead className="text-right">Drilldown</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <div className="font-medium">{row.filingType.toUpperCase()}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatStatus(row.filingKind)}
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatPeriod(row.periodYear, row.periodMonth)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                  </TableCell>
+                  <TableCell>{formatStatus(row.paymentStatus)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.outputVatTotal)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.inputVatTotal)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.pp36VatTotal ?? row.pp36ReclaimTotal)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.netPayable)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      render={<Link href={`/tax/vat/filings/${row.id}`} />}
+                    >
+                      Open
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <div className="font-medium">{row.filingType.toUpperCase()}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatStatus(row.filingKind)}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatPeriod(row.periodYear, row.periodMonth)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{formatStatus(row.status)}</Badge>
-                    </TableCell>
-                    <TableCell>{formatStatus(row.paymentStatus)}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.outputVatTotal)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.inputVatTotal)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.pp36VatTotal ?? row.pp36ReclaimTotal)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatAmount(row.netPayable)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        render={<Link href={`/tax/vat/filings/${row.id}`} />}
-                      >
-                        Open
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export async function VatFilingsLedgerPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="VAT Filings"
+        description="Draft and filed VAT returns, including ordinary filings and amendments."
+      />
+      <VatFilingsLedgerSection />
     </div>
   );
 }
@@ -344,15 +355,22 @@ export async function VatFilingsLedgerPage() {
 export async function VatRegisterLedgerPage() {
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">VAT Register</h1>
-        <p className="text-sm text-muted-foreground">
-          Official-style VAT evidence lists for purchase VAT, sales VAT, and filed returns.
-        </p>
-      </div>
-      <VatOutputLedgerPage />
-      <VatInputLedgerPage />
-      <VatFilingsLedgerPage />
+      <PageHeader
+        title="VAT Register"
+        description="Official-style VAT evidence lists for purchase VAT, sales VAT, and filed returns."
+      />
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">Output VAT</h2>
+        <VatOutputLedgerSection />
+      </section>
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">Input VAT</h2>
+        <VatInputLedgerSection />
+      </section>
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">VAT Filings</h2>
+        <VatFilingsLedgerSection />
+      </section>
     </div>
   );
 }
@@ -366,13 +384,16 @@ export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: str
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">VAT Filing Drilldown</h1>
-        <p className="text-sm text-muted-foreground">
-          Frozen filing lines and source snapshots for {drilldown.filing.filingType.toUpperCase()}{" "}
-          {formatPeriod(drilldown.filing.periodYear, drilldown.filing.periodMonth)}.
-        </p>
-      </div>
+      <PageHeader
+        title="VAT Filing Drilldown"
+        description={
+          <>
+            Frozen filing lines and source snapshots for{" "}
+            {drilldown.filing.filingType.toUpperCase()}{" "}
+            {formatPeriod(drilldown.filing.periodYear, drilldown.filing.periodMonth)}.
+          </>
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -380,12 +401,12 @@ export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: str
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <DrilldownMetric label="Status" value={formatStatus(drilldown.filing.status)} />
-            <DrilldownMetric label="Payment" value={formatStatus(drilldown.filing.paymentStatus)} />
-            <DrilldownMetric label="Output" value={formatAmount(drilldown.filing.outputVatTotal)} />
-            <DrilldownMetric label="Input" value={formatAmount(drilldown.filing.inputVatTotal)} />
-            <DrilldownMetric label="PP36" value={formatAmount(drilldown.filing.pp36VatTotal)} />
-            <DrilldownMetric label="Net" value={formatAmount(drilldown.filing.netPayable)} />
+            <StatCard label="Status" value={formatStatus(drilldown.filing.status)} />
+            <StatCard label="Payment" value={formatStatus(drilldown.filing.paymentStatus)} />
+            <StatCard label="Output" value={formatAmount(drilldown.filing.outputVatTotal)} />
+            <StatCard label="Input" value={formatAmount(drilldown.filing.inputVatTotal)} />
+            <StatCard label="PP36" value={formatAmount(drilldown.filing.pp36VatTotal)} />
+            <StatCard label="Net" value={formatAmount(drilldown.filing.netPayable)} />
           </div>
         </CardContent>
       </Card>
@@ -417,10 +438,10 @@ export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: str
                       <TableCell className="font-mono text-xs">
                         {line.frozenSnapshotHash.slice(0, 16)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatAmount(line.amount)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatAmount(line.vatAmount)}
                       </TableCell>
                     </TableRow>
@@ -431,15 +452,6 @@ export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: str
           </Card>
         ))
       )}
-    </div>
-  );
-}
-
-function DrilldownMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-medium">{value}</div>
     </div>
   );
 }

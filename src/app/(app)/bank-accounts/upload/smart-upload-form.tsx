@@ -10,9 +10,11 @@ import {
   ArrowLeft,
   Landmark,
   AlertTriangle,
+  Loader2,
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -37,7 +39,9 @@ import type { ColumnMapping, ParseResult } from "@/lib/parsers/csv-parser";
 import type { KBankPdfMeta } from "@/lib/parsers/kbank-pdf-parser";
 
 // ---------------------------------------------------------------------------
-// Bank metadata for display
+// Bank metadata for display.
+// Design-token exemption: real bank brand colors (data, not UI accent) —
+// SCB is purple, KBank is green. Do not tokenize.
 // ---------------------------------------------------------------------------
 
 const BANK_INFO: Record<string, { name: string; color: string }> = {
@@ -255,7 +259,7 @@ export function SmartUploadForm() {
     return (
       <Card>
         <CardContent className="flex items-center gap-3 p-8">
-          <div className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <Loader2 className="size-4 animate-spin" />
           <span className="text-sm text-muted-foreground">Parsing file...</span>
         </CardContent>
       </Card>
@@ -583,14 +587,25 @@ function ReviewStep({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Stat label="Deposits" value={`${credits.length} txns`} sub={`฿${fmtNum(creditTotal)}`} />
-            <Stat label="Withdrawals" value={`${debits.length} txns`} sub={`฿${fmtNum(debitTotal)}`} />
-            <Stat label="Opening" value={result.openingBalance ? `฿${fmtNum(parseFloat(result.openingBalance))}` : "—"} />
-            <Stat label="Closing" value={result.closingBalance ? `฿${fmtNum(parseFloat(result.closingBalance))}` : "—"} />
-            <Stat
+            <StatCard label="Deposits" value={`${credits.length} txns`} hint={`฿${fmtNum(creditTotal)}`} />
+            <StatCard label="Withdrawals" value={`${debits.length} txns`} hint={`฿${fmtNum(debitTotal)}`} />
+            <StatCard label="Opening" value={result.openingBalance ? `฿${fmtNum(parseFloat(result.openingBalance))}` : "—"} />
+            <StatCard label="Closing" value={result.closingBalance ? `฿${fmtNum(parseFloat(result.closingBalance))}` : "—"} />
+            <StatCard
               label="Balance Check"
-              value={balanceOk === null ? "N/A" : balanceOk ? "PASS" : "FAIL"}
-              valueClass={balanceOk === true ? "text-green-600" : balanceOk === false ? "text-red-600" : ""}
+              value={
+                <span
+                  className={
+                    balanceOk === true
+                      ? "text-success"
+                      : balanceOk === false
+                        ? "text-destructive"
+                        : ""
+                  }
+                >
+                  {balanceOk === null ? "N/A" : balanceOk ? "PASS" : "FAIL"}
+                </span>
+              }
             />
           </div>
         </CardContent>
@@ -654,12 +669,7 @@ function ReviewStep({
                       </td>
                       <td className="px-4 py-1.5">
                         <Badge
-                          variant={txn.type === "credit" ? "default" : "secondary"}
-                          className={
-                            txn.type === "credit"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }
+                          variant={txn.type === "credit" ? "success" : "destructive"}
                         >
                           {txn.type === "credit" ? "IN" : "OUT"}
                         </Badge>
@@ -1033,21 +1043,30 @@ function OverlapReviewStep({
         </p>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Stat
+          <StatCard
             label="Already imported"
             value={`${overlap.matchedCount}`}
-            sub={`of ${totalIncoming} incoming`}
+            hint={`of ${totalIncoming} incoming`}
           />
-          <Stat
+          <StatCard
             label="Existing in range"
             value={`${overlap.existingTxnCount}`}
-            sub="in database"
+            hint="in database"
           />
-          <Stat
+          <StatCard
             label="New transactions"
-            value={`${overlap.newTxnCount}`}
-            valueClass={overlap.newTxnCount > 0 ? "text-green-600" : "text-muted-foreground"}
-            sub="to import"
+            value={
+              <span
+                className={
+                  overlap.newTxnCount > 0
+                    ? "text-success"
+                    : "text-muted-foreground"
+                }
+              >
+                {overlap.newTxnCount}
+              </span>
+            }
+            hint="to import"
           />
         </div>
 
@@ -1111,26 +1130,6 @@ function MappingSelect({
           ))}
         </SelectContent>
       </Select>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  valueClass,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueClass?: string;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-sm font-semibold ${valueClass ?? ""}`}>{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }

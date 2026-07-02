@@ -1,7 +1,10 @@
 import { computeCounterpartyConcentration } from "@/lib/analytics/kpi-engine";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -10,13 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | number) {
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function pct(value: string | number) {
   return `${(Number(value) * 100).toFixed(1)}%`;
@@ -67,25 +63,15 @@ export default async function ConcentrationPage({
       <form className="flex flex-wrap items-end gap-3" action="/analytics/concentration">
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">From</span>
-          <input
-            className="h-9 rounded-md border bg-background px-3 font-mono text-sm"
-            type="date"
-            name="from"
-            defaultValue={periodStart}
-          />
+          <Input type="date" name="from" defaultValue={periodStart} />
         </label>
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">To</span>
-          <input
-            className="h-9 rounded-md border bg-background px-3 font-mono text-sm"
-            type="date"
-            name="to"
-            defaultValue={periodEnd}
-          />
+          <Input type="date" name="to" defaultValue={periodEnd} />
         </label>
-        <button className="h-9 rounded-md border bg-background px-3 text-sm font-medium" type="submit">
+        <Button type="submit" variant="outline" size="sm">
           Apply
-        </button>
+        </Button>
       </form>
 
       {!orgId ? (
@@ -135,8 +121,10 @@ function ConcentrationTable({
               {rows.map((row) => (
                 <TableRow key={row.counterpartyId ?? row.counterpartyName}>
                   <TableCell>{row.counterpartyName}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.amount)}</TableCell>
-                  <TableCell className="text-right font-mono">{pct(row.sharePct)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.amount} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{pct(row.sharePct)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

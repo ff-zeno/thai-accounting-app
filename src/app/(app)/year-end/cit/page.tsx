@@ -1,10 +1,17 @@
-import { Landmark } from "lucide-react";
+import { AlertTriangle, Landmark } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getCitDashboard } from "@/lib/db/queries/cit-filings";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -113,13 +120,6 @@ async function submitDepreciationAdjustmentSync(formData: FormData) {
   await syncFixedAssetDepreciationBookTaxAdjustmentAction(formData);
 }
 
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function lossLayerDisclosure(payload: unknown) {
   if (!Array.isArray(payload) || payload.length === 0) {
     return <span className="text-muted-foreground">-</span>;
@@ -164,8 +164,8 @@ function lossLayerDisclosure(payload: unknown) {
     <div className="space-y-1 text-xs">
       {rows.map((row) => (
         <div key={`${row.originatedTaxYear}-${row.consumedAmount}`}>
-          {row.originatedTaxYear}: used {amount(row.consumedAmount)}, remaining{" "}
-          {amount(row.remainingAmountAfter)}
+          {row.originatedTaxYear}: used <Amount value={row.consumedAmount} />,
+          remaining <Amount value={row.remainingAmountAfter} />
         </div>
       ))}
     </div>
@@ -179,54 +179,49 @@ export default async function CitPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">CIT Workbench</h1>
-        <p className="text-sm text-muted-foreground">
-          PND.51 projected-profit draft surface and CIT filing working-paper foundation.
-        </p>
-      </div>
+      <PageHeader
+        title="CIT Workbench"
+        description="PND.51 projected-profit draft surface and CIT filing working-paper foundation."
+      />
 
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        DBD/TFRS financial statements, notes, Builder packet, and auditor ZIP are
-        not generated yet. Phase 12b remains blocked until CPA review and
-        authenticated DBD Builder validation confirm the current schema and template.
-      </div>
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        CIT is working-paper v1. PND.51/PND.50 drafts, loss layers, manual
-        book-tax adjustments, WHT credits, CIT accrual/payment posting, and
-        transfer-pricing threshold flagging are testable. Richer book-tax
-        adjustment catalog automation and exact RD transfer-pricing form
-        rendering/submission remain deferred.
-      </div>
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          DBD/TFRS financial statements, notes, Builder packet, and auditor ZIP are
+          not generated yet. Phase 12b remains blocked until CPA review and
+          authenticated DBD Builder validation confirm the current schema and template.
+        </AlertDescription>
+      </Alert>
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          CIT is working-paper v1. PND.51/PND.50 drafts, loss layers, manual
+          book-tax adjustments, WHT credits, CIT accrual/payment posting, and
+          transfer-pricing threshold flagging are testable. Richer book-tax
+          adjustment catalog automation and exact RD transfer-pricing form
+          rendering/submission remain deferred.
+        </AlertDescription>
+      </Alert>
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Landmark className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view CIT controls.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Landmark />}
+              title="Select an organization to view CIT controls."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Drafts</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{dashboard.summary.draftCount}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Submitted</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{dashboard.summary.submittedCount}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Accepted</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{dashboard.summary.acceptedCount}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">CIT Payable</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-semibold">{amount(dashboard.summary.citPayable)}</div></CardContent>
-            </Card>
+            <StatCard label="Drafts" value={dashboard.summary.draftCount} />
+            <StatCard label="Submitted" value={dashboard.summary.submittedCount} />
+            <StatCard label="Accepted" value={dashboard.summary.acceptedCount} />
+            <StatCard
+              label="CIT Payable"
+              value={<Amount value={dashboard.summary.citPayable} />}
+            />
           </div>
 
           <Card>
@@ -239,15 +234,15 @@ export default async function CitPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="entityType">Entity type</Label>
-                  <select
+                  <NativeSelect
                     id="entityType"
                     name="entityType"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="standard"
                   >
                     <option value="standard">Standard 20%</option>
                     <option value="sme_qualifying">SME qualifying tiered</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="projectedFullYearProfit">Projected full-year profit</Label>
@@ -274,15 +269,15 @@ export default async function CitPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="h1EntityType">Entity type</Label>
-                  <select
+                  <NativeSelect
                     id="h1EntityType"
                     name="entityType"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="standard"
                   >
                     <option value="standard">Standard 20%</option>
                     <option value="sme_qualifying">SME qualifying tiered</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="h1Rationale">Rationale</Label>
@@ -307,15 +302,15 @@ export default async function CitPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pnd50EntityType">Entity type</Label>
-                  <select
+                  <NativeSelect
                     id="pnd50EntityType"
                     name="entityType"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="standard"
                   >
                     <option value="standard">Standard 20%</option>
                     <option value="sme_qualifying">SME qualifying tiered</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accountingProfit">Accounting profit</Label>
@@ -338,15 +333,15 @@ export default async function CitPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="glPnd50EntityType">Entity type</Label>
-                  <select
+                  <NativeSelect
                     id="glPnd50EntityType"
                     name="entityType"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="standard"
                   >
                     <option value="standard">Standard 20%</option>
                     <option value="sme_qualifying">SME qualifying tiered</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="flex items-end">
                   <Button type="submit" variant="outline">
@@ -421,8 +416,12 @@ export default async function CitPage() {
                   {dashboard.transferPricingDisclosures.map((disclosure) => (
                     <TableRow key={disclosure.id}>
                       <TableCell>{disclosure.taxYear}</TableCell>
-                      <TableCell>{disclosure.status}</TableCell>
-                      <TableCell>{amount(disclosure.revenueTotal)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={disclosure.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={disclosure.revenueTotal} />
+                      </TableCell>
                       <TableCell>
                         {disclosure.disclosureRequired ? "Required" : "Not required"}
                       </TableCell>
@@ -454,6 +453,13 @@ export default async function CitPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {dashboard.transferPricingDisclosures.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-muted-foreground">
+                        No transfer-pricing disclosures yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
             </CardContent>
@@ -488,10 +494,10 @@ export default async function CitPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bookTaxCategory">Category</Label>
-                  <select
+                  <NativeSelect
                     id="bookTaxCategory"
                     name="category"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="non_deductible_expense"
                   >
                     <option value="non_deductible_expense">Non-deductible expense</option>
@@ -501,19 +507,19 @@ export default async function CitPage() {
                     <option value="boi_exempt_revenue">BOI exempt revenue</option>
                     <option value="provision_disallowance">Provision disallowance</option>
                     <option value="other">Other</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bookTaxDirection">Direction</Label>
-                  <select
+                  <NativeSelect
                     id="bookTaxDirection"
                     name="direction"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="add_back"
                   >
                     <option value="add_back">Add back</option>
                     <option value="deduct">Deduct</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bookTaxAmount">Amount</Label>
@@ -582,9 +588,18 @@ export default async function CitPage() {
                       <TableCell>{adjustment.taxYear}</TableCell>
                       <TableCell>{adjustment.category.replaceAll("_", " ")}</TableCell>
                       <TableCell>{adjustment.direction.replaceAll("_", " ")}</TableCell>
-                      <TableCell>{amount(adjustment.amount)}</TableCell>
+                      <TableCell>
+                        <Amount value={adjustment.amount} />
+                      </TableCell>
                     </TableRow>
                   ))}
+                  {dashboard.bookTaxAdjustments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-muted-foreground">
+                        No book-tax adjustments recorded yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
             </CardContent>
@@ -616,15 +631,27 @@ export default async function CitPage() {
                     <TableRow key={filing.id}>
                       <TableCell>{filing.taxYear}</TableCell>
                       <TableCell>{filing.filingType.toUpperCase()}</TableCell>
-                      <TableCell>{filing.filingStatus}</TableCell>
-                      <TableCell>{amount(filing.taxableIncome)}</TableCell>
-                      <TableCell>{amount(filing.lossesConsumedThisYear)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={filing.filingStatus} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={filing.taxableIncome} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={filing.lossesConsumedThisYear} />
+                      </TableCell>
                       <TableCell>
                         {lossLayerDisclosure(filing.lossCarryForwardConsumptionPayload)}
                       </TableCell>
-                      <TableCell>{amount(filing.citCalculated)}</TableCell>
-                      <TableCell>{amount(filing.whtCreditsUsed)}</TableCell>
-                      <TableCell>{amount(filing.citPayable)}</TableCell>
+                      <TableCell>
+                        <Amount value={filing.citCalculated} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={filing.whtCreditsUsed} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={filing.citPayable} />
+                      </TableCell>
                       <TableCell>
                         {filing.filingType === "pnd50" && Number(filing.citPayable ?? 0) > 0 ? (
                           <form action={submitCitAccrual}>
@@ -684,6 +711,13 @@ export default async function CitPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {dashboard.recentFilings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={13} className="text-muted-foreground">
+                        No CIT filings drafted yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
             </CardContent>
@@ -718,10 +752,21 @@ export default async function CitPage() {
                     <TableRow key={layer.id}>
                       <TableCell>{layer.originatedTaxYear}</TableCell>
                       <TableCell>{layer.expiryTaxYear}</TableCell>
-                      <TableCell>{amount(layer.originalAmount)}</TableCell>
-                      <TableCell>{amount(layer.remainingAmount)}</TableCell>
+                      <TableCell>
+                        <Amount value={layer.originalAmount} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={layer.remainingAmount} />
+                      </TableCell>
                     </TableRow>
                   ))}
+                  {dashboard.lossLayers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-muted-foreground">
+                        No loss carry-forward layers recorded yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
             </CardContent>

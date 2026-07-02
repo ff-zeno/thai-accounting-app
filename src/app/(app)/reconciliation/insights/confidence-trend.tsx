@@ -54,10 +54,10 @@ export function ConfidenceTrend({ data }: Props) {
             const confPct = row.avgConfidence * 100;
             const barColor =
               confPct >= 80
-                ? "bg-green-500"
+                ? "bg-success"
                 : confPct >= 60
-                  ? "bg-amber-500"
-                  : "bg-red-500";
+                  ? "bg-warning"
+                  : "bg-destructive";
 
             return (
               <div
@@ -84,7 +84,7 @@ export function ConfidenceTrend({ data }: Props) {
           {data.map((row, i) => (
             <div key={row.period} className="flex-1 text-center">
               {i % Math.max(1, Math.floor(data.length / 6)) === 0 && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {formatWeek(row.period)}
                 </span>
               )}
@@ -95,15 +95,15 @@ export function ConfidenceTrend({ data }: Props) {
         {/* Legend */}
         <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <span className="inline-block size-2 rounded-full bg-green-500" />
+            <span className="inline-block size-2 rounded-full bg-success" />
             High (80%+)
           </div>
           <div className="flex items-center gap-1">
-            <span className="inline-block size-2 rounded-full bg-amber-500" />
+            <span className="inline-block size-2 rounded-full bg-warning" />
             Medium (60-80%)
           </div>
           <div className="flex items-center gap-1">
-            <span className="inline-block size-2 rounded-full bg-red-500" />
+            <span className="inline-block size-2 rounded-full bg-destructive" />
             Low (&lt;60%)
           </div>
         </div>

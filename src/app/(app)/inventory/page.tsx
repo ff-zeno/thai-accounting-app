@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { Boxes, Download } from "lucide-react";
+import { AlertTriangle, Boxes, Download } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getInventoryDashboard } from "@/lib/db/queries/inventory";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -66,88 +73,56 @@ export default async function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Inventory Control Tower
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            SKU stock, weighted-average cost, movement ledger, and negative-inventory exceptions.
-          </p>
-        </div>
+      <PageHeader
+        title="Inventory Control Tower"
+        description="SKU stock, weighted-average cost, movement ledger, and negative-inventory exceptions."
+      >
         <Button variant="outline" render={<Link href="/inventory/adjustments/new" />}>
           New Adjustment
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        Inventory is weighted-average v1. FIFO, specific-ID costing, statutory
-        true-up automation, demand forecasting, and adjustment approval workflow
-        remain deferred; use accountant review for those cases before filing.
-      </div>
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          Inventory is weighted-average v1. FIFO, specific-ID costing, statutory
+          true-up automation, demand forecasting, and adjustment approval workflow
+          remain deferred; use accountant review for those cases before filing.
+        </AlertDescription>
+      </Alert>
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Boxes className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view inventory controls.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Boxes />}
+              title="Select an organization to view inventory controls."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">SKUs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{dashboard.summary.skuCount}</div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.summary.inventoriableCount} inventoriable.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Inventory Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.totalValue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Sum of SKU current value.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Units On Hand</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.totalQuantity, 4)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Org-wide quantity total.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Low Stock</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.lowStockSkuCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.summary.negativeSkuCount} negative.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="SKUs"
+              value={dashboard.summary.skuCount}
+              hint={`${dashboard.summary.inventoriableCount} inventoriable.`}
+            />
+            <StatCard
+              label="Inventory Value"
+              value={<Amount value={dashboard.summary.totalValue} />}
+              hint="Sum of SKU current value."
+            />
+            <StatCard
+              label="Units On Hand"
+              value={amount(dashboard.summary.totalQuantity, 4)}
+              hint="Org-wide quantity total."
+            />
+            <StatCard
+              label="Low Stock"
+              value={dashboard.summary.lowStockSkuCount}
+              hint={`${dashboard.summary.negativeSkuCount} negative.`}
+            />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -196,33 +171,28 @@ export default async function InventoryPage() {
                 <form action={submitMovement} className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="skuId">SKU</Label>
-                    <select
-                      id="skuId"
-                      name="skuId"
-                      required
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                    >
+                    <NativeSelect id="skuId" name="skuId" required className="w-full">
                       <option value="">Select SKU</option>
                       {dashboard.recentSkus.map((sku) => (
                         <option key={sku.id} value={sku.id}>
                           {sku.skuCode}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="movementType">Type</Label>
-                    <select
+                    <NativeSelect
                       id="movementType"
                       name="movementType"
                       required
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      className="w-full"
                       defaultValue="adjustment_in"
                     >
                       <option value="adjustment_in">Found stock</option>
                       <option value="adjustment_out">Adjustment out</option>
                       <option value="shrinkage">Shrinkage</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="movementDate">Date</Label>
@@ -266,16 +236,16 @@ export default async function InventoryPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="countType">Type</Label>
-                    <select
+                    <NativeSelect
                       id="countType"
                       name="countType"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      className="w-full"
                       defaultValue="cycle"
                     >
                       <option value="cycle">Cycle</option>
                       <option value="spot">Spot</option>
                       <option value="full">Full</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="countNotes">Notes</Label>
@@ -294,12 +264,7 @@ export default async function InventoryPage() {
                 <form action={submitCountItem} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="countId">Count</Label>
-                    <select
-                      id="countId"
-                      name="countId"
-                      required
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                    >
+                    <NativeSelect id="countId" name="countId" required className="w-full">
                       <option value="">Select count</option>
                       {dashboard.recentCounts
                         .filter((count) => count.status !== "reconciled")
@@ -308,15 +273,15 @@ export default async function InventoryPage() {
                             {count.countDate} / {count.countType}
                           </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="countSkuId">SKU</Label>
-                    <select
+                    <NativeSelect
                       id="countSkuId"
                       name="countSkuId"
                       required
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      className="w-full"
                     >
                       <option value="">Select SKU</option>
                       {dashboard.recentSkus.map((sku) => (
@@ -324,7 +289,7 @@ export default async function InventoryPage() {
                           {sku.skuCode}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="countedQuantity">Counted quantity</Label>
@@ -332,10 +297,10 @@ export default async function InventoryPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="varianceReason">Reason</Label>
-                    <select
+                    <NativeSelect
                       id="varianceReason"
                       name="varianceReason"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      className="w-full"
                       defaultValue="count_error"
                     >
                       <option value="count_error">Count error</option>
@@ -343,7 +308,7 @@ export default async function InventoryPage() {
                       <option value="damage">Damage</option>
                       <option value="unrecorded_sale">Unrecorded sale</option>
                       <option value="other">Other</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                   <Button
                     type="submit"
@@ -366,11 +331,11 @@ export default async function InventoryPage() {
                 <form action={submitReconcileCount} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="reconcileCountId">Count</Label>
-                    <select
+                    <NativeSelect
                       id="reconcileCountId"
                       name="countId"
                       required
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      className="w-full"
                     >
                       <option value="">Select count</option>
                       {dashboard.recentCounts
@@ -380,7 +345,7 @@ export default async function InventoryPage() {
                             {count.countDate} / {count.itemCount} items / {amount(count.totalVarianceValueThb)}
                           </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <Button
                     type="submit"
@@ -402,9 +367,7 @@ export default async function InventoryPage() {
             </CardHeader>
             <CardContent>
               {dashboard.lowStockSkus.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No SKU is at or below its reorder point.
-                </p>
+                <EmptyState size="sm" title="No SKU is at or below its reorder point." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -433,10 +396,10 @@ export default async function InventoryPage() {
                         </TableCell>
                         <TableCell>{sku.category ?? "-"}</TableCell>
                         <TableCell>{sku.branchNumber ?? "All"}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(sku.currentQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(sku.reorderPointQuantity, 4)}
                         </TableCell>
                         <TableCell>{dateOnly(sku.lastMovementAt)}</TableCell>
@@ -454,9 +417,7 @@ export default async function InventoryPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentSkus.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No SKUs recorded yet.
-                </p>
+                <EmptyState size="sm" title="No SKUs recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -482,9 +443,11 @@ export default async function InventoryPage() {
                         </TableCell>
                         <TableCell>{sku.nameEn ?? sku.nameTh ?? "-"}</TableCell>
                         <TableCell>{sku.category ?? "-"}</TableCell>
-                        <TableCell className="text-right font-mono">{amount(sku.currentQuantity, 4)}</TableCell>
-                        <TableCell className="text-right font-mono">{amount(sku.currentAvgCost, 4)}</TableCell>
-                        <TableCell className="text-right font-mono">{amount(sku.currentValue)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{amount(sku.currentQuantity, 4)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{amount(sku.currentAvgCost, 4)}</TableCell>
+                        <TableCell className="text-right">
+                          <Amount value={sku.currentValue} />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -499,9 +462,7 @@ export default async function InventoryPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentCounts.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No inventory counts recorded yet.
-                </p>
+                <EmptyState size="sm" title="No inventory counts recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -525,10 +486,12 @@ export default async function InventoryPage() {
                           </Link>
                         </TableCell>
                         <TableCell>{count.countType}</TableCell>
-                        <TableCell>{count.status}</TableCell>
-                        <TableCell className="text-right font-mono">{count.itemCount}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(count.totalVarianceValueThb)}
+                        <TableCell>
+                          <StatusBadge status={count.status} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{count.itemCount}</TableCell>
+                        <TableCell className="text-right">
+                          <Amount value={count.totalVarianceValueThb} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -548,9 +511,10 @@ export default async function InventoryPage() {
             </CardHeader>
             <CardContent>
               {dashboard.rollForward.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No inventory movement for the current Bangkok month.
-                </p>
+                <EmptyState
+                  size="sm"
+                  title="No inventory movement for the current Bangkok month."
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -568,23 +532,23 @@ export default async function InventoryPage() {
                     {dashboard.rollForward.slice(0, 20).map((row) => (
                       <TableRow key={row.skuId}>
                         <TableCell className="font-medium">{row.skuCode}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.openingQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.inboundQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.outboundQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.adjustmentQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.closingQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.closingValue)}
+                        <TableCell className="text-right">
+                          <Amount value={row.closingValue} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -604,9 +568,7 @@ export default async function InventoryPage() {
             </CardHeader>
             <CardContent>
               {dashboard.agedInventory.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No positive on-hand inventory to age.
-                </p>
+                <EmptyState size="sm" title="No positive on-hand inventory to age." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -623,16 +585,16 @@ export default async function InventoryPage() {
                     {dashboard.agedInventory.slice(0, 20).map((row) => (
                       <TableRow key={row.skuId}>
                         <TableCell className="font-medium">{row.skuCode}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(row.currentQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.currentValue)}
+                        <TableCell className="text-right">
+                          <Amount value={row.currentValue} />
                         </TableCell>
                         <TableCell>
                           {dateOnly(row.lastSaleAt)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {row.daysSinceLastSale ?? "-"}
                         </TableCell>
                         <TableCell>{row.ageBucket.replace("_", "-")}</TableCell>

@@ -3,8 +3,13 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { getInventoryCountDetail } from "@/lib/db/queries/inventory";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -50,77 +55,48 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Inventory Count Detail
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Count items, variance value, reconciliation status, and generated movements.
-          </p>
-        </div>
+      <PageHeader
+        title="Inventory Count Detail"
+        description="Count items, variance value, reconciliation status, and generated movements."
+      >
         <Button variant="outline" render={<Link href="/inventory" />}>
           <ArrowLeft className="mr-2 size-4" />
           Inventory
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId || !detail ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <ClipboardList className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view count detail.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<ClipboardList />}
+              title="Select an organization to view count detail."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Count Date</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{detail.count.countDate}</div>
-                <p className="text-xs text-muted-foreground">{detail.count.countType}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{detail.count.status}</div>
-                <p className="text-xs text-muted-foreground">
-                  Reconciled {dateTime(detail.count.reconciledAt)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Variance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.count.totalVarianceValueThb)}
-                </div>
-                <p className="text-xs text-muted-foreground">{detail.items.length} items</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Branch</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {detail.count.branchNumber}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.count.establishmentName || "Inventory branch"}
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Count Date"
+              value={detail.count.countDate}
+              hint={detail.count.countType}
+            />
+            <StatCard
+              label="Status"
+              value={<StatusBadge status={detail.count.status} />}
+              hint={`Reconciled ${dateTime(detail.count.reconciledAt)}`}
+            />
+            <StatCard
+              label="Variance"
+              value={<Amount value={detail.count.totalVarianceValueThb} />}
+              hint={`${detail.items.length} items`}
+            />
+            <StatCard
+              label="Branch"
+              value={detail.count.branchNumber}
+              hint={detail.count.establishmentName || "Inventory branch"}
+            />
           </div>
 
           <Card>
@@ -129,9 +105,7 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
             </CardHeader>
             <CardContent>
               {detail.items.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No count items recorded yet.
-                </p>
+                <EmptyState size="sm" title="No count items recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -161,17 +135,17 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
                         </TableCell>
                         <TableCell>{item.category ?? "-"}</TableCell>
                         <TableCell>{item.varianceReason ?? "-"}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(item.systemQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(item.countedQuantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(item.variance, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(item.varianceValueThb)}
+                        <TableCell className="text-right">
+                          <Amount value={item.varianceValueThb} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -187,9 +161,7 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
             </CardHeader>
             <CardContent>
               {detail.movements.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No variance movements generated yet.
-                </p>
+                <EmptyState size="sm" title="No variance movements generated yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -212,14 +184,14 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {shortId(movement.journalEntryId)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(movement.quantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(movement.unitCost, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(movement.totalCost)}
+                        <TableCell className="text-right">
+                          <Amount value={movement.totalCost} />
                         </TableCell>
                       </TableRow>
                     ))}

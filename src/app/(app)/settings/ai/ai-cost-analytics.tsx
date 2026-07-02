@@ -4,6 +4,15 @@ import { useState, useTransition } from "react";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getAiAnalyticsAction } from "./actions";
 import type { BudgetStatus } from "@/lib/ai/cost-tracker";
 
@@ -123,7 +132,7 @@ export function AiCostAnalytics({
                     budgetStatus.isOverBudget
                       ? "bg-destructive"
                       : budgetStatus.isNearBudget
-                        ? "bg-yellow-500"
+                        ? "bg-warning"
                         : "bg-primary"
                   }`}
                   style={{
@@ -233,7 +242,7 @@ export function AiCostAnalytics({
                           className="absolute bottom-0 w-full rounded-t bg-primary transition-colors group-hover:bg-primary/80"
                           style={{ height: `${heightPct}%` }}
                         />
-                        <div className="absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-popover px-1.5 py-0.5 text-[10px] shadow group-hover:block">
+                        <div className="absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-popover px-1.5 py-0.5 text-xs shadow group-hover:block">
                           {d.date}: {formatUsd(cost)} ({d.files} files)
                         </div>
                       </div>
@@ -293,45 +302,43 @@ export function AiCostAnalytics({
                 <CardTitle className="text-base">Recent AI Usage</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-xs text-muted-foreground">
-                        <th className="pb-2 pr-4">Date</th>
-                        <th className="pb-2 pr-4">File</th>
-                        <th className="pb-2 pr-4">Model</th>
-                        <th className="pb-2 pr-4">Purpose</th>
-                        <th className="pb-2 pr-4 text-right">Tokens (In/Out)</th>
-                        <th className="pb-2 text-right">Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.recent.map((r) => (
-                        <tr key={r.id} className="border-b last:border-0">
-                          <td className="py-2 pr-4 whitespace-nowrap">
-                            {new Date(r.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="py-2 pr-4 max-w-[200px] truncate">
-                            {r.originalFilename ?? "—"}
-                          </td>
-                          <td className="py-2 pr-4 whitespace-nowrap">
-                            {r.aiModelUsed?.split("/")[1] ?? "—"}
-                          </td>
-                          <td className="py-2 pr-4 capitalize">
-                            {r.aiPurpose ?? "—"}
-                          </td>
-                          <td className="py-2 pr-4 text-right whitespace-nowrap">
-                            {r.aiInputTokens?.toLocaleString() ?? "—"} /{" "}
-                            {r.aiOutputTokens?.toLocaleString() ?? "—"}
-                          </td>
-                          <td className="py-2 text-right whitespace-nowrap">
-                            {r.aiCostUsd ? formatUsd(r.aiCostUsd) : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs text-muted-foreground">Date</TableHead>
+                      <TableHead className="text-xs text-muted-foreground">File</TableHead>
+                      <TableHead className="text-xs text-muted-foreground">Model</TableHead>
+                      <TableHead className="text-xs text-muted-foreground">Purpose</TableHead>
+                      <TableHead className="text-right text-xs text-muted-foreground">Tokens (In/Out)</TableHead>
+                      <TableHead className="text-right text-xs text-muted-foreground">Cost</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.recent.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {r.originalFilename ?? "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {r.aiModelUsed?.split("/")[1] ?? "—"}
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {r.aiPurpose ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {r.aiInputTokens?.toLocaleString() ?? "—"} /{" "}
+                          {r.aiOutputTokens?.toLocaleString() ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {r.aiCostUsd ? formatUsd(r.aiCostUsd) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           )}
@@ -339,14 +346,12 @@ export function AiCostAnalytics({
           {/* Empty state */}
           {data.summary.totalFiles === 0 && (
             <Card>
-              <CardContent className="flex flex-col items-center py-12 text-center">
-                <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10">
-                  <BarChart3 className="size-6 text-primary" />
-                </div>
-                <p className="font-medium text-foreground">No AI usage data yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Process some documents to see analytics here.
-                </p>
+              <CardContent>
+                <EmptyState
+                  icon={<BarChart3 />}
+                  title="No AI usage data yet"
+                  description="Process some documents to see analytics here."
+                />
               </CardContent>
             </Card>
           )}

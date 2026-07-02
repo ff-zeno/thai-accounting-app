@@ -2,10 +2,16 @@ import Link from "next/link";
 import { AlertTriangle, Calculator, Download, Landmark, Plus, Upload } from "lucide-react";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getFixedAssetsDashboard } from "@/lib/db/queries/fixed-assets";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -41,17 +47,6 @@ async function submitDepreciationPosting(formData: FormData) {
   await postAssetDepreciationForPeriodAction(formData);
 }
 
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function amountOrDash(value: string | null | undefined) {
-  return value === null || value === undefined ? "-" : amount(value);
-}
-
 function label(value: string) {
   return value.replaceAll("_", " ");
 }
@@ -62,103 +57,62 @@ export default async function FixedAssetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Fixed Asset Register
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Asset register, tax-life cap, and straight-line depreciation schedule.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" render={<Link href="/fixed-assets/import" />}>
-            <Upload className="mr-2 size-4" />
-            Import CSV
-          </Button>
-          <Button render={<Link href="/fixed-assets/new" />}>
-            <Plus className="mr-2 size-4" />
-            New Asset
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Fixed Asset Register"
+        description="Asset register, tax-life cap, and straight-line depreciation schedule."
+      >
+        <Button variant="outline" render={<Link href="/fixed-assets/import" />}>
+          <Upload className="mr-2 size-4" />
+          Import CSV
+        </Button>
+        <Button render={<Link href="/fixed-assets/new" />}>
+          <Plus className="mr-2 size-4" />
+          New Asset
+        </Button>
+      </PageHeader>
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Landmark className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view fixed assets.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Landmark />}
+              title="Select an organization to view fixed assets."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card className="border-amber-200 bg-amber-50 text-amber-950">
-            <CardContent className="flex gap-3 py-4 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">Fixed assets are straight-line v1.</p>
-                <p className="mt-1 text-amber-900">
-                  Register, depreciation schedule, roll-forward, disposal, GL posting, and CSV
-                  import are testable. Declining-balance, units-of-production, impairment
-                  workflow, and method changes remain deferred/accountant-review cases.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>Fixed assets are straight-line v1.</AlertTitle>
+            <AlertDescription>
+              Register, depreciation schedule, roll-forward, disposal, GL posting, and CSV
+              import are testable. Declining-balance, units-of-production, impairment
+              workflow, and method changes remain deferred/accountant-review cases.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Active Assets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.activeAssetCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.summary.assetCount} total register rows.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Original Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.originalCost)}
-                </div>
-                <p className="text-xs text-muted-foreground">THB basis.</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Accumulated Depreciation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.accumulatedDepreciation)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From schedule rows.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Book Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.summary.bookValue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Cost less depreciation.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Active Assets"
+              value={dashboard.summary.activeAssetCount}
+              hint={`${dashboard.summary.assetCount} total register rows.`}
+            />
+            <StatCard
+              label="Original Cost"
+              value={<Amount value={dashboard.summary.originalCost} />}
+              hint="THB basis."
+            />
+            <StatCard
+              label="Accumulated Depreciation"
+              value={<Amount value={dashboard.summary.accumulatedDepreciation} />}
+              hint="From schedule rows."
+            />
+            <StatCard
+              label="Book Value"
+              value={<Amount value={dashboard.summary.bookValue} />}
+              hint="Cost less depreciation."
+            />
           </div>
 
           <Card>
@@ -181,10 +135,10 @@ export default async function FixedAssetsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <select
+                  <NativeSelect
                     id="category"
                     name="category"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="equipment"
                   >
                     {dashboard.categoryDefaults.map((category) => (
@@ -192,7 +146,7 @@ export default async function FixedAssetsPage() {
                         {label(category.category)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="acquisitionDate">Acquisition date</Label>
@@ -283,9 +237,7 @@ export default async function FixedAssetsPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentAssets.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No fixed assets recorded yet.
-                </p>
+                <EmptyState size="sm" title="No fixed assets recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -315,8 +267,12 @@ export default async function FixedAssetsPage() {
                         <TableCell>{asset.nameEn ?? asset.nameTh}</TableCell>
                         <TableCell>{label(asset.category)}</TableCell>
                         <TableCell>{asset.branchNumber ?? "-"}</TableCell>
-                        <TableCell>{amount(asset.originalCost)}</TableCell>
-                        <TableCell>{amount(asset.accumulatedDepreciation)}</TableCell>
+                        <TableCell>
+                          <Amount value={asset.originalCost} />
+                        </TableCell>
+                        <TableCell>
+                          <Amount value={asset.accumulatedDepreciation} />
+                        </TableCell>
                         <TableCell>
                           {asset.usefulLifeMonths} / {asset.taxUsefulLifeMonthsMinimum}
                         </TableCell>
@@ -405,12 +361,24 @@ export default async function FixedAssetsPage() {
                   {dashboard.rollForward.map((row) => (
                     <TableRow key={row.category}>
                       <TableCell>{label(row.category)}</TableCell>
-                      <TableCell>{amount(row.openingCost)}</TableCell>
-                      <TableCell>{amount(row.additions)}</TableCell>
-                      <TableCell>{amount(row.disposals)}</TableCell>
-                      <TableCell>{amount(row.depreciationInPeriod)}</TableCell>
-                      <TableCell>{amount(row.closingCost)}</TableCell>
-                      <TableCell>{amountOrDash(row.glVariance)}</TableCell>
+                      <TableCell>
+                        <Amount value={row.openingCost} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.additions} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.disposals} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.depreciationInPeriod} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.closingCost} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.glVariance} nullDash />
+                      </TableCell>
                     </TableRow>
                   ))}
                   {dashboard.rollForward.length === 0 ? (
@@ -458,9 +426,15 @@ export default async function FixedAssetsPage() {
                         </div>
                       </TableCell>
                       <TableCell>{label(row.category)}</TableCell>
-                      <TableCell>{amount(row.bookValueAtDisposal)}</TableCell>
-                      <TableCell>{amount(row.disposalProceeds)}</TableCell>
-                      <TableCell>{amount(row.gainLossOnDisposal)}</TableCell>
+                      <TableCell>
+                        <Amount value={row.bookValueAtDisposal} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.disposalProceeds} />
+                      </TableCell>
+                      <TableCell>
+                        <Amount value={row.gainLossOnDisposal} />
+                      </TableCell>
                       <TableCell>{row.branchNumber ?? "-"}</TableCell>
                     </TableRow>
                   ))}

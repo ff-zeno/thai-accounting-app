@@ -65,7 +65,7 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 p-4">
-      <h1 className="text-center text-xl font-semibold">{t("title")}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
 
       {/* Direction */}
       <div className="flex gap-2">
@@ -108,13 +108,15 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
                 alt={`Page ${i + 1}`}
                 className="size-full object-cover"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => removeCapture(i)}
-                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white"
+                className="absolute right-1 top-1 rounded-full bg-black/50 text-white"
               >
                 <X className="size-3" />
-              </button>
+              </Button>
               <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">
                 {i + 1}
               </span>

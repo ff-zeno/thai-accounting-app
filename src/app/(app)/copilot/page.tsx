@@ -1,11 +1,13 @@
-import { Bot, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Bot, ShieldCheck } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getCurrentUser } from "@/lib/utils/auth";
 import { getCopilotDashboard } from "@/lib/db/queries/copilot-tools";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -52,11 +54,14 @@ export default async function CopilotPage() {
         </p>
       </div>
 
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        Live model orchestration is preview-only. Prompts currently route through
-        deterministic audited tools; write-capable tools still require preview,
-        role checks, confirmation, period-lock checks, and audit events.
-      </div>
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          Live model orchestration is preview-only. Prompts currently route through
+          deterministic audited tools; write-capable tools still require preview,
+          role checks, confirmation, period-lock checks, and audit events.
+        </AlertDescription>
+      </Alert>
 
       {!orgId || !user || !dashboard ? (
         <Card>
@@ -101,10 +106,10 @@ export default async function CopilotPage() {
               <form action={runTool} className="grid gap-4 md:grid-cols-5">
                 <div className="space-y-2">
                   <Label htmlFor="toolName">Tool</Label>
-                  <select
+                  <NativeSelect
                     id="toolName"
                     name="toolName"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="search_documents"
                   >
                     {dashboard.tools.map((tool) => (
@@ -112,7 +117,7 @@ export default async function CopilotPage() {
                         {tool.name}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="query">Search query</Label>
@@ -174,14 +179,28 @@ export default async function CopilotPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboard.recentEvents.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell>{event.toolName}</TableCell>
-                      <TableCell>{event.risk}</TableCell>
-                      <TableCell>{event.status}</TableCell>
-                      <TableCell>{event.createdAt.toISOString()}</TableCell>
+                  {dashboard.recentEvents.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="py-8 text-center text-muted-foreground"
+                      >
+                        No tool events yet
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    dashboard.recentEvents.map((event) => (
+                      <TableRow key={event.id}>
+                        <TableCell>{event.toolName}</TableCell>
+                        <TableCell>{event.risk}</TableCell>
+                        <TableCell>{event.status}</TableCell>
+                        <TableCell>
+                          {event.createdAt.toLocaleDateString("en-CA")}{" "}
+                          {event.createdAt.toLocaleTimeString("en-GB")}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

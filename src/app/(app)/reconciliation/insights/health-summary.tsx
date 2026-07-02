@@ -52,21 +52,21 @@ const LEVEL_CONFIG: Record<
   { bg: string; border: string; text: string; icon: typeof CircleCheck }
 > = {
   healthy: {
-    bg: "bg-green-50",
-    border: "border-green-200",
-    text: "text-green-800",
+    bg: "bg-success/10",
+    border: "border-success/30",
+    text: "text-success",
     icon: CircleCheck,
   },
   attention: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-800",
+    bg: "bg-warning/10",
+    border: "border-warning/40",
+    text: "text-warning",
     icon: AlertTriangle,
   },
   warning: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    text: "text-red-800",
+    bg: "bg-destructive/10",
+    border: "border-destructive/30",
+    text: "text-destructive",
     icon: CircleAlert,
   },
 };

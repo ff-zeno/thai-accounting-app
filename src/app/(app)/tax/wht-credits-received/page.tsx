@@ -99,10 +99,10 @@ export default async function WhtCreditsReceivedPage() {
                     </TableCell>
                     <TableCell>{credit.certificateNo ?? "-"}</TableCell>
                     <TableCell>{credit.formType}</TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(credit.grossAmount)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(credit.whtAmount)}
                     </TableCell>
                   </TableRow>

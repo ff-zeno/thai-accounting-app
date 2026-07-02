@@ -359,10 +359,10 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                   <p
                     className={`font-mono text-lg font-semibold ${
                       amountDifference < 0.01
-                        ? "text-green-600"
+                        ? "text-success"
                         : hasAmountWarning
                           ? "text-destructive"
-                          : "text-yellow-600"
+                          : "text-warning"
                     }`}
                   >
                     {formatAmount(amountDifference.toFixed(2))}
@@ -373,7 +373,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
 
             <div className="flex items-center gap-3">
               {hasAmountWarning && (
-                <div className="flex items-center gap-1.5 text-sm text-yellow-600">
+                <div className="flex items-center gap-1.5 text-sm text-warning">
                   <AlertTriangle className="size-4" />
                   <span>
                     Amounts differ by {amountDiffPercent.toFixed(1)}%

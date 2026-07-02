@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
@@ -292,7 +293,7 @@ export function ExtractionForm({
           )}
         </div>
         {isLowConfidence && (
-          <div className="flex items-center gap-2 rounded-md bg-yellow-50 p-2 text-sm text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200">
+          <div className="flex items-center gap-2 rounded-md bg-warning/10 p-2 text-sm text-warning">
             <AlertTriangle className="size-4" />
             {tr("lowConfidence")}
           </div>
@@ -340,19 +341,19 @@ export function ExtractionForm({
         {/* Document type */}
         <div>
           <Label htmlFor="type">{t("type")}</Label>
-          <select
+          <NativeSelect
             name="type"
             id="type"
             defaultValue={doc.type}
             disabled={isConfirmed}
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            className="mt-1 w-full"
           >
             <option value="invoice">{t("invoice")}</option>
             <option value="receipt">{t("receipt")}</option>
             <option value="debit_note">{t("debitNote")}</option>
             <option value="credit_note">{t("creditNote")}</option>
             <option value="wht_certificate_received">50 Tawi received</option>
-          </select>
+          </NativeSelect>
         </div>
 
         {/* Document number + dates */}
@@ -397,7 +398,7 @@ export function ExtractionForm({
               id="subtotal"
               defaultValue={doc.subtotal ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
             />
           </div>
           <div>
@@ -407,7 +408,7 @@ export function ExtractionForm({
               id="vatAmount"
               defaultValue={doc.vatAmount ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
             />
           </div>
           <div>
@@ -417,7 +418,7 @@ export function ExtractionForm({
               id="totalAmount"
               defaultValue={doc.totalAmount ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
             />
           </div>
         </div>
@@ -441,7 +442,7 @@ export function ExtractionForm({
               id="exchangeRate"
               defaultValue={doc.exchangeRate ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
               placeholder="e.g. 36.250000"
             />
           </div>
@@ -452,7 +453,7 @@ export function ExtractionForm({
               id="totalAmountThb"
               defaultValue={doc.totalAmountThb ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
               placeholder="Required for foreign PP36"
             />
           </div>
@@ -472,19 +473,19 @@ export function ExtractionForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="taxInvoiceSubtype">Tax invoice type</Label>
-            <select
+            <NativeSelect
               name="taxInvoiceSubtype"
               id="taxInvoiceSubtype"
               defaultValue={doc.taxInvoiceSubtype ?? ""}
               disabled={isConfirmed}
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              className="mt-1 w-full"
             >
               <option value="">Select type</option>
               <option value="full_ti">Full tax invoice</option>
               <option value="e_tax_invoice">E-tax invoice</option>
               <option value="abb">ABB / abbreviated</option>
               <option value="not_a_ti">Not a tax invoice</option>
-            </select>
+            </NativeSelect>
           </div>
           <div>
             <Label htmlFor="taxInvoiceSerialNumber">Tax invoice serial #</Label>
@@ -576,7 +577,7 @@ export function ExtractionForm({
                 <div key={item.id} className="rounded-md border p-2 text-sm">
                   <div className="flex justify-between">
                     <span>{item.description || `Item ${i + 1}`}</span>
-                    <span className="font-mono">
+                    <span className="tabular-nums">
                       {item.amount ? parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
                     </span>
                   </div>
@@ -667,10 +668,10 @@ export function ExtractionForm({
             </div>
             <div>
               <Label htmlFor="assetCategory">Asset category</Label>
-              <select
+              <NativeSelect
                 id="assetCategory"
                 name="assetCategory"
-                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="mt-1 w-full"
                 defaultValue={defaultAssetCategory}
               >
                 <option value="equipment">Equipment</option>
@@ -681,7 +682,7 @@ export function ExtractionForm({
                 <option value="leasehold_improvement">Leasehold improvement</option>
                 <option value="building">Building</option>
                 <option value="land">Land</option>
-              </select>
+              </NativeSelect>
             </div>
             <div>
               <Label htmlFor="assetCost">Asset cost</Label>
@@ -737,10 +738,10 @@ export function ExtractionForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="inventorySkuId">SKU</Label>
-              <select
+              <NativeSelect
                 id="inventorySkuId"
                 name="inventorySkuId"
-                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="mt-1 w-full"
                 required
               >
                 <option value="">Select SKU</option>
@@ -749,7 +750,7 @@ export function ExtractionForm({
                     {sku.skuCode} {sku.nameEn ? `- ${sku.nameEn}` : ""}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div>
               <Label htmlFor="inventoryReceiptDate">Receipt date</Label>

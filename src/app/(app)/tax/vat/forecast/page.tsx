@@ -88,13 +88,13 @@ export default async function VatForecastPage() {
                   <TableCell>
                     <Badge variant="outline">{formatStatus(row.pp36.status)}</Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-right tabular-nums">
                     {row.expiringInputVat.count} / {formatAmount(row.expiringInputVat.vatAmount)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-right tabular-nums">
                     {row.pp36Reclaimable.count} / {formatAmount(row.pp36Reclaimable.vatAmount)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-right tabular-nums">
                     {formatAmount(row.pp30.netPayable)}
                   </TableCell>
                 </TableRow>
@@ -169,7 +169,7 @@ export default async function VatForecastPage() {
                         <Badge variant="outline">Pending</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(row.vatAmount)}
                     </TableCell>
                   </TableRow>

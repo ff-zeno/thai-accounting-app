@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -139,14 +140,15 @@ export default async function DashboardPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {quickActions.map((action) => (
-            <Link
+            <Button
               key={action.href}
-              href={action.href}
-              className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-lg border border-border bg-background px-2.5 text-[0.8rem] font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              variant="outline"
+              size="xs"
+              render={<Link href={action.href} />}
             >
-              <action.icon className="mr-2 size-4" />
+              <action.icon className="size-4" />
               {action.label}
-            </Link>
+            </Button>
           ))}
         </div>
       </div>
@@ -155,14 +157,14 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-4 text-amber-600" />
+              <AlertTriangle className="size-4 text-warning" />
               {t("needsAttention")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {metrics.openExceptions.length === 0 ? (
               <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                <CheckCircle2 className="size-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-success" />
                 {t("noAttentionItems")}
               </div>
             ) : (

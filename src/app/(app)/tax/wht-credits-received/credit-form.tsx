@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { createWhtCreditReceivedAction } from "./actions";
 
@@ -38,11 +39,11 @@ export function WhtCreditReceivedForm({
     <form action={action} className="grid gap-4 md:grid-cols-2">
       <div className="space-y-1.5 md:col-span-2">
         <Label htmlFor="customerVendorId">Customer</Label>
-        <select
+        <NativeSelect
           id="customerVendorId"
           name="customerVendorId"
           required
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full"
         >
           <option value="">Select customer</option>
           {vendors.map((vendor) => (
@@ -50,7 +51,7 @@ export function WhtCreditReceivedForm({
               {vendor.nameTh ? `${vendor.nameTh} / ${vendor.name}` : vendor.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <div className="space-y-1.5">

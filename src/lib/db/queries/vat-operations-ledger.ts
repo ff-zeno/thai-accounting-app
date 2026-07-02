@@ -16,6 +16,7 @@ import {
   vatFilings,
   vatInputItems,
   vatOutputItems,
+  establishments,
   vendors,
   type pp36PeriodBasisEnum,
   type taxTreatmentReviewStatusEnum,
@@ -28,11 +29,11 @@ import {
   type vatOutputTaxPointBasisEnum,
 } from "../schema";
 import {
-  DEFAULT_TAX_CONFIG,
   formatBangkokDate,
   pp30EfilingDeadline,
   pp36Deadline,
 } from "@/lib/tax/filing-deadlines";
+import { getFilingDeadlineConfig } from "./tax-config";
 
 type EnumValue<T extends { enumValues: readonly string[] }> = T["enumValues"][number];
 
@@ -53,6 +54,12 @@ const CLAIMED_INPUT_VAT_STATUSES = new Set<VatInputStatus>([
   "claimable",
   "allocated_to_draft",
   "filed",
+]);
+const ORDINARY_PP30_ITEM_STATUSES = new Set<string>([
+  "claimable",
+  "allocated_to_draft",
+  "filed",
+  "reportable",
 ]);
 
 export type VatSourceSnapshot = Record<string, unknown>;
@@ -146,6 +153,61 @@ function isRecoverableTaxInvoiceSubtype(subtype: TaxInvoiceSubtype) {
   return subtype === "full_ti" || subtype === "e_tax_invoice";
 }
 
+async function assertActiveVatEstablishment(
+  conn: DbConnection,
+  orgId: string,
+  establishmentId: string
+) {
+  const [establishment] = await conn
+    .select({ id: establishments.id })
+    .from(establishments)
+    .where(
+      and(
+        eq(establishments.id, establishmentId),
+        eq(establishments.orgId, orgId),
+        eq(establishments.vatRegistered, true),
+        sql`${establishments.deletedAt} IS NULL`
+      )
+    )
+    .limit(1);
+  if (!establishment) {
+    throw new VatLedgerStateError("VAT establishment is required and must belong to the organization");
+  }
+}
+
+async function resolveVatEstablishmentForItem(
+  conn: DbConnection,
+  orgId: string,
+  requestedEstablishmentId: string | undefined,
+  status: string
+) {
+  if (requestedEstablishmentId) {
+    await assertActiveVatEstablishment(conn, orgId, requestedEstablishmentId);
+    return requestedEstablishmentId;
+  }
+  if (!ORDINARY_PP30_ITEM_STATUSES.has(status)) return undefined;
+
+  const rows = await conn
+    .select({ id: establishments.id })
+    .from(establishments)
+    .where(
+      and(
+        eq(establishments.orgId, orgId),
+        eq(establishments.vatRegistered, true),
+        sql`${establishments.deletedAt} IS NULL`
+      )
+    )
+    .orderBy(sql`${establishments.isHeadOffice} DESC`, establishments.branchNumber)
+    .limit(2);
+
+  if (rows.length === 1) return rows[0].id;
+  throw new VatLedgerStateError(
+    rows.length === 0
+      ? "VAT establishment is required before VAT can be reportable"
+      : "VAT branch is required when the organization has multiple VAT establishments"
+  );
+}
+
 export async function createTaxTreatmentDecision(
   data: WithConnection & {
     orgId: string;
@@ -193,6 +255,7 @@ export async function createVatInputItem(
   data: WithConnection &
     WithSnapshot & {
       orgId: string;
+      establishmentId?: string;
       taxTreatmentDecisionId?: string;
       sourceDocumentId: string;
       sourceDocumentLineId?: string;
@@ -235,10 +298,17 @@ export async function createVatInputItem(
   }
 
   const conn = await getConnection(data.tx);
+  const establishmentId = await resolveVatEstablishmentForItem(
+    conn,
+    data.orgId,
+    data.establishmentId,
+    status
+  );
   const [item] = await conn
     .insert(vatInputItems)
     .values({
       orgId: data.orgId,
+      establishmentId,
       taxTreatmentDecisionId: data.taxTreatmentDecisionId,
       sourceDocumentId: data.sourceDocumentId,
       sourceDocumentLineId: data.sourceDocumentLineId,
@@ -274,6 +344,7 @@ export async function createVatOutputItem(
   data: WithConnection &
     WithSnapshot & {
       orgId: string;
+      establishmentId?: string;
       taxTreatmentDecisionId?: string;
       sourceDocumentId?: string;
       sourceDocumentLineId?: string;
@@ -296,10 +367,18 @@ export async function createVatOutputItem(
 ) {
   const conn = await getConnection(data.tx);
   const period = periodFromBangkokDate(data.taxPointDate);
+  const status = data.status ?? "needs_review";
+  const establishmentId = await resolveVatEstablishmentForItem(
+    conn,
+    data.orgId,
+    data.establishmentId,
+    status
+  );
   const [item] = await conn
     .insert(vatOutputItems)
     .values({
       orgId: data.orgId,
+      establishmentId,
       taxTreatmentDecisionId: data.taxTreatmentDecisionId,
       sourceDocumentId: data.sourceDocumentId,
       sourceDocumentLineId: data.sourceDocumentLineId,
@@ -317,7 +396,7 @@ export async function createVatOutputItem(
       vatRate: data.vatRate,
       outputPeriodYear: data.outputPeriodYear ?? period.year,
       outputPeriodMonth: data.outputPeriodMonth ?? period.month,
-      status: data.status ?? "needs_review",
+      status,
       ...snapshotPayload(data),
     })
     .returning();
@@ -389,6 +468,7 @@ export async function createPp36Obligation(
 export async function createVatFilingDraft(
   data: WithConnection & {
     orgId: string;
+    establishmentId?: string;
     filingType: VatFilingType;
     periodYear: number;
     periodMonth: number;
@@ -398,10 +478,19 @@ export async function createVatFilingDraft(
   }
 ) {
   const conn = await getConnection(data.tx);
+  if (data.filingType === "pp30" && data.filingKind !== "amendment") {
+    if (!data.establishmentId) {
+      throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+    }
+    await assertActiveVatEstablishment(conn, data.orgId, data.establishmentId);
+  } else if (data.establishmentId) {
+    await assertActiveVatEstablishment(conn, data.orgId, data.establishmentId);
+  }
   const [filing] = await conn
     .insert(vatFilings)
     .values({
       orgId: data.orgId,
+      establishmentId: data.establishmentId,
       filingType: data.filingType,
       periodYear: data.periodYear,
       periodMonth: data.periodMonth,
@@ -470,6 +559,7 @@ export async function addVatFilingLine(
   const [parentFiling] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       status: vatFilings.status,
     })
     .from(vatFilings)
@@ -494,11 +584,15 @@ export async function addVatFilingLine(
   if (parentFiling.filingType === "pp30" && data.lineType === "pp36_obligation") {
     throw new VatLedgerStateError("PP36 obligation lines cannot be added to PP30 filings");
   }
+  if (parentFiling.filingType === "pp30" && !parentFiling.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+  }
 
   if (data.pp36ObligationId && data.lineType === "pp36_reclaim") {
     const [filing] = await conn
       .select({
         filingType: vatFilings.filingType,
+        establishmentId: vatFilings.establishmentId,
         periodYear: vatFilings.periodYear,
         periodMonth: vatFilings.periodMonth,
       })
@@ -658,6 +752,7 @@ export async function markVatFilingDraftFiled(
   const [filing] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       periodYear: vatFilings.periodYear,
       periodMonth: vatFilings.periodMonth,
       status: vatFilings.status,
@@ -675,6 +770,9 @@ export async function markVatFilingDraftFiled(
 
   if (!filing) {
     throw new VatLedgerStateError("VAT filing draft not found");
+  }
+  if (filing.filingType === "pp30" && !filing.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
   }
   if (!["draft", "ready_for_review"].includes(filing.status)) {
     throw new VatLedgerStateError("Only draft VAT filings can be filed");
@@ -809,6 +907,7 @@ export async function markVatFilingDraftFiled(
       .insert(vatCreditCarryforwards)
       .values({
         orgId: data.orgId,
+        establishmentId: filing.establishmentId,
         sourcePp30FilingId: data.filingId,
         creditOriginPeriodYear: filing.periodYear,
         creditOriginPeriodMonth: filing.periodMonth,
@@ -1191,6 +1290,7 @@ export async function recordPp36FilingPayment(
 export async function getVatOperationsLedgerOverview(
   data: WithConnection & {
     orgId: string;
+    establishmentId?: string;
     periodYear: number;
     periodMonth: number;
   }
@@ -1206,6 +1306,7 @@ export async function getVatOperationsLedgerOverview(
     .where(
       and(
         eq(vatInputItems.orgId, data.orgId),
+        data.establishmentId ? eq(vatInputItems.establishmentId, data.establishmentId) : undefined,
         eq(vatInputItems.eligiblePeriodYear, data.periodYear),
         eq(vatInputItems.eligiblePeriodMonth, data.periodMonth),
         sql`${vatInputItems.deletedAt} IS NULL`
@@ -1222,6 +1323,7 @@ export async function getVatOperationsLedgerOverview(
     .where(
       and(
         eq(vatOutputItems.orgId, data.orgId),
+        data.establishmentId ? eq(vatOutputItems.establishmentId, data.establishmentId) : undefined,
         eq(vatOutputItems.outputPeriodYear, data.periodYear),
         eq(vatOutputItems.outputPeriodMonth, data.periodMonth),
         sql`${vatOutputItems.deletedAt} IS NULL`
@@ -1238,6 +1340,8 @@ export async function getVatOperationsLedgerOverview(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
+        // PP36 obligations are an org-level pool (establishment_id is
+        // constrained NULL) — a branch filter here would match zero rows.
         eq(pp36Obligations.pp36PeriodYear, data.periodYear),
         eq(pp36Obligations.pp36PeriodMonth, data.periodMonth),
         sql`${pp36Obligations.deletedAt} IS NULL`
@@ -1275,19 +1379,21 @@ export async function getVatLedgerPeriodDashboard(
     orgId: string;
     periodYear: number;
     periodMonth: number;
+    establishmentId?: string;
   }
 ) {
   const conn = await getConnection(data.tx);
   const overview = await getVatOperationsLedgerOverview(data);
+  const taxConfigValues = await getFilingDeadlineConfig(undefined, conn);
   const pp30DeadlineDate = pp30EfilingDeadline(
     data.periodYear,
     data.periodMonth,
-    DEFAULT_TAX_CONFIG
+    taxConfigValues
   ).deadline;
   const pp36DeadlineDate = pp36Deadline(
     data.periodYear,
     data.periodMonth,
-    DEFAULT_TAX_CONFIG
+    taxConfigValues
   ).deadline;
 
   const pp30Filings = await conn
@@ -1296,6 +1402,7 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(vatFilings.orgId, data.orgId),
+        data.establishmentId ? eq(vatFilings.establishmentId, data.establishmentId) : undefined,
         eq(vatFilings.filingType, "pp30"),
         eq(vatFilings.periodYear, data.periodYear),
         eq(vatFilings.periodMonth, data.periodMonth),
@@ -1345,6 +1452,7 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(vatOutputItems.orgId, data.orgId),
+        data.establishmentId ? eq(vatOutputItems.establishmentId, data.establishmentId) : undefined,
         eq(vatOutputItems.outputPeriodYear, data.periodYear),
         eq(vatOutputItems.outputPeriodMonth, data.periodMonth),
         eq(vatOutputItems.status, "reportable"),
@@ -1359,6 +1467,7 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(vatInputItems.orgId, data.orgId),
+        data.establishmentId ? eq(vatInputItems.establishmentId, data.establishmentId) : undefined,
         eq(vatInputItems.status, "claimable"),
         sql`${vatInputItems.deletedAt} IS NULL`,
         sql`${vatInputItems.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
@@ -1380,6 +1489,8 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
+        // PP36 obligations are an org-level pool (establishment_id is
+        // constrained NULL) — a branch filter here would match zero rows.
         eq(pp36Obligations.status, "eligible_for_pp30_reclaim"),
         sql`${pp36Obligations.deletedAt} IS NULL`,
         sql`${pp36Obligations.pp30ReclaimEligiblePeriodYear} IS NOT NULL`,
@@ -1399,6 +1510,7 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(vatCreditCarryforwards.orgId, data.orgId),
+        data.establishmentId ? eq(vatCreditCarryforwards.establishmentId, data.establishmentId) : undefined,
         eq(vatCreditCarryforwards.status, "available"),
         sql`${vatCreditCarryforwards.remainingAmount} > 0`,
         sql`(${vatCreditCarryforwards.creditOriginPeriodYear} * 12 + ${vatCreditCarryforwards.creditOriginPeriodMonth}) < ${filingPeriod}`
@@ -1451,6 +1563,7 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(vatInputItems.orgId, data.orgId),
+        data.establishmentId ? eq(vatInputItems.establishmentId, data.establishmentId) : undefined,
         eq(vatInputItems.status, "claimable"),
         sql`${vatInputItems.deletedAt} IS NULL`,
         sql`${vatInputItems.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
@@ -1473,6 +1586,8 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
+        // PP36 obligations are an org-level pool (establishment_id is
+        // constrained NULL) — a branch filter here would match zero rows.
         eq(pp36Obligations.status, "eligible_for_pp30_reclaim"),
         sql`${pp36Obligations.deletedAt} IS NULL`,
         sql`${pp36Obligations.pp30ReclaimEligiblePeriodYear} IS NOT NULL`,
@@ -1489,6 +1604,7 @@ export async function getVatLedgerPeriodDashboard(
     .where(
       and(
         eq(vatCreditCarryforwards.orgId, data.orgId),
+        data.establishmentId ? eq(vatCreditCarryforwards.establishmentId, data.establishmentId) : undefined,
         eq(vatCreditCarryforwards.status, "available"),
         sql`${vatCreditCarryforwards.remainingAmount} > 0`,
         sql`(${vatCreditCarryforwards.creditOriginPeriodYear} * 12 + ${vatCreditCarryforwards.creditOriginPeriodMonth}) < ${filingPeriod}`
@@ -1547,6 +1663,79 @@ export async function getVatLedgerPeriodDashboard(
       },
     },
   };
+}
+
+export async function getVatBranchReadiness(
+  data: WithConnection & {
+    orgId: string;
+    periodYear: number;
+    periodMonth: number;
+  }
+) {
+  const conn = await getConnection(data.tx);
+  const branches = await conn
+    .select({
+      id: establishments.id,
+      branchNumber: establishments.branchNumber,
+      nameTh: establishments.nameTh,
+      nameEn: establishments.nameEn,
+      isHeadOffice: establishments.isHeadOffice,
+      consolidatedFilingApproved: establishments.consolidatedFilingApproved,
+    })
+    .from(establishments)
+    .where(
+      and(
+        eq(establishments.orgId, data.orgId),
+        eq(establishments.vatRegistered, true),
+        sql`${establishments.deletedAt} IS NULL`
+      )
+    )
+    .orderBy(sql`${establishments.isHeadOffice} DESC`, establishments.branchNumber);
+
+  return Promise.all(
+    branches.map(async (branch) => {
+      const dashboard = await getVatLedgerPeriodDashboard({
+        tx: conn,
+        orgId: data.orgId,
+        establishmentId: branch.id,
+        periodYear: data.periodYear,
+        periodMonth: data.periodMonth,
+      });
+      const [missingInputBranch] = await conn
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(vatInputItems)
+        .where(
+          and(
+            eq(vatInputItems.orgId, data.orgId),
+            eq(vatInputItems.status, "claimable"),
+            eq(vatInputItems.eligiblePeriodYear, data.periodYear),
+            eq(vatInputItems.eligiblePeriodMonth, data.periodMonth),
+            sql`${vatInputItems.establishmentId} IS NULL`,
+            sql`${vatInputItems.deletedAt} IS NULL`
+          )
+        );
+      const [missingOutputBranch] = await conn
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(vatOutputItems)
+        .where(
+          and(
+            eq(vatOutputItems.orgId, data.orgId),
+            eq(vatOutputItems.status, "reportable"),
+            eq(vatOutputItems.outputPeriodYear, data.periodYear),
+            eq(vatOutputItems.outputPeriodMonth, data.periodMonth),
+            sql`${vatOutputItems.establishmentId} IS NULL`,
+            sql`${vatOutputItems.deletedAt} IS NULL`
+          )
+        );
+
+      return {
+        ...branch,
+        pp30: dashboard.pp30,
+        missingBranchCount:
+          (missingInputBranch?.count ?? 0) + (missingOutputBranch?.count ?? 0),
+      };
+    })
+  );
 }
 
 export async function getVatFilingDrilldown(
@@ -1794,12 +1983,16 @@ export async function getVatLedgerRegister(
 export async function listClaimableVatInputItemsForPp30Draft(
   data: WithConnection & {
     orgId: string;
+    establishmentId?: string;
     periodYear: number;
     periodMonth: number;
     limit?: number;
   }
 ) {
   const conn = await getConnection(data.tx);
+  if (!data.establishmentId) {
+    throw new VatLedgerStateError("VAT branch is required for PP30 input candidates");
+  }
   const filingPeriod = data.periodYear * 12 + data.periodMonth;
   return conn
     .select({
@@ -1826,6 +2019,7 @@ export async function listClaimableVatInputItemsForPp30Draft(
     .where(
       and(
         eq(vatInputItems.orgId, data.orgId),
+        eq(vatInputItems.establishmentId, data.establishmentId),
         eq(vatInputItems.status, "claimable"),
         sql`${vatInputItems.deletedAt} IS NULL`,
         sql`${vatInputItems.taxInvoiceSubtype} IN ('full_ti', 'e_tax_invoice')`,
@@ -1853,12 +2047,16 @@ export async function listClaimableVatInputItemsForPp30Draft(
 export async function listReportableVatOutputItemsForPp30Draft(
   data: WithConnection & {
     orgId: string;
+    establishmentId?: string;
     periodYear: number;
     periodMonth: number;
     limit?: number;
   }
 ) {
   const conn = await getConnection(data.tx);
+  if (!data.establishmentId) {
+    throw new VatLedgerStateError("VAT branch is required for PP30 output candidates");
+  }
   return conn
     .select({
       id: vatOutputItems.id,
@@ -1885,6 +2083,7 @@ export async function listReportableVatOutputItemsForPp30Draft(
     .where(
       and(
         eq(vatOutputItems.orgId, data.orgId),
+        eq(vatOutputItems.establishmentId, data.establishmentId),
         eq(vatOutputItems.status, "reportable"),
         eq(vatOutputItems.outputPeriodYear, data.periodYear),
         eq(vatOutputItems.outputPeriodMonth, data.periodMonth),
@@ -1934,6 +2133,7 @@ export async function allocatePp30OutputVatDraftLines(
   const [filing] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       periodYear: vatFilings.periodYear,
       periodMonth: vatFilings.periodMonth,
       status: vatFilings.status,
@@ -1954,6 +2154,9 @@ export async function allocatePp30OutputVatDraftLines(
   if (filing.filingType !== "pp30" || filing.status !== "draft") {
     throw new VatLedgerStateError("Output VAT can only be allocated to a draft PP30 filing");
   }
+  if (!filing.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+  }
 
   const [existingOutputLines] = await conn
     .select({ count: sql<number>`COUNT(*)::int` })
@@ -1969,6 +2172,7 @@ export async function allocatePp30OutputVatDraftLines(
     const pendingCandidates = await listReportableVatOutputItemsForPp30Draft({
       tx: conn,
       orgId: data.orgId,
+      establishmentId: filing.establishmentId,
       periodYear: filing.periodYear,
       periodMonth: filing.periodMonth,
       limit: 1,
@@ -2002,6 +2206,7 @@ export async function allocatePp30OutputVatDraftLines(
   const fetchedCandidates = await listReportableVatOutputItemsForPp30Draft({
     tx: conn,
     orgId: data.orgId,
+    establishmentId: filing.establishmentId,
     periodYear: filing.periodYear,
     periodMonth: filing.periodMonth,
     limit: allocationLimit + 1,
@@ -2115,12 +2320,16 @@ export async function allocatePp30OutputVatDraftLines(
 export async function listEligiblePp36ReclaimsForPp30Draft(
   data: WithConnection & {
     orgId: string;
+    establishmentId?: string;
     periodYear: number;
     periodMonth: number;
     limit?: number;
   }
 ) {
   const conn = await getConnection(data.tx);
+  if (!data.establishmentId) {
+    throw new VatLedgerStateError("VAT branch is required for PP36 reclaim candidates");
+  }
   const filingPeriod = data.periodYear * 12 + data.periodMonth;
   return conn
     .select({
@@ -2156,6 +2365,10 @@ export async function listEligiblePp36ReclaimsForPp30Draft(
     .where(
       and(
         eq(pp36Obligations.orgId, data.orgId),
+        // PP36 obligations are org-level: pp36_establishment_null_check forces
+        // establishment_id to stay NULL, so reclaim candidates form one org-wide
+        // pool. The NOT EXISTS below prevents double-claiming across branch
+        // drafts; the establishmentId argument only asserts branch context.
         eq(pp36Obligations.status, "eligible_for_pp30_reclaim"),
         sql`${pp36Obligations.deletedAt} IS NULL`,
         sql`${pp36Obligations.pp36PaidAt} IS NOT NULL`,
@@ -2273,6 +2486,7 @@ export async function allocatePp36ReclaimDraftLines(
   const [filing] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       periodYear: vatFilings.periodYear,
       periodMonth: vatFilings.periodMonth,
       status: vatFilings.status,
@@ -2293,6 +2507,9 @@ export async function allocatePp36ReclaimDraftLines(
   if (filing.filingType !== "pp30" || filing.status !== "draft") {
     throw new VatLedgerStateError("PP36 reclaims can only be allocated to a draft PP30 filing");
   }
+  if (!filing.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+  }
 
   const [existingReclaimLines] = await conn
     .select({ count: sql<number>`COUNT(*)::int` })
@@ -2308,6 +2525,7 @@ export async function allocatePp36ReclaimDraftLines(
     const pendingCandidates = await listEligiblePp36ReclaimsForPp30Draft({
       tx: conn,
       orgId: data.orgId,
+      establishmentId: filing.establishmentId,
       periodYear: filing.periodYear,
       periodMonth: filing.periodMonth,
       limit: 1,
@@ -2341,6 +2559,7 @@ export async function allocatePp36ReclaimDraftLines(
   const fetchedCandidates = await listEligiblePp36ReclaimsForPp30Draft({
     tx: conn,
     orgId: data.orgId,
+    establishmentId: filing.establishmentId,
     periodYear: filing.periodYear,
     periodMonth: filing.periodMonth,
     limit: allocationLimit + 1,
@@ -2466,6 +2685,7 @@ export async function allocatePp36ReclaimDraftLines(
 export async function buildPp30VatFilingDraft(
   data: WithConnection & {
     orgId: string;
+    establishmentId?: string;
     periodYear: number;
     periodMonth: number;
     actorId: string;
@@ -2486,12 +2706,16 @@ export async function buildPp30VatFilingDraft(
   }
 
   const conn = data.tx;
+  if (!data.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+  }
   const [existing] = await conn
     .select()
     .from(vatFilings)
     .where(
       and(
         eq(vatFilings.orgId, data.orgId),
+        eq(vatFilings.establishmentId, data.establishmentId),
         eq(vatFilings.filingType, "pp30"),
         eq(vatFilings.periodYear, data.periodYear),
         eq(vatFilings.periodMonth, data.periodMonth),
@@ -2510,6 +2734,7 @@ export async function buildPp30VatFilingDraft(
     (await createVatFilingDraft({
       tx: conn,
       orgId: data.orgId,
+      establishmentId: data.establishmentId,
       filingType: "pp30",
       periodYear: data.periodYear,
       periodMonth: data.periodMonth,
@@ -2541,6 +2766,7 @@ export async function buildPp30VatFilingDraft(
     actorId: data.actorId,
     newValue: {
       operation: "build_pp30_vat_filing_draft",
+      establishmentId: data.establishmentId,
       periodYear: data.periodYear,
       periodMonth: data.periodMonth,
       outputVatTotal: output.outputVatTotal,
@@ -2650,6 +2876,7 @@ export async function allocatePp36ObligationDraftLines(
   const [filing] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       periodYear: vatFilings.periodYear,
       periodMonth: vatFilings.periodMonth,
       status: vatFilings.status,
@@ -2963,6 +3190,7 @@ export async function allocatePp30InputVatDraftLines(
   const [filing] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       periodYear: vatFilings.periodYear,
       periodMonth: vatFilings.periodMonth,
       status: vatFilings.status,
@@ -2983,6 +3211,9 @@ export async function allocatePp30InputVatDraftLines(
   if (filing.filingType !== "pp30" || filing.status !== "draft") {
     throw new VatLedgerStateError("Input VAT can only be allocated to a draft PP30 filing");
   }
+  if (!filing.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+  }
 
   const [existingInputLines] = await conn
     .select({ count: sql<number>`COUNT(*)::int` })
@@ -2998,6 +3229,7 @@ export async function allocatePp30InputVatDraftLines(
     const pendingCandidates = await listClaimableVatInputItemsForPp30Draft({
       tx: conn,
       orgId: data.orgId,
+      establishmentId: filing.establishmentId,
       periodYear: filing.periodYear,
       periodMonth: filing.periodMonth,
       limit: 1,
@@ -3031,6 +3263,7 @@ export async function allocatePp30InputVatDraftLines(
   const fetchedCandidates = await listClaimableVatInputItemsForPp30Draft({
     tx: conn,
     orgId: data.orgId,
+    establishmentId: filing.establishmentId,
     periodYear: filing.periodYear,
     periodMonth: filing.periodMonth,
     limit: allocationLimit + 1,
@@ -3179,6 +3412,7 @@ export async function allocatePp30CreditCarryforwardDraftLines(
   const [filing] = await conn
     .select({
       filingType: vatFilings.filingType,
+      establishmentId: vatFilings.establishmentId,
       periodYear: vatFilings.periodYear,
       periodMonth: vatFilings.periodMonth,
       status: vatFilings.status,
@@ -3199,6 +3433,9 @@ export async function allocatePp30CreditCarryforwardDraftLines(
   if (filing.filingType !== "pp30" || filing.status !== "draft") {
     throw new VatLedgerStateError("Credit carryforwards can only be allocated to a draft PP30 filing");
   }
+  if (!filing.establishmentId) {
+    throw new VatLedgerStateError("PP30 filing draft requires a VAT branch");
+  }
 
   const filingPeriod = filing.periodYear * 12 + filing.periodMonth;
   const [existingCarryforwardLines] = await conn
@@ -3218,6 +3455,7 @@ export async function allocatePp30CreditCarryforwardDraftLines(
       .where(
         and(
           eq(vatCreditCarryforwards.orgId, data.orgId),
+          eq(vatCreditCarryforwards.establishmentId, filing.establishmentId),
           eq(vatCreditCarryforwards.status, "available"),
           sql`${vatCreditCarryforwards.remainingAmount} > 0`,
           sql`(${vatCreditCarryforwards.creditOriginPeriodYear} * 12 + ${vatCreditCarryforwards.creditOriginPeriodMonth}) < ${filingPeriod}`
@@ -3315,6 +3553,7 @@ export async function allocatePp30CreditCarryforwardDraftLines(
     .where(
       and(
         eq(vatCreditCarryforwards.orgId, data.orgId),
+        eq(vatCreditCarryforwards.establishmentId, filing.establishmentId),
         eq(vatCreditCarryforwards.status, "available"),
         sql`${vatCreditCarryforwards.remainingAmount} > 0`,
         sql`(${vatCreditCarryforwards.creditOriginPeriodYear} * 12 + ${vatCreditCarryforwards.creditOriginPeriodMonth}) < ${filingPeriod}`

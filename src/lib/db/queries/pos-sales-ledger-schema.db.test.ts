@@ -70,6 +70,13 @@ beforeEach(async () => {
   `);
 });
 
+async function markOrgVatRegistered(orgId: string) {
+  await testDb
+    .update(schema.organizations)
+    .set({ isVatRegistered: true })
+    .where(sql`${schema.organizations.id} = ${orgId}`);
+}
+
 async function createHeadOffice(orgId: string) {
   const [establishment] = await testDb
     .insert(schema.establishments)
@@ -87,6 +94,7 @@ async function createHeadOffice(orgId: string) {
 describe("POS sales ledger schema", () => {
   it("creates the head-office establishment and dashboard read model", async () => {
     const org = await createTestOrg(testDb);
+    await markOrgVatRegistered(org.id);
     const establishment = await ensureHeadOfficeEstablishment(org.id);
     expect(establishment.branchNumber).toBe("00000");
 
@@ -224,6 +232,7 @@ describe("POS sales ledger schema", () => {
 
   it("imports POS CSV rows idempotently and materializes VAT/GL", async () => {
     const org = await createTestOrg(testDb);
+    await markOrgVatRegistered(org.id);
     const csv = [
       "\uFEFFexternal_id,sold_at,channel,amount_including_vat,tax_base_ex_vat,vat_amount,tax_invoice_type,tax_invoice_number,terminal_id,clearing_account_key",
       "csv-1,2026-05-01,cash,1070.00,1000.00,70.00,abb,ABB-CSV-1,T01,cash_T01",
@@ -277,6 +286,7 @@ describe("POS sales ledger schema", () => {
 
   it("imports POS CSV SKU lines into sale_out inventory movements with COGS", async () => {
     const org = await createTestOrg(testDb);
+    await markOrgVatRegistered(org.id);
     const establishment = await ensureHeadOfficeEstablishment(org.id);
     const sku = await createSku({
       orgId: org.id,

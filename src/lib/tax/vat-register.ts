@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/index";
 import { documents, vendors } from "../db/schema";
 import { orgScope } from "../db/helpers/org-scope";
+import { sumAmounts } from "../utils/money";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -125,21 +126,26 @@ export async function generateVatRegister(
     };
   });
 
-  // Calculate totals (credit notes subtract)
-  let inputTotal = 0;
-  for (const entry of inputRegister) {
-    inputTotal += parseFloat(entry.vatAmount);
-  }
-
-  let outputTotal = 0;
-  for (const entry of outputRegister) {
-    outputTotal += parseFloat(entry.vatAmount);
-  }
+  const totals = computeRegisterTotals(inputRegister, outputRegister);
 
   return {
     inputRegister,
     outputRegister,
-    inputTotal: inputTotal.toFixed(2),
-    outputTotal: outputTotal.toFixed(2),
+    ...totals,
+  };
+}
+
+/**
+ * Sum register VAT amounts in integer satang (credit notes carry negative
+ * amounts and subtract). Pure — unit-tested separately. A register that nets
+ * to zero renders "0.00", never "-0.00".
+ */
+export function computeRegisterTotals(
+  inputRegister: Array<{ vatAmount: string }>,
+  outputRegister: Array<{ vatAmount: string }>
+): { inputTotal: string; outputTotal: string } {
+  return {
+    inputTotal: sumAmounts(inputRegister.map((entry) => entry.vatAmount)),
+    outputTotal: sumAmounts(outputRegister.map((entry) => entry.vatAmount)),
   };
 }

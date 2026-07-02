@@ -2,6 +2,12 @@
 // Rate = standard WHT rate for the service type
 // Code = RD payment type code for the WHT certificate
 // Section = Income Tax Act section
+//
+// NOT wired to tax_config: these are statutory WHT rates whose runtime source
+// of truth is the wht_rates DB table (src/lib/db/seeds/wht-rates.ts seeds it,
+// src/lib/db/queries/wht-rates.ts reads it). This constant only drives the
+// individual-payment UI picker; service-categories.test.ts asserts it stays
+// in sync with the seed.
 
 export interface ServiceCategory {
   value: string;

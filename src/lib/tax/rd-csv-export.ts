@@ -52,11 +52,10 @@ const CSV_HEADERS = [
 
 /** Convert a date string (YYYY-MM-DD) to Buddhist Era format DD/MM/YYYY+543 */
 function dateToBuddhistEra(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00+07:00");
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const beYear = toBuddhistYear(d.getFullYear());
-  return `${day}/${month}/${beYear}`;
+  // Purely textual: round-tripping through Date and local getters shifts the
+  // day by one on non-Bangkok servers (Vercel and CI run UTC).
+  const [year, month, day] = dateStr.split("-");
+  return `${day}/${month}/${toBuddhistYear(Number(year))}`;
 }
 
 /** Format amount for CSV: 2 decimal places, no commas */

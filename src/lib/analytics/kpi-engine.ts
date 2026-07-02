@@ -12,10 +12,12 @@ import {
   skus,
   vendors,
 } from "@/lib/db/schema";
+import { fromSatang, toSatangOrZero } from "@/lib/utils/money";
 import { buildAgingSnapshot, summarizeAging } from "./aging";
 
-function money(value: number) {
-  return value.toFixed(2);
+/** Convert a THB number (e.g. from summarizeAging) to integer satang. */
+function thbToSatang(value: number): number {
+  return Math.round(value * 100);
 }
 
 export async function computeCounterpartyConcentration(data: {
@@ -40,7 +42,7 @@ export async function computeCounterpartyConcentration(data: {
     })
     .from(documents)
     .where(filters);
-  const grandTotal = Number(totalRow?.total ?? 0);
+  const grandTotalSatang = toSatangOrZero(totalRow?.total);
 
   const rows = await db
     .select({
@@ -57,8 +59,11 @@ export async function computeCounterpartyConcentration(data: {
 
   return rows.map((row) => ({
     ...row,
+    // Ratio, not money — satang/satang cancels the scale.
     sharePct:
-      grandTotal === 0 ? "0.0000" : (Number(row.amount) / grandTotal).toFixed(4),
+      grandTotalSatang === 0
+        ? "0.0000"
+        : (toSatangOrZero(row.amount) / grandTotalSatang).toFixed(4),
   }));
 }
 
@@ -99,7 +104,8 @@ export async function computeDso(data: {
     lookbackDays,
     paymentCount: row?.paymentCount ?? 0,
     paidDocumentCount: row?.paidDocumentCount ?? 0,
-    averageDays: money(Number(row?.averageDays ?? 0)),
+    // Days, not money — plain 2dp formatting.
+    averageDays: Number(row?.averageDays ?? 0).toFixed(2),
   };
 }
 
@@ -149,6 +155,7 @@ export async function computeGrossMarginByCategory(data: {
       .groupBy(sql`COALESCE(${skus.category}, 'Uncategorized')`),
   ]);
 
+  // Values are integer satang.
   const byCategory = new Map<
     string,
     { category: string; revenue: number; cogs: number }
@@ -156,14 +163,14 @@ export async function computeGrossMarginByCategory(data: {
   for (const row of revenueRows) {
     byCategory.set(row.category, {
       category: row.category,
-      revenue: Number(row.revenue),
+      revenue: toSatangOrZero(row.revenue),
       cogs: 0,
     });
   }
   for (const row of cogsRows) {
     const existing =
       byCategory.get(row.category) ?? { category: row.category, revenue: 0, cogs: 0 };
-    existing.cogs += Number(row.cogs);
+    existing.cogs += toSatangOrZero(row.cogs);
     byCategory.set(row.category, existing);
   }
 
@@ -172,9 +179,9 @@ export async function computeGrossMarginByCategory(data: {
       const grossMargin = row.revenue - row.cogs;
       return {
         category: row.category,
-        revenue: money(row.revenue),
-        cogs: money(row.cogs),
-        grossMargin: money(grossMargin),
+        revenue: fromSatang(row.revenue),
+        cogs: fromSatang(row.cogs),
+        grossMargin: fromSatang(grossMargin),
         grossMarginPct:
           row.revenue === 0 ? null : (grossMargin / row.revenue).toFixed(4),
       };
@@ -212,7 +219,8 @@ export async function computeCashForecast(data: {
   ]);
   const ar = summarizeAging(arRows);
   const ap = summarizeAging(apRows);
-  const expected30DayInflows = ar.current + ar.days1To30;
+  const expected30DayInflowsSatang =
+    thbToSatang(ar.current) + thbToSatang(ar.days1To30);
   const [payrollForecast] = await db
     .select({
       netPay: sql<string>`COALESCE(SUM(${paySlips.netPay}), 0)::numeric(14,2)`,
@@ -253,13 +261,18 @@ export async function computeCashForecast(data: {
         sql`(${fixedAssets.disposedAt} IS NULL OR make_date(${depreciationSchedule.periodYear}, ${depreciationSchedule.periodMonth}, 1) <= date_trunc('month', ${fixedAssets.disposedAt})::date)`
       )
     );
-  const scheduledPayrollOutflows = Number(payrollForecast?.netPay ?? 0);
-  const scheduledDepreciationExpense = Number(
-    depreciationForecast?.depreciation ?? 0
+  const scheduledPayrollOutflowsSatang = toSatangOrZero(payrollForecast?.netPay);
+  const scheduledDepreciationExpenseSatang = toSatangOrZero(
+    depreciationForecast?.depreciation
   );
-  const expected30DayOutflows = ap.current + ap.days1To30 + scheduledPayrollOutflows;
-  const projected30DayCash =
-    Number(cash?.cashBalance ?? 0) + expected30DayInflows - expected30DayOutflows;
+  const expected30DayOutflowsSatang =
+    thbToSatang(ap.current) +
+    thbToSatang(ap.days1To30) +
+    scheduledPayrollOutflowsSatang;
+  const projected30DayCashSatang =
+    toSatangOrZero(cash?.cashBalance) +
+    expected30DayInflowsSatang -
+    expected30DayOutflowsSatang;
 
   const periodStart = new Date(`${data.asOfDate}T00:00:00Z`);
   periodStart.setUTCDate(periodStart.getUTCDate() - 90);
@@ -280,23 +293,28 @@ export async function computeCashForecast(data: {
       )
     );
 
-  const netMonthlyBurn = Math.max(
+  // Keep the unrounded burn (in satang) for the runway ratio; round only for
+  // the canonical money string. x/3 for integer x can never land exactly on
+  // .5 satang, so Math.round matches the previous toFixed(2) semantics.
+  const netMonthlyBurnSatangExact = Math.max(
     0,
-    (Number(burn?.expenses ?? 0) - Number(burn?.income ?? 0)) / 3
+    (toSatangOrZero(burn?.expenses) - toSatangOrZero(burn?.income)) / 3
   );
   const runwayMonths =
-    netMonthlyBurn === 0 ? null : Number((projected30DayCash / netMonthlyBurn).toFixed(2));
+    netMonthlyBurnSatangExact === 0
+      ? null
+      : Number((projected30DayCashSatang / netMonthlyBurnSatangExact).toFixed(2));
 
   return {
-    cashBalance: money(Number(cash?.cashBalance ?? 0)),
-    expected30DayInflows: money(expected30DayInflows),
-    expected30DayOutflows: money(expected30DayOutflows),
-    scheduledPayrollOutflows: money(scheduledPayrollOutflows),
-    scheduledDepreciationExpense: money(scheduledDepreciationExpense),
-    projected30DayCash: money(projected30DayCash),
-    netMonthlyBurn: money(netMonthlyBurn),
+    cashBalance: fromSatang(toSatangOrZero(cash?.cashBalance)),
+    expected30DayInflows: fromSatang(expected30DayInflowsSatang),
+    expected30DayOutflows: fromSatang(expected30DayOutflowsSatang),
+    scheduledPayrollOutflows: fromSatang(scheduledPayrollOutflowsSatang),
+    scheduledDepreciationExpense: fromSatang(scheduledDepreciationExpenseSatang),
+    projected30DayCash: fromSatang(projected30DayCashSatang),
+    netMonthlyBurn: fromSatang(Math.round(netMonthlyBurnSatangExact)),
     runwayMonths,
-    arTotal: money(ar.total),
-    apTotal: money(ap.total),
+    arTotal: fromSatang(thbToSatang(ar.total)),
+    apTotal: fromSatang(thbToSatang(ap.total)),
   };
 }

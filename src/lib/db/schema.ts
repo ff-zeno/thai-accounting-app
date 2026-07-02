@@ -564,6 +564,9 @@ export const documents = pgTable(
     direction: documentDirectionEnum("direction").notNull(),
     category: text("category"),
     status: documentStatusEnum("status").notNull().default("draft"),
+    vatTreatment: text("vat_treatment"),
+    vatRate: numeric("vat_rate", { precision: 5, scale: 4 }),
+    vatEstablishmentId: uuid("vat_establishment_id").references(() => establishments.id),
     vatPeriodYear: integer("vat_period_year"),
     vatPeriodMonth: integer("vat_period_month"),
     vatPeriodOverrideReason: text("vat_period_override_reason"),
@@ -583,6 +586,14 @@ export const documents = pgTable(
   (t) => [
     index("doc_org_vendor_date").on(t.orgId, t.vendorId, t.issueDate),
     index("doc_org_status").on(t.orgId, t.status),
+    index("doc_org_vat_branch").on(t.orgId, t.vatEstablishmentId, t.vatTreatment),
+    check("documents_vat_treatment_check", sql`
+      ${t.vatTreatment} IS NULL
+      OR ${t.vatTreatment} IN ('no_vat', 'input_vat', 'output_vat', 'exempt', 'not_claimable', 'pp36')
+    `),
+    check("documents_vat_rate_range_check", sql`
+      ${t.vatRate} IS NULL OR (${t.vatRate} >= 0 AND ${t.vatRate} <= 1)
+    `),
   ]
 );
 
@@ -938,7 +949,7 @@ export const vatInputItems = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id),
-    establishmentId: uuid("establishment_id"),
+    establishmentId: uuid("establishment_id").references(() => establishments.id),
     taxTreatmentDecisionId: uuid("tax_treatment_decision_id").references(
       () => taxTreatmentDecisions.id
     ),
@@ -1010,7 +1021,10 @@ export const vatInputItems = pgTable(
       .where(sql`${t.deletedAt} IS NULL AND ${t.sourceDocumentLineId} IS NULL`),
     check("vat_input_amounts_nonnegative_check", sql`${t.baseAmount} >= 0 AND ${t.vatAmount} >= 0`),
     check("vat_input_rate_range_check", sql`${t.vatRate} >= 0 AND ${t.vatRate} <= 1`),
-    check("vat_input_establishment_null_check", sql`${t.establishmentId} IS NULL`),
+    check("vat_input_claimable_establishment_check", sql`
+      ${t.status} NOT IN ('claimable', 'allocated_to_draft', 'filed')
+      OR ${t.establishmentId} IS NOT NULL
+    `),
     check(
       "vat_input_snapshot_hash_check",
       sql`${t.sourceSnapshotHash} ~ '^[0-9a-f]{64}$'`
@@ -1042,7 +1056,7 @@ export const vatOutputItems = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id),
-    establishmentId: uuid("establishment_id"),
+    establishmentId: uuid("establishment_id").references(() => establishments.id),
     taxTreatmentDecisionId: uuid("tax_treatment_decision_id").references(
       () => taxTreatmentDecisions.id
     ),
@@ -1098,7 +1112,10 @@ export const vatOutputItems = pgTable(
       .where(sql`${t.deletedAt} IS NULL AND ${t.sourceDocumentId} IS NOT NULL AND ${t.sourceDocumentLineId} IS NULL`),
     check("vat_output_amounts_nonnegative_check", sql`${t.baseAmount} >= 0 AND ${t.vatAmount} >= 0`),
     check("vat_output_rate_range_check", sql`${t.vatRate} >= 0 AND ${t.vatRate} <= 1`),
-    check("vat_output_establishment_null_check", sql`${t.establishmentId} IS NULL`),
+    check("vat_output_reportable_establishment_check", sql`
+      ${t.status} NOT IN ('reportable', 'allocated_to_draft', 'filed')
+      OR ${t.establishmentId} IS NOT NULL
+    `),
     check(
       "vat_output_snapshot_hash_check",
       sql`${t.sourceSnapshotHash} ~ '^[0-9a-f]{64}$'`
@@ -1122,7 +1139,7 @@ export const pp36Obligations = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id),
-    establishmentId: uuid("establishment_id"),
+    establishmentId: uuid("establishment_id").references(() => establishments.id),
     taxTreatmentDecisionId: uuid("tax_treatment_decision_id").references(
       () => taxTreatmentDecisions.id
     ),
@@ -1272,7 +1289,7 @@ export const vatFilings = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id),
-    establishmentId: uuid("establishment_id"),
+    establishmentId: uuid("establishment_id").references(() => establishments.id),
     filingType: vatFilingTypeEnum("filing_type").notNull(),
     periodYear: integer("period_year").notNull(),
     periodMonth: integer("period_month").notNull(),
@@ -1325,7 +1342,11 @@ export const vatFilings = pgTable(
       .where(sql`${t.deletedAt} IS NULL`),
     check("vat_filings_period_month_check", sql`${t.periodMonth} >= 1 AND ${t.periodMonth} <= 12`),
     check("vat_filings_version_positive_check", sql`${t.version} >= 1`),
-    check("vat_filings_establishment_null_check", sql`${t.establishmentId} IS NULL`),
+    check("vat_filings_pp30_establishment_check", sql`
+      ${t.filingType} <> 'pp30'
+      OR ${t.filingKind} <> 'ordinary'
+      OR ${t.establishmentId} IS NOT NULL
+    `),
     check(
       "vat_filings_refund_requested_amount_check",
       sql`${t.refundRequested} = false OR ${t.refundAmount} > 0`
@@ -1424,7 +1445,7 @@ export const vatCreditCarryforwards = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id),
-    establishmentId: uuid("establishment_id"),
+    establishmentId: uuid("establishment_id").references(() => establishments.id),
     sourcePp30FilingId: uuid("source_pp30_filing_id")
       .notNull()
       .references(() => vatFilings.id),
@@ -1452,10 +1473,7 @@ export const vatCreditCarryforwards = pgTable(
     ),
     index("vat_credit_carryforwards_available").on(t.orgId, t.status),
     check("vat_credit_carryforward_period_month_check", sql`${t.creditOriginPeriodMonth} >= 1 AND ${t.creditOriginPeriodMonth} <= 12`),
-    check(
-      "vat_credit_carryforward_establishment_null_check",
-      sql`${t.establishmentId} IS NULL`
-    ),
+    check("vat_credit_carryforward_establishment_check", sql`${t.establishmentId} IS NOT NULL`),
     check("vat_credit_carryforward_amount_check", sql`${t.amount} >= 0 AND ${t.remainingAmount} >= 0 AND ${t.remainingAmount} <= ${t.amount}`),
   ]
 );
@@ -1878,6 +1896,8 @@ export const salesTransactions = pgTable(
     vatAmount: numeric("vat_amount", { precision: 14, scale: 2 }).notNull(),
     vatRate: numeric("vat_rate", { precision: 5, scale: 4 })
       .notNull()
+      // Safety net only — runtime writes resolve the effective-dated rate via
+      // getVatRate() (src/lib/db/queries/tax-config.ts).
       .default("0.0700"),
     discountAmount: numeric("discount_amount", { precision: 14, scale: 2 })
       .notNull()
@@ -3811,7 +3831,10 @@ export const taxConfig = pgTable(
     updatedAt,
     // NO deletedAt — config managed via effective dates
   },
-  (t) => [unique("tax_config_key").on(t.key)]
+  // Effective-dated: one row per (key, effectiveFrom) window so rate history
+  // survives changes (e.g. the 7% VAT window ending 2026-09-30) and
+  // back-period filings can resolve the rate that applied at the time.
+  (t) => [unique("tax_config_key_effective_from").on(t.key, t.effectiveFrom)]
 );
 
 export const thaiBusinessCalendar = pgTable(

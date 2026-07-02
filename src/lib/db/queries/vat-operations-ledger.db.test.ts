@@ -101,6 +101,7 @@ beforeEach(async () => {
       DELETE FROM vendors;
       DELETE FROM org_memberships;
       DELETE FROM users;
+      DELETE FROM establishments;
       DELETE FROM organizations;
     `);
     await client.query("COMMIT");
@@ -119,6 +120,16 @@ async function createVatSource() {
       name: "VAT Helper Org",
       taxId: "1234567890123",
       branchNumber: "00000",
+    })
+    .returning();
+  const [establishment] = await testDb
+    .insert(schema.establishments)
+    .values({
+      orgId: org.id,
+      branchNumber: "00000",
+      nameEn: "Head Office",
+      isHeadOffice: true,
+      vatRegistered: true,
     })
     .returning();
   const [vendor] = await testDb
@@ -160,7 +171,7 @@ async function createVatSource() {
     })
     .returning();
 
-  return { org, vendor, doc, line };
+  return { org, establishment, vendor, doc, line };
 }
 
 describe("VAT operations ledger helpers", () => {
@@ -282,7 +293,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("lists PP30 input VAT candidates oldest eligible and expiry-sensitive first with explicit expiry only", async () => {
-    const { org, vendor } = await createVatSource();
+    const { org, establishment, vendor } = await createVatSource();
 
     async function createClaimableInput(
       documentNumber: string,
@@ -341,6 +352,7 @@ describe("VAT operations ledger helpers", () => {
     const candidates = await listClaimableVatInputItemsForPp30Draft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       periodYear: 2026,
       periodMonth: 3,
     });
@@ -352,7 +364,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("derives draft-period dashboard totals from ledger queues, not legacy rollups", async () => {
-    const { org, vendor } = await createVatSource();
+    const { org, establishment, vendor } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -404,6 +416,7 @@ describe("VAT operations ledger helpers", () => {
     const carrySourceFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 2,
@@ -535,7 +548,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("allocates claimable input VAT candidates to a draft PP30 filing transactionally", async () => {
-    const { org, vendor } = await createVatSource();
+    const { org, establishment, vendor } = await createVatSource();
 
     async function createInput(documentNumber: string, vatAmount: string) {
       const [doc] = await testDb
@@ -589,6 +602,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -702,7 +716,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("does not allocate input VAT to soft-deleted draft filings", async () => {
-    const { org } = await createVatSource();
+    const { org, establishment } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -715,6 +729,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -735,7 +750,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("rejects truncated PP30 input allocation before mutating candidate items", async () => {
-    const { org, vendor } = await createVatSource();
+    const { org, establishment, vendor } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -789,6 +804,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -858,7 +874,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("uses filing helpers while preserving immutability and payment idempotency guards", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -965,6 +981,7 @@ describe("VAT operations ledger helpers", () => {
     const pp30Filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 5,
@@ -1010,7 +1027,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("files PP30 drafts as immutable snapshots and creates credit carryforward separately from unclaimed VAT", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -1041,6 +1058,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -1406,7 +1424,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("allows unclaimed input VAT to be claimed in a later PP30 after the eligible source period is locked", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -1437,6 +1455,7 @@ describe("VAT operations ledger helpers", () => {
     const mayFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 5,
@@ -1452,6 +1471,7 @@ describe("VAT operations ledger helpers", () => {
     const juneFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 6,
@@ -1485,7 +1505,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("allocates reportable output VAT into matching PP30 draft periods only", async () => {
-    const { org, doc } = await createVatSource();
+    const { org, establishment, doc } = await createVatSource();
     const other = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
@@ -1558,6 +1578,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 4,
@@ -1640,7 +1661,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("allocates filed PP30 credit carryforwards into later PP30 drafts without mixing them with input VAT claims", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -1671,6 +1692,7 @@ describe("VAT operations ledger helpers", () => {
     const sourceFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -1692,6 +1714,7 @@ describe("VAT operations ledger helpers", () => {
     const targetFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 4,
@@ -1770,7 +1793,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("allocates paid PP36 obligations as later PP30 reclaim lines and consumes them only on filing", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -1852,6 +1875,7 @@ describe("VAT operations ledger helpers", () => {
     const pp30Filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 5,
@@ -1966,7 +1990,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("builds a full PP30 draft from output, input, PP36 reclaim, and carryforward queues", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -1998,6 +2022,7 @@ describe("VAT operations ledger helpers", () => {
     const sourceCreditFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -2153,6 +2178,7 @@ describe("VAT operations ledger helpers", () => {
     const built = await buildPp30VatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       periodYear: 2026,
       periodMonth: 5,
       actorId: actor.id,
@@ -2177,6 +2203,7 @@ describe("VAT operations ledger helpers", () => {
       buildPp30VatFilingDraft({
         tx: testDb,
         orgId: org.id,
+        establishmentId: establishment.id,
         periodYear: 2026,
         periodMonth: 5,
         actorId: actor.id,
@@ -2222,6 +2249,7 @@ describe("VAT operations ledger helpers", () => {
     const rebuilt = await buildPp30VatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       periodYear: 2026,
       periodMonth: 5,
       actorId: actor.id,
@@ -2250,7 +2278,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("keeps PP30 credit carryforward allocation tenant-scoped and draft-only", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const other = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
@@ -2264,6 +2292,7 @@ describe("VAT operations ledger helpers", () => {
     const sourceFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -2271,6 +2300,7 @@ describe("VAT operations ledger helpers", () => {
     const otherSourceFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: other.org.id,
+      establishmentId: other.establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -2278,6 +2308,7 @@ describe("VAT operations ledger helpers", () => {
     await testDb.insert(schema.vatCreditCarryforwards).values([
       {
         orgId: org.id,
+        establishmentId: establishment.id,
         sourcePp30FilingId: sourceFiling.id,
         creditOriginPeriodYear: 2026,
         creditOriginPeriodMonth: 3,
@@ -2287,6 +2318,7 @@ describe("VAT operations ledger helpers", () => {
       },
       {
         orgId: other.org.id,
+        establishmentId: other.establishment.id,
         sourcePp30FilingId: otherSourceFiling.id,
         creditOriginPeriodYear: 2026,
         creditOriginPeriodMonth: 3,
@@ -2298,6 +2330,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 4,
@@ -2394,7 +2427,7 @@ describe("VAT operations ledger helpers", () => {
   });
 
   it("applies only the PP30 net need from available carryforwards", async () => {
-    const { org, doc } = await createVatSource();
+    const { org, establishment, doc } = await createVatSource();
     const [actor] = await testDb
       .insert(schema.users)
       .values({
@@ -2407,12 +2440,14 @@ describe("VAT operations ledger helpers", () => {
     const sourceFiling = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
     });
     await testDb.insert(schema.vatCreditCarryforwards).values({
       orgId: org.id,
+      establishmentId: establishment.id,
       sourcePp30FilingId: sourceFiling.id,
       creditOriginPeriodYear: 2026,
       creditOriginPeriodMonth: 3,
@@ -2423,6 +2458,7 @@ describe("VAT operations ledger helpers", () => {
     const filing = await createVatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 4,

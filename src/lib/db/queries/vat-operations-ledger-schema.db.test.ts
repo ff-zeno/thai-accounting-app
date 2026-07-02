@@ -57,6 +57,7 @@ beforeEach(async () => {
       DELETE FROM transactions;
       DELETE FROM bank_accounts;
       DELETE FROM vendors;
+      DELETE FROM establishments;
       DELETE FROM organizations;
     `);
     await client.query("COMMIT");
@@ -75,6 +76,16 @@ async function createVatSource() {
       name: "VAT Ops Org",
       taxId: "1234567890123",
       branchNumber: "00000",
+    })
+    .returning();
+  const [establishment] = await testDb
+    .insert(schema.establishments)
+    .values({
+      orgId: org.id,
+      branchNumber: "00000",
+      nameEn: "Head Office",
+      isHeadOffice: true,
+      vatRegistered: true,
     })
     .returning();
   const [vendor] = await testDb
@@ -115,7 +126,7 @@ async function createVatSource() {
     })
     .returning();
 
-  return { org, vendor, doc, line };
+  return { org, establishment, vendor, doc, line };
 }
 
 describe("VAT operations ledger dark schema", () => {
@@ -140,7 +151,7 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("requires full or electronic tax invoice evidence before input VAT is claimable", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
 
     const invalidCases = [
       {
@@ -169,6 +180,7 @@ describe("VAT operations ledger dark schema", () => {
       await expectDbError(
         testDb.insert(schema.vatInputItems).values({
           orgId: org.id,
+          establishmentId: establishment.id,
           sourceDocumentId: doc.id,
           vendorId: vendor.id,
           taxInvoiceSubtype: invalid.taxInvoiceSubtype,
@@ -188,6 +200,7 @@ describe("VAT operations ledger dark schema", () => {
     await expect(
       testDb.insert(schema.vatInputItems).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: doc.id,
         vendorId: vendor.id,
         taxInvoiceSubtype: "e_tax_invoice",
@@ -204,7 +217,7 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("enforces universal amount, rate, and period constraints", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
 
     await expectDbError(
       testDb.insert(schema.vatInputItems).values({
@@ -225,6 +238,7 @@ describe("VAT operations ledger dark schema", () => {
     await expectDbError(
       testDb.insert(schema.vatFilings).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 13,
@@ -234,11 +248,12 @@ describe("VAT operations ledger dark schema", () => {
     );
   });
 
-  it("allows only one open ordinary draft per org-wide VAT filing period", async () => {
-    const { org } = await createVatSource();
+  it("allows only one open ordinary draft per establishment VAT filing period", async () => {
+    const { org, establishment } = await createVatSource();
 
     await testDb.insert(schema.vatFilings).values({
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 3,
@@ -249,6 +264,7 @@ describe("VAT operations ledger dark schema", () => {
     await expectDbError(
       testDb.insert(schema.vatFilings).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -266,6 +282,7 @@ describe("VAT operations ledger dark schema", () => {
     await expectDbError(
       testDb.insert(schema.vatFilings).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -274,6 +291,31 @@ describe("VAT operations ledger dark schema", () => {
       }),
       /vat_filings_open_ordinary_unique/
     );
+
+    // Branch-scoped PP30: the same period is open per establishment, so a
+    // different VAT branch may hold its own ordinary draft concurrently.
+    const [branch] = await testDb
+      .insert(schema.establishments)
+      .values({
+        orgId: org.id,
+        branchNumber: "00001",
+        nameEn: "Branch 1",
+        isHeadOffice: false,
+        vatRegistered: true,
+      })
+      .returning();
+
+    await expect(
+      testDb.insert(schema.vatFilings).values({
+        orgId: org.id,
+        establishmentId: branch.id,
+        filingType: "pp30",
+        periodYear: 2026,
+        periodMonth: 3,
+        filingKind: "ordinary",
+        status: "draft",
+      })
+    ).resolves.toBeDefined();
 
     await expect(
       testDb.insert(schema.vatFilings).values({
@@ -288,6 +330,7 @@ describe("VAT operations ledger dark schema", () => {
 
     await testDb.insert(schema.vatFilings).values({
       orgId: org.id,
+      establishmentId: establishment.id,
       filingType: "pp30",
       periodYear: 2026,
       periodMonth: 4,
@@ -298,6 +341,7 @@ describe("VAT operations ledger dark schema", () => {
     await expect(
       testDb.insert(schema.vatFilings).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 4,
@@ -554,11 +598,12 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("enforces filing-line source shape and filed provenance links", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -583,6 +628,7 @@ describe("VAT operations ledger dark schema", () => {
     await expectDbError(
       testDb.insert(schema.vatInputItems).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: doc.id,
         vendorId: vendor.id,
         taxInvoiceNo: "FILED-WITHOUT-LINE",
@@ -601,6 +647,7 @@ describe("VAT operations ledger dark schema", () => {
     await expectDbError(
       testDb.insert(schema.vatOutputItems).values({
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: doc.id,
         customerId: vendor.id,
         taxInvoiceNo: "OUT-FILED-WITHOUT-LINE",
@@ -644,11 +691,12 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("blocks VAT filing and filing-line writes in locked periods", async () => {
-    const { org } = await createVatSource();
+    const { org, establishment } = await createVatSource();
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -656,14 +704,28 @@ describe("VAT operations ledger dark schema", () => {
       })
       .returning();
 
-    await testDb.insert(schema.periodLocks).values({
-      orgId: org.id,
-      domain: "vat_pp30",
-      periodYear: 2026,
-      periodMonth: 3,
-      lockedByUserId: "tester",
-      lockReason: "pp30 filed",
-    });
+    // check_period_lock matches establishment exactly (NULL-coalesced
+    // equality): the org-wide lock covers org-level writes, the
+    // branch-scoped lock covers the branch-scoped PP30 filing's lines.
+    await testDb.insert(schema.periodLocks).values([
+      {
+        orgId: org.id,
+        domain: "vat_pp30",
+        periodYear: 2026,
+        periodMonth: 3,
+        lockedByUserId: "tester",
+        lockReason: "pp30 filed",
+      },
+      {
+        orgId: org.id,
+        establishmentId: establishment.id,
+        domain: "vat_pp30",
+        periodYear: 2026,
+        periodMonth: 3,
+        lockedByUserId: "tester",
+        lockReason: "pp30 filed",
+      },
+    ]);
 
     await expectDbError(
       testDb.insert(schema.vatFilings).values({
@@ -702,11 +764,12 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("blocks mutation of filed VAT filing lines and filed filing identity", async () => {
-    const { org } = await createVatSource();
+    const { org, establishment } = await createVatSource();
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -786,11 +849,12 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("enforces VAT amendment chain period and type integrity", async () => {
-    const { org } = await createVatSource();
+    const { org, establishment } = await createVatSource();
     const [original] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -827,6 +891,7 @@ describe("VAT operations ledger dark schema", () => {
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 5,
@@ -849,7 +914,7 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("enforces PP36 exact-period and paid-before-reclaim invariants", async () => {
-    const { org, vendor, doc } = await createVatSource();
+    const { org, establishment, vendor, doc } = await createVatSource();
     const [pp36Filing] = await testDb
       .insert(schema.vatFilings)
       .values({
@@ -877,6 +942,7 @@ describe("VAT operations ledger dark schema", () => {
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 4,
@@ -958,11 +1024,12 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("blocks mutation of source records bound to allocated VAT items", async () => {
-    const { org, vendor, doc, line } = await createVatSource();
+    const { org, establishment, vendor, doc, line } = await createVatSource();
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -1035,6 +1102,7 @@ describe("VAT operations ledger dark schema", () => {
 
     await testDb.insert(schema.vatInputItems).values({
       orgId: org.id,
+      establishmentId: establishment.id,
       taxTreatmentDecisionId: decision.id,
       sourceDocumentId: doc.id,
       sourceDocumentLineId: line.id,
@@ -1111,11 +1179,12 @@ describe("VAT operations ledger dark schema", () => {
   });
 
   it("blocks source mutation when bound through allocated output VAT", async () => {
-    const { org, vendor, doc, line } = await createVatSource();
+    const { org, establishment, vendor, doc, line } = await createVatSource();
     const [filing] = await testDb
       .insert(schema.vatFilings)
       .values({
         orgId: org.id,
+        establishmentId: establishment.id,
         filingType: "pp30",
         periodYear: 2026,
         periodMonth: 3,
@@ -1145,6 +1214,7 @@ describe("VAT operations ledger dark schema", () => {
 
     await testDb.insert(schema.vatOutputItems).values({
       orgId: org.id,
+      establishmentId: establishment.id,
       sourceDocumentId: doc.id,
       sourceDocumentLineId: line.id,
       sourceTransactionId: txn.id,

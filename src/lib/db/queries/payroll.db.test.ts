@@ -824,6 +824,263 @@ describe("payroll foundation", () => {
     );
   });
 
+  it("builds PND.1 Kor from all non-amendment monthly filings regardless of status, excluding amendments and unapproved pay runs", async () => {
+    const org = await createTestOrg(testDb);
+    await seedPayrollTaxConfig();
+    await createEmployee({
+      orgId: org.id,
+      fullNameEn: "Mixed Status Annual",
+      taxId: "1234567890123",
+      position: "Manager",
+      startDate: "2026-01-01",
+    });
+
+    // January: approved pay run with an accepted monthly PND.1 filing.
+    const janRun = await createDraftPayRun({
+      orgId: org.id,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      payDate: "2026-01-31",
+      defaultGrossSalary: "50000.00",
+    });
+    await approvePayRun({ orgId: org.id, payRunId: janRun.payRun.id });
+    const janPnd1 = await buildPnd1Draft({ orgId: org.id, taxMonth: "2026-01" });
+    await markPayrollPndFilingSubmitted({
+      orgId: org.id,
+      filingId: janPnd1.filing.id,
+      rdReferenceNumber: "RD-KOR-MIX-JAN",
+    });
+    await markPayrollPndFilingAccepted({ orgId: org.id, filingId: janPnd1.filing.id });
+
+    // February: approved pay run whose monthly PND.1 filing stays in draft status.
+    const febRun = await createDraftPayRun({
+      orgId: org.id,
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      payDate: "2026-02-28",
+      defaultGrossSalary: "50000.00",
+    });
+    await approvePayRun({ orgId: org.id, payRunId: febRun.payRun.id });
+    const febPnd1 = await buildPnd1Draft({ orgId: org.id, taxMonth: "2026-02" });
+    expect(febPnd1.filing.filingStatus).toBe("draft");
+
+    // Amendment monthly filing with inflated totals: must be excluded from the
+    // Kor cross-check sum (the build would fail the WHT reconciliation otherwise).
+    await testDb.insert(schema.pndFilings).values({
+      orgId: org.id,
+      establishmentId: janPnd1.filing.establishmentId,
+      formType: "PND1",
+      taxPeriod: "2026-01",
+      isAmendment: true,
+      amendsFilingId: janPnd1.filing.id,
+      amendmentReason: "inflated amendment that must not be aggregated",
+      totalPayees: 1,
+      totalGrossAmount: "999999.00",
+      totalWhtAmount: "999999.00",
+    });
+
+    // March: pay run left in draft status — its slips must not be aggregated.
+    await createDraftPayRun({
+      orgId: org.id,
+      periodStart: "2026-03-01",
+      periodEnd: "2026-03-31",
+      payDate: "2026-03-31",
+      defaultGrossSalary: "50000.00",
+    });
+
+    const expectedWht = (
+      Number(janPnd1.filing.totalWhtAmount) + Number(febPnd1.filing.totalWhtAmount)
+    ).toFixed(2);
+
+    // Succeeding at all proves the draft February filing is counted in the
+    // monthly cross-check (the builder has no filing-status filter) and that
+    // the amendment and the unapproved March pay run are both excluded —
+    // either inclusion would trip the WHT reconciliation guard.
+    const annual = await buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 });
+
+    expect(annual.lineCount).toBe(2);
+    expect(annual.filing.totalPayees).toBe(1);
+    expect(annual.filing.totalGrossAmount).toBe("100000.00");
+    expect(annual.filing.totalWhtAmount).toBe(expectedWht);
+    expect(annual.filing.payload).toMatchObject({
+      monthlyPnd1TotalWht: expectedWht,
+      lines: [
+        {
+          taxpayerId: "1234567890123",
+          months: ["2026-01", "2026-02"],
+          grossAmount: "100000.00",
+          pitWht: expectedWht,
+        },
+      ],
+    });
+  });
+
+  it("rebuilds PND.1 Kor with monthly corrections only after the stale draft is removed", async () => {
+    const org = await createTestOrg(testDb);
+    await seedPayrollTaxConfig();
+    await createEmployee({
+      orgId: org.id,
+      fullNameEn: "Corrected Annual",
+      taxId: "1234567890123",
+      position: "Manager",
+      startDate: "2026-01-01",
+    });
+
+    const janRun = await createDraftPayRun({
+      orgId: org.id,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      payDate: "2026-01-31",
+      defaultGrossSalary: "50000.00",
+    });
+    await approvePayRun({ orgId: org.id, payRunId: janRun.payRun.id });
+    const janPnd1 = await buildPnd1Draft({ orgId: org.id, taxMonth: "2026-01" });
+    await markPayrollPndFilingSubmitted({
+      orgId: org.id,
+      filingId: janPnd1.filing.id,
+      rdReferenceNumber: "RD-KOR-REBUILD-JAN",
+    });
+    await markPayrollPndFilingAccepted({ orgId: org.id, filingId: janPnd1.filing.id });
+
+    const firstKor = await buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 });
+    expect(firstKor.filing.totalWhtAmount).toBe(janPnd1.filing.totalWhtAmount);
+    expect(firstKor.filing.payload).toMatchObject({
+      lines: [{ months: ["2026-01"] }],
+    });
+
+    // Correction arrives after the Kor draft was built: a February pay run is
+    // approved and filed monthly.
+    const febRun = await createDraftPayRun({
+      orgId: org.id,
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+      payDate: "2026-02-28",
+      defaultGrossSalary: "50000.00",
+    });
+    await approvePayRun({ orgId: org.id, payRunId: febRun.payRun.id });
+    const febPnd1 = await buildPnd1Draft({ orgId: org.id, taxMonth: "2026-02" });
+
+    // There is no in-place rebuild or versioning: the builder refuses while any
+    // non-amendment Kor row exists, even though it is now stale.
+    await expect(buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 })).rejects.toThrow(
+      /already exists/
+    );
+
+    // No production rebuild/void API exists for Kor drafts — removing the stale
+    // draft directly is the only path to a rebuild today.
+    await testDb
+      .delete(schema.pndFilings)
+      .where(sql`${schema.pndFilings.id} = ${firstKor.filing.id}`);
+
+    const expectedWht = (
+      Number(janPnd1.filing.totalWhtAmount) + Number(febPnd1.filing.totalWhtAmount)
+    ).toFixed(2);
+    const rebuiltKor = await buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 });
+
+    expect(rebuiltKor.filing.id).not.toBe(firstKor.filing.id);
+    expect(rebuiltKor.filing.totalGrossAmount).toBe("100000.00");
+    expect(rebuiltKor.filing.totalWhtAmount).toBe(expectedWht);
+    expect(rebuiltKor.filing.payload).toMatchObject({
+      monthlyPnd1TotalWht: expectedWht,
+      lines: [{ months: ["2026-01", "2026-02"] }],
+    });
+
+    // A correction applied only to a monthly filing total (without matching pay
+    // slips) is rejected by the WHT reconciliation guard on rebuild.
+    await testDb
+      .delete(schema.pndFilings)
+      .where(sql`${schema.pndFilings.id} = ${rebuiltKor.filing.id}`);
+    await testDb
+      .update(schema.pndFilings)
+      .set({ totalWhtAmount: "0.01" })
+      .where(sql`${schema.pndFilings.id} = ${febPnd1.filing.id}`);
+
+    await expect(buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 })).rejects.toThrow(
+      /does not match/
+    );
+  });
+
+  it("blocks duplicate PND.1 Kor while any non-amendment filing exists for the year, even after acceptance", async () => {
+    const org = await createTestOrg(testDb);
+    await seedPayrollTaxConfig();
+    await createEmployee({
+      orgId: org.id,
+      fullNameEn: "Duplicate Annual",
+      taxId: "1234567890123",
+      position: "Manager",
+      startDate: "2026-01-01",
+    });
+
+    const run = await createDraftPayRun({
+      orgId: org.id,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      payDate: "2026-01-31",
+      defaultGrossSalary: "50000.00",
+    });
+    await approvePayRun({ orgId: org.id, payRunId: run.payRun.id });
+    await buildPnd1Draft({ orgId: org.id, taxMonth: "2026-01" });
+    const kor = await buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 });
+
+    // The guard ignores filing status: a draft Kor already blocks...
+    await expect(buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 })).rejects.toThrow(
+      /PND\.1 Kor draft already exists for this year/
+    );
+
+    // ...and so does an accepted one.
+    await markPayrollPndFilingSubmitted({
+      orgId: org.id,
+      filingId: kor.filing.id,
+      rdReferenceNumber: "RD-KOR-DUP-001",
+    });
+    await markPayrollPndFilingAccepted({ orgId: org.id, filingId: kor.filing.id });
+    await expect(buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 })).rejects.toThrow(
+      /already exists/
+    );
+
+    // Amendment Kor rows neither satisfy nor trigger the guard: with the
+    // amendment present the original still blocks...
+    await testDb.insert(schema.pndFilings).values({
+      orgId: org.id,
+      establishmentId: kor.filing.establishmentId,
+      formType: "PND1KOR",
+      taxPeriod: "2026",
+      isAmendment: true,
+      amendsFilingId: kor.filing.id,
+      amendmentReason: "amendment row must not affect the duplicate guard",
+      totalPayees: 1,
+      totalGrossAmount: kor.filing.totalGrossAmount,
+      totalWhtAmount: kor.filing.totalWhtAmount,
+    });
+    await expect(buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 })).rejects.toThrow(
+      /already exists/
+    );
+
+    // ...and once only the amendment remains, a fresh non-amendment draft can
+    // be built again. Detach the amendment's FK before removing the original
+    // (amends_filing_id would otherwise block the delete).
+    await testDb
+      .update(schema.pndFilings)
+      .set({ amendsFilingId: null })
+      .where(sql`${schema.pndFilings.amendsFilingId} = ${kor.filing.id}`);
+    await testDb
+      .delete(schema.pndFilings)
+      .where(sql`${schema.pndFilings.id} = ${kor.filing.id}`);
+    const rebuilt = await buildPnd1KorDraft({ orgId: org.id, taxYear: 2026 });
+    expect(rebuilt.filing.isAmendment).toBe(false);
+    expect(rebuilt.filing.taxPeriod).toBe("2026");
+
+    const korRows = await testDb
+      .select()
+      .from(schema.pndFilings)
+      .where(sql`
+        ${schema.pndFilings.orgId} = ${org.id}
+        AND ${schema.pndFilings.formType} = 'PND1KOR'
+      `);
+    expect(korRows).toHaveLength(2);
+    expect(korRows.filter((row) => !row.isAmendment)).toHaveLength(1);
+  });
+
   it("posts approved pay runs to GL with payroll liabilities", async () => {
     const org = await createTestOrg(testDb);
     await seedPayrollTaxConfig();

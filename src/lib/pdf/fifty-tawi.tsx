@@ -22,6 +22,7 @@ import {
   formatThaiDate,
   formatThaiDateShort,
 } from "@/lib/utils/thai-date";
+import { formatAmount } from "@/lib/utils/money";
 
 // ---------------------------------------------------------------------------
 // Font registration
@@ -87,16 +88,6 @@ export interface FiftyTawiData {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatAmount(value: string | null): string {
-  if (!value) return "0.00";
-  const num = parseFloat(value);
-  if (isNaN(num)) return "0.00";
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function formatBranch(branchNumber: string | null | undefined): string {
   if (!branchNumber || branchNumber === "00000") {

@@ -15,10 +15,10 @@ import {
   type FilingStatus,
 } from "@/lib/tax/filing-calendar";
 import {
-  DEFAULT_TAX_CONFIG,
   pp30EfilingDeadline,
   pp36Deadline,
 } from "@/lib/tax/filing-deadlines";
+import { getFilingDeadlineConfig } from "@/lib/db/queries/tax-config";
 import {
   Table,
   TableHeader,
@@ -174,6 +174,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   }
 
   const now = new Date();
+  const deadlineConfig = await getFilingDeadlineConfig();
 
   // Build a 12-row grid across VAT and WHT form types.
   const calendarData = Array.from({ length: 12 }, (_, i) => {
@@ -182,8 +183,8 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       if (column.key === "pp30" || column.key === "pp36") {
         const deadline =
           column.key === "pp30"
-            ? pp30EfilingDeadline(selectedYear, month, DEFAULT_TAX_CONFIG).deadline
-            : pp36Deadline(selectedYear, month, DEFAULT_TAX_CONFIG).deadline;
+            ? pp30EfilingDeadline(selectedYear, month, deadlineConfig).deadline
+            : pp36Deadline(selectedYear, month, deadlineConfig).deadline;
         const filing = vatFilingsByKey.get(`${month}-${column.key}`);
         return {
           formType: column.key,

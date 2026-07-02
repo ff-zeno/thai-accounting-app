@@ -1,7 +1,7 @@
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { transactions, documents, vendors, payments } from "@/lib/db/schema";
-import { and, eq, isNull, inArray, desc } from "drizzle-orm";
+import { and, eq, gte, isNull, inArray, lte, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { findMatches, type MatchResult } from "@/lib/reconciliation/matcher";
 import {
@@ -53,6 +53,32 @@ export const matchImportedTransactions = inngest.createFunction(
 
     // Step 2: Try deterministic matching — get confirmed docs without matches
     const deterministicResults = await step.run("deterministic-matching", async () => {
+      // Anchor the candidate-document window to the imported transactions'
+      // dates. Without this, a backdated statement import can never match:
+      // the newest-50 cut below would only ever see recently issued documents.
+      const importedTxns = await db
+        .select({ date: transactions.date })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.orgId, orgId),
+            isNull(transactions.deletedAt),
+            inArray(transactions.id, transactionIds),
+          ),
+        );
+      if (importedTxns.length === 0) return 0;
+      const txnDates = importedTxns.map((t) => t.date).sort();
+      const shiftDays = (iso: string, days: number) => {
+        const d = new Date(`${iso}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().split("T")[0];
+      };
+      // Documents are matched on payment date when present, issue date
+      // otherwise — pad generously so a payment a month after issue still
+      // lands inside the matcher's own ±14-day window.
+      const windowStart = shiftDays(txnDates[0], -45);
+      const windowEnd = shiftDays(txnDates[txnDates.length - 1], 45);
+
       // Get confirmed documents without active matches
       const matchedDocIds = db
         .selectDistinct({ documentId: reconciliationMatches.documentId })
@@ -94,6 +120,8 @@ export const matchImportedTransactions = inngest.createFunction(
             eq(documents.orgId, orgId),
             eq(documents.status, "confirmed"),
             isNull(documents.deletedAt),
+            gte(documents.issueDate, windowStart),
+            lte(documents.issueDate, windowEnd),
             sql`${documents.id} NOT IN (${matchedDocIds})`,
           ),
         )

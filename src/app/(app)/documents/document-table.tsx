@@ -44,6 +44,7 @@ import {
   updateDocumentSidebarAction,
   getPendingPipelineCountAction,
   bulkDeleteDocumentsAction,
+  bulkUpdateDocumentVatAction,
 } from "./actions";
 import { retryExtractionAction } from "./[docId]/review/actions";
 import { DocumentDetailSidebar } from "./document-detail-sidebar";
@@ -73,6 +74,11 @@ export interface DocumentRow {
   vendorDisplayAlias: string | null;
   fileCount: number;
   maxWhtRate: string | null;
+  vatTreatment: string | null;
+  vatRate: string | null;
+  vatEstablishmentId: string | null;
+  vatPeriodYear: number | null;
+  vatPeriodMonth: number | null;
   reconMatchCount: number;
   reconMatchedTotal: string | null;
   pipelineStatus: string | null;
@@ -81,6 +87,13 @@ export interface DocumentRow {
 export interface FilterOptions {
   categories: string[];
   vendors: { id: string; name: string }[];
+  vatBranches?: {
+    id: string;
+    branchNumber: string;
+    nameTh: string | null;
+    nameEn: string | null;
+    isHeadOffice: boolean;
+  }[];
 }
 
 interface Props {
@@ -89,6 +102,8 @@ interface Props {
   initialHasMore: boolean;
   initialNextCursor: { issueDate: string | null; id: string } | null;
   filterOptions: FilterOptions;
+  /** Effective-dated statutory VAT rate resolved server-side (tax_config). */
+  defaultVatRate: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -328,6 +343,7 @@ export function DocumentTable({
   initialHasMore,
   initialNextCursor,
   filterOptions,
+  defaultVatRate,
 }: Props) {
   const t = useTranslations("documents");
   const tc = useTranslations("common");
@@ -351,6 +367,8 @@ export function DocumentTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkVatBranchId, setBulkVatBranchId] = useState("");
+  const [isBulkVatUpdating, setIsBulkVatUpdating] = useState(false);
 
   useEffect(() => {
     setDocuments(initialDocuments);
@@ -562,6 +580,27 @@ export function DocumentTable({
     // Remove deleted docs from local state
     setDocuments((prev) => prev.filter((d) => !selectedIds.has(d.id)));
     setSelectedIds(new Set());
+  }
+
+  async function handleBulkVatBranchUpdate() {
+    if (!bulkVatBranchId) return;
+    setIsBulkVatUpdating(true);
+    // vatRate is resolved server-side from the effective-dated tax_config.
+    const result = await bulkUpdateDocumentVatAction(Array.from(selectedIds), {
+      vatEstablishmentId: bulkVatBranchId,
+      vatTreatment: direction === "income" ? "output_vat" : "input_vat",
+      vatPeriodOverrideReason: "bulk_document_vat_update",
+    });
+    setIsBulkVatUpdating(false);
+
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Updated VAT branch on ${result.count} document${result.count !== 1 ? "s" : ""}`);
+    setSelectedIds(new Set());
+    setBulkVatBranchId("");
+    executeSearch(searchQuery, appliedFilters);
   }
 
   const allSelected = documents.length > 0 && selectedIds.size === documents.length;
@@ -824,6 +863,27 @@ export function DocumentTable({
             <span className="text-sm font-medium">
               {selectedIds.size} selected
             </span>
+            <select
+              value={bulkVatBranchId}
+              onChange={(e) => setBulkVatBranchId(e.target.value)}
+              className="h-7 min-w-44 rounded-md border bg-background px-2 text-xs"
+            >
+              <option value="">VAT branch</option>
+              {(filterOptions.vatBranches ?? []).map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.isHeadOffice ? "HQ" : branch.branchNumber} - {branch.nameEn || branch.nameTh || branch.branchNumber}
+                </option>
+              ))}
+            </select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkVatBranchUpdate}
+              disabled={!bulkVatBranchId || isBulkVatUpdating}
+            >
+              {isBulkVatUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <FileText className="size-3.5" />}
+              VAT
+            </Button>
             <Button
               size="sm"
               variant="destructive"
@@ -944,6 +1004,8 @@ export function DocumentTable({
         docId={selectedDocId}
         open={selectedDocId !== null}
         onClose={() => setSelectedDocId(null)}
+        vatBranches={filterOptions.vatBranches ?? []}
+        defaultVatRate={defaultVatRate}
         onSave={async (docId, data) => {
           const result = await updateDocumentSidebarAction(docId, data);
           if ("success" in result) {

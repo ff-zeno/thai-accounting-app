@@ -7,10 +7,12 @@ import {
   searchDocuments,
   getDocumentForSidebar,
   getFilterOptions,
+  getVatEstablishmentsForOrg,
   updateDocumentFromExtraction,
   confirmDocument,
   getPendingPipelineCount,
   bulkSoftDeleteDocuments,
+  bulkUpdateDocumentVat,
   DocumentConfirmationError,
   type DocumentSearchFilters,
 } from "@/lib/db/queries/documents";
@@ -69,7 +71,11 @@ export async function getFilterOptionsAction(direction: "expense" | "income") {
   const orgId = await getVerifiedOrgId();
   if (!orgId) return { categories: [], vendors: [] };
 
-  return getFilterOptions(orgId, direction);
+  const [filters, vatBranches] = await Promise.all([
+    getFilterOptions(orgId, direction),
+    getVatEstablishmentsForOrg(orgId),
+  ]);
+  return { ...filters, vatBranches };
 }
 
 export async function updateDocumentSidebarAction(
@@ -89,6 +95,19 @@ export async function updateDocumentSidebarAction(
     totalAmount?: string | null;
     currency?: string | null;
     category?: string | null;
+    vatTreatment?:
+      | "no_vat"
+      | "input_vat"
+      | "output_vat"
+      | "exempt"
+      | "not_claimable"
+      | "pp36"
+      | null;
+    vatRate?: string | null;
+    vatEstablishmentId?: string | null;
+    vatPeriodYear?: number | null;
+    vatPeriodMonth?: number | null;
+    vatPeriodOverrideReason?: string | null;
     taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
     isPp36Subject?: boolean | null;
     vendorId?: string | null;
@@ -150,6 +169,12 @@ export async function updateDocumentSidebarAction(
     totalAmount: data.totalAmount,
     currency: data.currency,
     category: data.category,
+    vatTreatment: data.vatTreatment,
+    vatRate: data.vatRate,
+    vatEstablishmentId: data.vatEstablishmentId,
+    vatPeriodYear: data.vatPeriodYear,
+    vatPeriodMonth: data.vatPeriodMonth,
+    vatPeriodOverrideReason: data.vatPeriodOverrideReason,
     taxInvoiceSubtype: data.taxInvoiceSubtype,
     isPp36Subject: data.isPp36Subject,
     vendorId: resolvedVendorId,
@@ -225,6 +250,32 @@ export async function bulkDeleteDocumentsAction(
 
   revalidatePath("/documents");
   return { success: true, count: result.count };
+}
+
+export async function bulkUpdateDocumentVatAction(
+  documentIds: string[],
+  data: {
+    vatTreatment?: "no_vat" | "input_vat" | "output_vat" | "exempt" | "not_claimable" | "pp36" | null;
+    vatRate?: string | null;
+    vatEstablishmentId?: string | null;
+    vatPeriodYear?: number | null;
+    vatPeriodMonth?: number | null;
+    vatPeriodOverrideReason?: string | null;
+  }
+): Promise<{ success: true; count: number } | { error: string }> {
+  const orgId = await getVerifiedOrgId();
+  if (!orgId) return { error: "No organization selected" };
+  const actorId = (await getCurrentUserId()) ?? undefined;
+
+  try {
+    const result = await bulkUpdateDocumentVat(orgId, documentIds, data, actorId);
+    revalidatePath("/documents");
+    return { success: true, count: result.count };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "VAT update failed",
+    };
+  }
 }
 
 /**

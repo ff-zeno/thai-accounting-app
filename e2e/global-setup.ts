@@ -18,8 +18,9 @@ export default async function globalSetup(config: FullConfig) {
   await page.goto("/sign-in");
 
   // 4. Sign in via Clerk testing helpers (ticket strategy — bypasses 2FA)
+  // || not ??: CI passes an unset secret through as an empty string.
   const email =
-    process.env.E2E_CLERK_USER_EMAIL ?? "deadlywave@hotmail.com";
+    process.env.E2E_CLERK_USER_EMAIL || "deadlywave@hotmail.com";
   await clerk.signIn({ page, emailAddress: email });
 
   // 5. Set org and locale cookies

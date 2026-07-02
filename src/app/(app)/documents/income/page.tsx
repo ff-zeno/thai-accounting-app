@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { searchDocuments, getFilterOptions } from "@/lib/db/queries/documents";
+import { getVatRate } from "@/lib/db/queries/tax-config";
 import { DocumentTable, type DocumentRow } from "../document-table";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
@@ -37,6 +38,7 @@ export default async function IncomePage() {
         initialHasMore={docsResult.hasMore}
         initialNextCursor={docsResult.nextCursor}
         filterOptions={filterOptions}
+        defaultVatRate={await getVatRate()}
       />
     </div>
   );

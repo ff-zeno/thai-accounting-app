@@ -10,7 +10,9 @@ The current selected slice is `owner-mode-ux-reset.md`. Do not add more broad ac
 
 ## Active Work
 
-- [ ] Ship owner-mode navigation: Home, Bank, Documents, Tax, More.
+- [ ] Execute `engineering-hardening.md`: commit in-flight VAT work, add CI, golden-path E2E, money-math + tax-config hardening (findings: `docs/reviews/engineering-review-2026-06-12.md`).
+- [ ] Execute `ui-consistency.md` audit tasks; standardization lands after owner-mode nav reset.
+- [ ] Ship owner-mode navigation: Home, Bank, Documents, Tax, More. **Still open as of 2026-06-12** — commit `2e967a3` reset the dashboard only; `src/lib/nav/structure.ts` unchanged, no routes demoted.
 - [ ] Rework Home around attention items, monthly checklist, and filing status.
 - [ ] Rework Bank around statement upload, transaction review, reconciliation, and unmatched items.
 - [ ] Rework Documents around a unified inbox for expense docs, income docs, receipts, invoices, supplier bills, and POS exports.

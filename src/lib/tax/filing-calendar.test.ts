@@ -7,29 +7,28 @@ import {
   formatFormType,
 } from "./filing-calendar";
 
+// Deadlines are Bangkok-midnight instants; local getters would make these
+// assertions depend on the test runner's timezone (CI runs UTC).
+const bangkokDate = (d: Date) =>
+  d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+
 describe("getWhtFilingDeadline", () => {
   it("returns next Thai business day for e-filing (default)", () => {
     const deadline = getWhtFilingDeadline(2026, 3);
     // March 2026 period -> raw deadline April 15, rolls after Songkran
-    expect(deadline.getFullYear()).toBe(2026);
-    expect(deadline.getMonth()).toBe(3); // April (0-indexed)
-    expect(deadline.getDate()).toBe(16);
+    expect(bangkokDate(deadline)).toBe("2026-04-16");
   });
 
   it("handles December period rolling to January of next year", () => {
     const deadline = getWhtFilingDeadline(2026, 12);
     // December 2026 period -> deadline January 15, 2027
-    expect(deadline.getFullYear()).toBe(2027);
-    expect(deadline.getMonth()).toBe(0); // January
-    expect(deadline.getDate()).toBe(15);
+    expect(bangkokDate(deadline)).toBe("2027-01-15");
   });
 
   it("handles January period", () => {
     const deadline = getWhtFilingDeadline(2026, 1);
     // January 2026 period -> raw deadline February 15, rolls from Sunday
-    expect(deadline.getFullYear()).toBe(2026);
-    expect(deadline.getMonth()).toBe(1); // February
-    expect(deadline.getDate()).toBe(16);
+    expect(bangkokDate(deadline)).toBe("2026-02-16");
   });
 });
 

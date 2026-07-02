@@ -34,6 +34,10 @@ export default defineConfig({
           port: 3015,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
+          env: {
+            ...process.env,
+            E2E_FAKE_AI: process.env.E2E_FAKE_AI ?? "",
+          },
         },
       }
     : {}),

@@ -42,6 +42,13 @@ pnpm db:seed      # Seed WHT rates and tax config
 pnpm db:studio    # Drizzle Studio
 ```
 
+### Golden-path e2e (expense → PP30)
+
+Three terminals: `E2E_FAKE_AI=1 pnpm dev`, `pnpm inngest:dev`, then
+`pnpm test:e2e e2e/golden-path`. Extraction is faked (env-gated, throws in
+prod); the rest of the pipeline (Blob, Inngest, reconciliation, VAT) is real.
+The spec skips when Inngest (:8288) is down unless `CI`/`E2E_REQUIRE_INNGEST=1`.
+
 ## Git Workflow
 
 - Branch from `main`, PR back to `main`

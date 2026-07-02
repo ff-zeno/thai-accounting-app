@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, type DbConnection } from "../index";
 import { payments, documents, documentLineItems, vendors } from "../schema";
+import { fromSatang, toSatangOrZero } from "@/lib/utils/money";
 import { orgScope } from "../helpers/org-scope";
 import {
   createWhtCertificateDraft,
@@ -47,13 +48,13 @@ export async function createPayment(data: {
       tx: conn,
     });
     if (whtResult && whtResult.totalWht !== data.whtAmountWithheld) {
-      const totalWht = parseFloat(whtResult.totalWht);
-      const gross = parseFloat(data.grossAmount);
+      const totalWhtSatang = toSatangOrZero(whtResult.totalWht);
+      const grossSatang = toSatangOrZero(data.grossAmount);
       await conn
         .update(payments)
         .set({
           whtAmountWithheld: whtResult.totalWht,
-          netAmountPaid: (gross - totalWht).toFixed(2),
+          netAmountPaid: fromSatang(grossSatang - totalWhtSatang),
         })
         .where(and(eq(payments.id, payment.id), eq(payments.orgId, data.orgId)));
     }
@@ -206,10 +207,10 @@ export async function getDocumentPaymentSummary(
   const paymentCount = paymentResult[0]?.paymentCount ?? 0;
   const totalAmount = docResult[0]?.totalAmount ?? "0.00";
 
-  // Use integer arithmetic to avoid floating-point precision issues
-  const totalAmountCents = Math.round(parseFloat(totalAmount ?? "0") * 100);
-  const totalPaidCents = Math.round(parseFloat(totalPaid) * 100);
-  const balanceDue = ((totalAmountCents - totalPaidCents) / 100).toFixed(2);
+  // Integer satang arithmetic — no floating-point intermediate values
+  const totalAmountSatang = toSatangOrZero(totalAmount);
+  const totalPaidSatang = toSatangOrZero(totalPaid);
+  const balanceDue = fromSatang(totalAmountSatang - totalPaidSatang);
 
   return { totalPaid, balanceDue, paymentCount };
 }

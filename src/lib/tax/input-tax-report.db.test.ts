@@ -39,6 +39,16 @@ beforeEach(async () => {
 describe("Section 87 input tax report", () => {
   it("uses claimable VAT input items by eligible period", async () => {
     const org = await createTestOrg(testDb);
+    const [establishment] = await testDb
+      .insert(schema.establishments)
+      .values({
+        orgId: org.id,
+        branchNumber: "00000",
+        nameEn: "Head Office",
+        isHeadOffice: true,
+        vatRegistered: true,
+      })
+      .returning();
     const vendor = await createTestVendor(testDb, org.id, {
       name: "Thai Supplier",
       taxId: "3333333333333",
@@ -51,6 +61,7 @@ describe("Section 87 input tax report", () => {
     await testDb.insert(schema.vatInputItems).values([
       {
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: mayDoc.id,
         vendorId: vendor.id,
         taxInvoiceNo: "SUP-001",
@@ -71,6 +82,7 @@ describe("Section 87 input tax report", () => {
       },
       {
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: maySecondDoc.id,
         vendorId: vendor.id,
         taxInvoiceNo: "SUP-002",
@@ -91,6 +103,7 @@ describe("Section 87 input tax report", () => {
       },
       {
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: heldDoc.id,
         vendorId: vendor.id,
         taxInvoiceNo: "SUP-HELD",
@@ -111,6 +124,7 @@ describe("Section 87 input tax report", () => {
       },
       {
         orgId: org.id,
+        establishmentId: establishment.id,
         sourceDocumentId: juneDoc.id,
         vendorId: vendor.id,
         taxInvoiceNo: "SUP-JUNE",

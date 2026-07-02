@@ -40,6 +40,7 @@ beforeEach(async () => {
     DELETE FROM documents;
     DELETE FROM users;
     DELETE FROM vendors;
+    DELETE FROM establishments;
     DELETE FROM organizations;
   `);
 });
@@ -53,6 +54,16 @@ async function createForeignServiceDocument(overrides: {
   const [org] = await testDb
     .insert(schema.organizations)
     .values({ name: "PP36 Org", taxId: "1234567890123" })
+    .returning();
+  const [establishment] = await testDb
+    .insert(schema.establishments)
+    .values({
+      orgId: org.id,
+      branchNumber: "00000",
+      nameEn: "Head Office",
+      isHeadOffice: true,
+      vatRegistered: true,
+    })
     .returning();
   const [vendor] = await testDb
     .insert(schema.vendors)
@@ -92,7 +103,7 @@ async function createForeignServiceDocument(overrides: {
     amount: "1000.00",
     vatAmount: "0.00",
   });
-  return { org, vendor, doc };
+  return { org, establishment, vendor, doc };
 }
 
 describe("materializePp36ObligationFromDocument", () => {
@@ -158,7 +169,7 @@ describe("materializePp36ObligationFromDocument", () => {
   });
 
   it("integrates foreign service PP36 materialization through paid PP36 filing into PP30 reclaim", async () => {
-    const { org, vendor, doc } = await createForeignServiceDocument({
+    const { org, establishment, vendor, doc } = await createForeignServiceDocument({
       totalAmountThb: "1000.00",
       currency: "USD",
     });
@@ -257,6 +268,7 @@ describe("materializePp36ObligationFromDocument", () => {
     const pp30Draft = await buildPp30VatFilingDraft({
       tx: testDb,
       orgId: org.id,
+      establishmentId: establishment.id,
       periodYear: 2026,
       periodMonth: 4,
       actorId: actor.id,

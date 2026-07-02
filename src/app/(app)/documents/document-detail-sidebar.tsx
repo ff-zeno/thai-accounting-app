@@ -51,6 +51,15 @@ interface Props {
   docId: string | null;
   open: boolean;
   onClose: () => void;
+  /** Effective-dated statutory VAT rate resolved server-side (tax_config). */
+  defaultVatRate: string;
+  vatBranches: Array<{
+    id: string;
+    branchNumber: string;
+    nameTh: string | null;
+    nameEn: string | null;
+    isHeadOffice: boolean;
+  }>;
   onSave: (
     docId: string,
     data: {
@@ -68,6 +77,12 @@ interface Props {
       totalAmount?: string | null;
       currency?: string | null;
       category?: string | null;
+      vatTreatment?: "no_vat" | "input_vat" | "output_vat" | "exempt" | "not_claimable" | "pp36" | null;
+      vatRate?: string | null;
+      vatEstablishmentId?: string | null;
+      vatPeriodYear?: number | null;
+      vatPeriodMonth?: number | null;
+      vatPeriodOverrideReason?: string | null;
       taxInvoiceSubtype?: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | null;
       isPp36Subject?: boolean | null;
       vendorId?: string | null;
@@ -93,12 +108,17 @@ interface FormState {
   totalAmount: string;
   currency: string;
   taxInvoiceSubtype: "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti" | "";
+  vatTreatment: "no_vat" | "input_vat" | "output_vat" | "exempt" | "not_claimable" | "pp36" | "";
+  vatRate: string;
+  vatEstablishmentId: string;
+  vatPeriodYear: string;
+  vatPeriodMonth: string;
   isPp36Subject: boolean;
   vendorName: string;
   vendorId: string | null;
 }
 
-function docToForm(doc: DocumentDetail): FormState {
+function docToForm(doc: DocumentDetail, defaultVatRate: string): FormState {
   return {
     type: doc.type,
     documentNumber: doc.documentNumber ?? "",
@@ -110,6 +130,11 @@ function docToForm(doc: DocumentDetail): FormState {
     totalAmount: doc.totalAmount ?? "",
     currency: doc.currency ?? "THB",
     taxInvoiceSubtype: doc.taxInvoiceSubtype ?? "",
+    vatTreatment: (doc.vatTreatment ?? "") as FormState["vatTreatment"],
+    vatRate: doc.vatRate ?? defaultVatRate,
+    vatEstablishmentId: doc.vatEstablishmentId ?? "",
+    vatPeriodYear: doc.vatPeriodYear ? String(doc.vatPeriodYear) : "",
+    vatPeriodMonth: doc.vatPeriodMonth ? String(doc.vatPeriodMonth) : "",
     isPp36Subject: doc.isPp36Subject ?? false,
     vendorName:
       doc.vendor?.displayAlias ?? doc.vendor?.name ?? doc.vendor?.nameTh ?? "",
@@ -195,6 +220,8 @@ export function DocumentDetailSidebar({
   docId,
   open,
   onClose,
+  defaultVatRate,
+  vatBranches,
   onSave,
 }: Props) {
   const t = useTranslations("documents");
@@ -245,7 +272,7 @@ export function DocumentDetailSidebar({
       if (cancelled) return;
       if (result) {
         setDoc(result);
-        const formState = docToForm(result);
+        const formState = docToForm(result, defaultVatRate);
         setForm(formState);
         setInitialForm(formState);
         setExplicitVerdict(null);
@@ -255,7 +282,7 @@ export function DocumentDetailSidebar({
     return () => {
       cancelled = true;
     };
-  }, [docId]);
+  }, [docId, defaultVatRate]);
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
@@ -292,6 +319,12 @@ export function DocumentDetailSidebar({
         totalAmount: form.totalAmount || null,
         currency: form.currency || null,
         category: form.category || null,
+        vatTreatment: form.vatTreatment || null,
+        vatRate: form.vatRate || null,
+        vatEstablishmentId: form.vatEstablishmentId || null,
+        vatPeriodYear: form.vatPeriodYear ? Number(form.vatPeriodYear) : null,
+        vatPeriodMonth: form.vatPeriodMonth ? Number(form.vatPeriodMonth) : null,
+        vatPeriodOverrideReason: "document_review",
         taxInvoiceSubtype: form.taxInvoiceSubtype || null,
         isPp36Subject: form.isPp36Subject,
         vendorId: form.vendorId,
@@ -514,6 +547,79 @@ export function DocumentDetailSidebar({
                 />
                 PP36 foreign service
               </label>
+
+              <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    VAT treatment
+                  </label>
+                  <select
+                    value={form.vatTreatment}
+                    onChange={(e) =>
+                      updateField("vatTreatment", e.target.value as FormState["vatTreatment"])
+                    }
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">Auto</option>
+                    <option value="no_vat">No VAT</option>
+                    <option value="input_vat">Input VAT</option>
+                    <option value="output_vat">Output VAT</option>
+                    <option value="exempt">Exempt</option>
+                    <option value="not_claimable">Not claimable</option>
+                    <option value="pp36">PP36</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    VAT rate
+                  </label>
+                  <Input
+                    value={form.vatRate}
+                    onChange={(e) => updateField("vatRate", e.target.value)}
+                    className="font-mono"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    VAT branch
+                  </label>
+                  <select
+                    value={form.vatEstablishmentId}
+                    onChange={(e) => updateField("vatEstablishmentId", e.target.value)}
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">Select branch</option>
+                    {vatBranches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.isHeadOffice ? "HQ" : branch.branchNumber} - {branch.nameEn || branch.nameTh || branch.branchNumber}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                      VAT year
+                    </label>
+                    <Input
+                      value={form.vatPeriodYear}
+                      onChange={(e) => updateField("vatPeriodYear", e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                      VAT month
+                    </label>
+                    <Input
+                      value={form.vatPeriodMonth}
+                      onChange={(e) => updateField("vatPeriodMonth", e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

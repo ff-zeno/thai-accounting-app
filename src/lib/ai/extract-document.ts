@@ -1,5 +1,6 @@
 import { generateObject } from "ai";
 import { getModel, getModelId } from "./models";
+import { buildFakeExtraction, isFakeAiEnabled } from "./fake-extraction";
 import { invoiceExtractionSchema, type InvoiceExtraction } from "./schemas/invoice-extraction";
 
 const EXTRACTION_PROMPT = `You are an expert Thai accounting document extractor. Analyze this document image and extract all financial data.
@@ -266,6 +267,10 @@ export async function extractDocument(
   orgId?: string,
   context?: ExtractionContext
 ): Promise<ExtractionResult> {
+  if (isFakeAiEnabled()) {
+    return buildFakeExtraction();
+  }
+
   const modelId = await getModelId("extraction", orgId);
   const model = await getModel("extraction", orgId);
 

@@ -9,6 +9,9 @@ import {
   transactions,
   bankAccounts,
   organizations,
+  establishments,
+  vatInputItems,
+  vatOutputItems,
 } from "../schema";
 import { auditMutation } from "../helpers/audit-log";
 import { isPeriodLocked } from "./period-locks";
@@ -17,6 +20,7 @@ import {
   isPp36ServiceCategory,
 } from "@/lib/tax/foreign-vendor-tax";
 import { materializeWhtCreditReceivedFromDocument } from "./wht-credits-received";
+import { getVatRate } from "./tax-config";
 
 type TaxInvoiceSubtype = "full_ti" | "abb" | "e_tax_invoice" | "not_a_ti";
 type DocumentType =
@@ -25,6 +29,13 @@ type DocumentType =
   | "debit_note"
   | "credit_note"
   | "wht_certificate_received";
+type VatTreatment =
+  | "no_vat"
+  | "input_vat"
+  | "output_vat"
+  | "exempt"
+  | "not_claimable"
+  | "pp36";
 
 function moneyToNumber(value: string | null): number | null {
   if (value == null || value === "") return null;
@@ -427,8 +438,12 @@ export async function updateDocumentFromExtraction(
     exchangeRate?: string | null;
     totalAmountThb?: string | null;
     category?: string | null;
+    vatTreatment?: VatTreatment | null;
+    vatRate?: string | null;
+    vatEstablishmentId?: string | null;
     vatPeriodYear?: number | null;
     vatPeriodMonth?: number | null;
+    vatPeriodOverrideReason?: string | null;
     taxInvoiceSubtype?: TaxInvoiceSubtype | null;
     supplierTaxIdSnapshot?: string | null;
     supplierBranchNumberSnapshot?: string | null;
@@ -451,6 +466,7 @@ export async function updateDocumentFromExtraction(
     currency: data.currency === "" ? null : data.currency,
     exchangeRate: data.exchangeRate === "" ? null : data.exchangeRate,
     totalAmountThb: data.totalAmountThb === "" ? null : data.totalAmountThb,
+    vatRate: data.vatRate === "" ? null : data.vatRate,
     supplierTaxIdSnapshot:
       data.supplierTaxIdSnapshot === "" ? null : data.supplierTaxIdSnapshot,
     supplierBranchNumberSnapshot:
@@ -470,6 +486,21 @@ export async function updateDocumentFromExtraction(
     const period = issueDate ? deriveVatPeriod(issueDate) : null;
     normalized.vatPeriodYear = period?.vatPeriodYear ?? null;
     normalized.vatPeriodMonth = period?.vatPeriodMonth ?? null;
+  }
+  if (normalized.vatEstablishmentId) {
+    const [branch] = await db
+      .select({ id: establishments.id })
+      .from(establishments)
+      .where(
+        and(
+          eq(establishments.id, normalized.vatEstablishmentId),
+          eq(establishments.orgId, orgId),
+          eq(establishments.vatRegistered, true),
+          isNull(establishments.deletedAt)
+        )
+      )
+      .limit(1);
+    if (!branch) throw new Error("VAT branch is not available for this organization");
   }
 
   const [doc] = await db
@@ -854,6 +885,11 @@ export async function searchDocuments(
       category: documents.category,
       taxInvoiceSubtype: documents.taxInvoiceSubtype,
       isPp36Subject: documents.isPp36Subject,
+      vatTreatment: documents.vatTreatment,
+      vatRate: documents.vatRate,
+      vatEstablishmentId: documents.vatEstablishmentId,
+      vatPeriodYear: documents.vatPeriodYear,
+      vatPeriodMonth: documents.vatPeriodMonth,
       status: documents.status,
       needsReview: documents.needsReview,
       aiConfidence: documents.aiConfidence,
@@ -1055,4 +1091,131 @@ export async function getFilterOptions(
       .filter((c): c is string => c !== null),
     vendors: vendorRows,
   };
+}
+
+export async function getVatEstablishmentsForOrg(orgId: string) {
+  return db
+    .select({
+      id: establishments.id,
+      branchNumber: establishments.branchNumber,
+      nameTh: establishments.nameTh,
+      nameEn: establishments.nameEn,
+      isHeadOffice: establishments.isHeadOffice,
+    })
+    .from(establishments)
+    .where(
+      and(
+        eq(establishments.orgId, orgId),
+        eq(establishments.vatRegistered, true),
+        isNull(establishments.deletedAt)
+      )
+    )
+    .orderBy(desc(establishments.isHeadOffice), establishments.branchNumber);
+}
+
+export async function bulkUpdateDocumentVat(
+  orgId: string,
+  documentIds: string[],
+  data: {
+    vatTreatment?: VatTreatment | null;
+    vatRate?: string | null;
+    vatEstablishmentId?: string | null;
+    vatPeriodYear?: number | null;
+    vatPeriodMonth?: number | null;
+    vatPeriodOverrideReason?: string | null;
+  },
+  actorId?: string
+): Promise<{ count: number }> {
+  if (documentIds.length === 0) return { count: 0 };
+
+  const filed = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.orgId, orgId),
+        inArray(documents.id, documentIds),
+        isNull(documents.deletedAt),
+        sql`EXISTS (
+          SELECT 1 FROM ${vatInputItems}
+          WHERE ${vatInputItems.orgId} = ${documents.orgId}
+            AND ${vatInputItems.sourceDocumentId} = ${documents.id}
+            AND ${vatInputItems.status} = 'filed'
+            AND ${vatInputItems.deletedAt} IS NULL
+          UNION ALL
+          SELECT 1 FROM ${vatOutputItems}
+          WHERE ${vatOutputItems.orgId} = ${documents.orgId}
+            AND ${vatOutputItems.sourceDocumentId} = ${documents.id}
+            AND ${vatOutputItems.status} = 'filed'
+            AND ${vatOutputItems.deletedAt} IS NULL
+        )`
+      )
+    )
+    .limit(1);
+  if (filed[0]) {
+    throw new Error("Filed PP30 VAT lines cannot be changed; correction/amendment required");
+  }
+
+  if (data.vatEstablishmentId) {
+    const [branch] = await getVatEstablishmentsForOrg(orgId).then((branches) =>
+      branches.filter((branch) => branch.id === data.vatEstablishmentId)
+    );
+    if (!branch) throw new Error("VAT branch is not available for this organization");
+  }
+
+  // Callers no longer send a hard-coded rate: when a VAT-bearing treatment is
+  // set without an explicit rate, resolve the effective-dated statutory rate
+  // server-side (tax_config).
+  let vatRate = data.vatRate === "" ? null : data.vatRate;
+  if (
+    vatRate === undefined &&
+    (data.vatTreatment === "input_vat" ||
+      data.vatTreatment === "output_vat" ||
+      data.vatTreatment === "pp36")
+  ) {
+    vatRate = await getVatRate();
+  }
+
+  const patch = {
+    vatTreatment: data.vatTreatment,
+    vatRate,
+    vatEstablishmentId: data.vatEstablishmentId === "" ? null : data.vatEstablishmentId,
+    vatPeriodYear: data.vatPeriodYear,
+    vatPeriodMonth: data.vatPeriodMonth,
+    vatPeriodOverrideReason: data.vatPeriodOverrideReason,
+    vatPeriodOverriddenByUserId:
+      data.vatPeriodYear != null || data.vatPeriodMonth != null
+        ? actorId ?? null
+        : undefined,
+    vatPeriodOverriddenAt:
+      data.vatPeriodYear != null || data.vatPeriodMonth != null
+        ? new Date()
+        : undefined,
+    updatedAt: new Date(),
+  };
+
+  const updated = await db
+    .update(documents)
+    .set(patch)
+    .where(
+      and(
+        eq(documents.orgId, orgId),
+        inArray(documents.id, documentIds),
+        isNull(documents.deletedAt)
+      )
+    )
+    .returning({ id: documents.id });
+
+  for (const row of updated) {
+    await auditMutation({
+      orgId,
+      entityType: "document",
+      entityId: row.id,
+      action: "update",
+      actorId,
+      newValue: { operation: "bulk_update_document_vat", ...data },
+    });
+  }
+
+  return { count: updated.length };
 }

@@ -2,10 +2,17 @@ import Link from "next/link";
 import { AlertTriangle, UsersRound } from "lucide-react";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getPayrollDashboard } from "@/lib/db/queries/payroll";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -71,121 +78,71 @@ async function submitSsoRemittance(formData: FormData) {
   await recordSsoRemittanceAction(formData);
 }
 
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 export default async function PayrollPage() {
   const orgId = await getVerifiedOrgId();
   const dashboard = orgId ? await getPayrollDashboard(orgId) : null;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Payroll Control Tower
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Employees, allowance declarations, pay-run readiness, PND.1, and SSO filing surface.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link href="/payroll/employees" />}>
-            Employees
-          </Button>
-          <Button variant="outline" render={<Link href="/payroll/filings/pnd1" />}>
-            PND.1
-          </Button>
-          <Button variant="outline" render={<Link href="/payroll/filings/sso" />}>
-            SSO
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Payroll Control Tower"
+        description="Employees, allowance declarations, pay-run readiness, PND.1, and SSO filing surface."
+      >
+        <Button variant="outline" render={<Link href="/payroll/employees" />}>
+          Employees
+        </Button>
+        <Button variant="outline" render={<Link href="/payroll/filings/pnd1" />}>
+          PND.1
+        </Button>
+        <Button variant="outline" render={<Link href="/payroll/filings/sso" />}>
+          SSO
+        </Button>
+      </PageHeader>
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <UsersRound className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view payroll controls.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<UsersRound />}
+              title="Select an organization to view payroll controls."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card className="border-amber-200 bg-amber-50 text-amber-950">
-            <CardContent className="flex gap-3 py-4 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">Payroll is workflow-testable v1.</p>
-                <p className="mt-1 text-amber-900">
-                  Employee setup, allowances, draft pay runs, PIT/SSO calculation, filing lists,
-                  submit/accept status, remittance posting, and sensitive-read audit are testable.
-                  Production filing still needs current SSO config validation, exact RD/SSO
-                  exports, employee 50 Tawi, receipt attachment, reconciliation hooks, and bank
-                  matching.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>Payroll is workflow-testable v1.</AlertTitle>
+            <AlertDescription>
+              Employee setup, allowances, draft pay runs, PIT/SSO calculation, filing lists,
+              submit/accept status, remittance posting, and sensitive-read audit are testable.
+              Production filing still needs current SSO config validation, exact RD/SSO
+              exports, employee 50 Tawi, receipt attachment, reconciliation hooks, and bank
+              matching.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Active Employees</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.employeeSummary.activeEmployeeCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.employeeSummary.directorCount} director-classified.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Draft Pay Runs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.payRunSummary.draftPayRunCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboard.payRunSummary.approvedPayRunCount} approved.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">PIT Withheld</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.slipSummary.pitWht)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From draft/posted pay slips.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">SSO Employer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.slipSummary.ssoEmployer)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Employer-side contribution total.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Active Employees"
+              value={dashboard.employeeSummary.activeEmployeeCount}
+              hint={`${dashboard.employeeSummary.directorCount} director-classified.`}
+            />
+            <StatCard
+              label="Draft Pay Runs"
+              value={dashboard.payRunSummary.draftPayRunCount}
+              hint={`${dashboard.payRunSummary.approvedPayRunCount} approved.`}
+            />
+            <StatCard
+              label="PIT Withheld"
+              value={<Amount value={dashboard.slipSummary.pitWht} />}
+              hint="From draft/posted pay slips."
+            />
+            <StatCard
+              label="SSO Employer"
+              value={<Amount value={dashboard.slipSummary.ssoEmployer} />}
+              hint="Employer-side contribution total."
+            />
           </div>
 
           <Card>
@@ -228,28 +185,33 @@ export default async function PayrollPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="payFrequency">Pay frequency</Label>
-                  <select
+                  <NativeSelect
                     id="payFrequency"
                     name="payFrequency"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="monthly"
                   >
                     <option value="monthly">Monthly</option>
                     <option value="bi_weekly">Bi-weekly</option>
                     <option value="weekly">Weekly</option>
                     <option value="daily">Daily</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="payPeriodsPerYear">Periods/year</Label>
                   <Input id="payPeriodsPerYear" name="payPeriodsPerYear" inputMode="numeric" defaultValue="12" />
                 </div>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="isDirector" />
+                  <input type="checkbox" name="isDirector" className="size-4 accent-primary" />
                   Director / §40(2)
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="socialSecurityEligible" defaultChecked />
+                  <input
+                    type="checkbox"
+                    name="socialSecurityEligible"
+                    defaultChecked
+                    className="size-4 accent-primary"
+                  />
                   SSO eligible
                 </label>
                 <div className="md:col-span-4">
@@ -336,6 +298,14 @@ export default async function PayrollPage() {
                     <Button type="submit">Build PND.1 Kor</Button>
                   </div>
                 </form>
+                <p className="mt-3 text-sm">
+                  <Link
+                    className="underline-offset-4 hover:underline"
+                    href="/payroll/filings/pnd1-kor"
+                  >
+                    View PND.1 Kor filings
+                  </Link>
+                </p>
               </CardContent>
             </Card>
 
@@ -363,9 +333,7 @@ export default async function PayrollPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentEmployees.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No employees recorded yet.
-                </p>
+                <EmptyState size="sm" title="No employees recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -393,8 +361,8 @@ export default async function PayrollPage() {
                         <TableCell>{employee.branchNumber}</TableCell>
                         <TableCell>{employee.position ?? "-"}</TableCell>
                         <TableCell>{employee.startDate}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(employee.baseMonthlySalary)}
+                        <TableCell className="text-right">
+                          <Amount value={employee.baseMonthlySalary} />
                         </TableCell>
                         <TableCell>{employee.payFrequency}</TableCell>
                         <TableCell>
@@ -415,9 +383,7 @@ export default async function PayrollPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentPayRuns.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No pay runs generated yet.
-                </p>
+                <EmptyState size="sm" title="No pay runs generated yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -446,16 +412,18 @@ export default async function PayrollPage() {
                         <TableCell>
                           {payRun.periodStart} - {payRun.periodEnd}
                         </TableCell>
-                        <TableCell>{payRun.status}</TableCell>
-                        <TableCell className="text-right font-mono">{payRun.slipCount}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(payRun.grossSalary)}
+                        <TableCell>
+                          <StatusBadge status={payRun.status} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(payRun.pitWht)}
+                        <TableCell className="text-right tabular-nums">{payRun.slipCount}</TableCell>
+                        <TableCell className="text-right">
+                          <Amount value={payRun.grossSalary} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(payRun.netPay)}
+                        <TableCell className="text-right">
+                          <Amount value={payRun.pitWht} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Amount value={payRun.netPay} />
                         </TableCell>
                         <TableCell className="text-right">
                           {payRun.status === "draft" ? (
@@ -501,9 +469,7 @@ export default async function PayrollPage() {
               </CardHeader>
               <CardContent>
                 {dashboard.recentPndFilings.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    No PND filings drafted yet.
-                  </p>
+                  <EmptyState size="sm" title="No PND filings drafted yet." />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -521,12 +487,14 @@ export default async function PayrollPage() {
                         <TableRow key={filing.id}>
                           <TableCell>{filing.formType}</TableCell>
                           <TableCell>{filing.taxPeriod}</TableCell>
-                          <TableCell>{filing.filingStatus}</TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell>
+                            <StatusBadge status={filing.filingStatus} />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
                             {filing.totalPayees ?? 0}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {amount(filing.totalWhtAmount)}
+                          <TableCell className="text-right">
+                            <Amount value={filing.totalWhtAmount} />
                           </TableCell>
                           <TableCell className="text-right">
                             {filing.formType === "PND1" && !filing.paidAt ? (
@@ -566,9 +534,7 @@ export default async function PayrollPage() {
               </CardHeader>
               <CardContent>
                 {dashboard.recentSsoFilings.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    No SSO filings drafted yet.
-                  </p>
+                  <EmptyState size="sm" title="No SSO filings drafted yet." />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -585,15 +551,17 @@ export default async function PayrollPage() {
                       {dashboard.recentSsoFilings.map((filing) => (
                         <TableRow key={filing.id}>
                           <TableCell>{filing.taxMonth}</TableCell>
-                          <TableCell>{filing.filingStatus}</TableCell>
-                          <TableCell className="text-right font-mono">
+                          <TableCell>
+                            <StatusBadge status={filing.filingStatus} />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
                             {filing.totalEmployees ?? 0}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {amount(filing.totalEmployeeContribution)}
+                          <TableCell className="text-right">
+                            <Amount value={filing.totalEmployeeContribution} />
                           </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {amount(filing.totalEmployerContribution)}
+                          <TableCell className="text-right">
+                            <Amount value={filing.totalEmployerContribution} />
                           </TableCell>
                           <TableCell className="text-right">
                             {filing.paidAt ? (

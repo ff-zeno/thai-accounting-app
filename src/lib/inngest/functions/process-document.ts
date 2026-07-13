@@ -19,6 +19,7 @@ import {
   type ExtractionContext,
 } from "@/lib/ai/extract-document";
 import { detectLanguage, type DetectedLanguage } from "@/lib/ai/detect-language";
+import { checkExtractedDate } from "@/lib/ai/validate-dates";
 import { translateVendorName } from "@/lib/ai/translate";
 import { normalizeIsoCountry } from "@/lib/tax/foreign-vendor-tax";
 import { estimateCost, isWithinBudget } from "@/lib/ai/cost-tracker";
@@ -654,6 +655,19 @@ export const processDocument = inngest.createFunction(
           }
         }
 
+        // Date plausibility: clear malformed dates (Postgres `date` columns
+        // reject them at insert) and flag suspect years (unconverted Buddhist
+        // Era, implausibly old/far-future) for review. Derive "today" from the
+        // event timestamp so retries of this step stay deterministic.
+        const today = new Date(event.ts ?? Date.now());
+        const issueDateCheck = checkExtractedDate(
+          "issueDate",
+          data.issueDate,
+          today
+        );
+        const dueDateCheck = checkExtractedDate("dueDate", data.dueDate, today);
+        warnings.push(...issueDateCheck.warnings, ...dueDateCheck.warnings);
+
         // Language detection from vendor name + line items
         const textSamples = [
           data.vendorName,
@@ -663,7 +677,11 @@ export const processDocument = inngest.createFunction(
           .join(" ");
         const detectedLang = detectLanguage(textSamples);
 
-        const needsReview = data.confidence < 0.8 || warnings.length > 0;
+        const needsReview =
+          data.confidence < 0.8 ||
+          warnings.length > 0 ||
+          issueDateCheck.needsReview ||
+          dueDateCheck.needsReview;
 
         // Warn on very low-confidence extractions (needs_user_action)
         if (data.confidence < 0.5) {
@@ -674,6 +692,8 @@ export const processDocument = inngest.createFunction(
 
         return {
           ...data,
+          issueDate: issueDateCheck.value,
+          dueDate: dueDateCheck.value,
           detectedLanguage: detectedLang,
           needsReview,
           warnings,

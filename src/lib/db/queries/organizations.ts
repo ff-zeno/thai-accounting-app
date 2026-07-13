@@ -1,6 +1,7 @@
 import { and, eq, isNull, inArray } from "drizzle-orm";
 import { db } from "../index";
 import { organizations, users, orgMemberships } from "../schema";
+import { auditMutation } from "../helpers/audit-log";
 
 export async function getAllOrganizations() {
   return db
@@ -136,14 +137,40 @@ export async function updateOrganization(
     address?: string | null;
     addressTh?: string | null;
     isVatRegistered?: boolean;
+    hasPosSales?: boolean;
+    hasEmployees?: boolean;
+    hasImportedServices?: boolean;
     fiscalYearEndMonth?: number;
     fiscalYearEndDay?: number;
-  }
+  },
+  actorId?: string
 ) {
+  const before = await getOrganizationById(id);
+
   const [org] = await db
     .update(organizations)
     .set(data)
-    .where(eq(organizations.id, id))
+    .where(and(eq(organizations.id, id), isNull(organizations.deletedAt)))
     .returning();
+
+  if (org && before) {
+    const changedKeys = (Object.keys(data) as Array<keyof typeof data>).filter(
+      (key) => before[key] !== org[key]
+    );
+    if (changedKeys.length > 0) {
+      await auditMutation({
+        orgId: id,
+        entityType: "organization",
+        entityId: id,
+        action: "update",
+        actorId,
+        oldValue: Object.fromEntries(
+          changedKeys.map((key) => [key, before[key]])
+        ),
+        newValue: Object.fromEntries(changedKeys.map((key) => [key, org[key]])),
+      });
+    }
+  }
+
   return org;
 }

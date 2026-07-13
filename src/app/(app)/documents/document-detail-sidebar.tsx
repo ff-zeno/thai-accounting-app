@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import {
@@ -168,7 +169,7 @@ function ReconMatchRow({
           {match.transactionDate} &mdash;{" "}
           {match.transactionDescription || "Transaction"}
         </span>
-        <span className="font-mono text-xs">
+        <span className="text-xs tabular-nums">
           {match.matchedAmount
             ? parseFloat(match.matchedAmount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -186,7 +187,7 @@ function ReconMatchRow({
           </div>
           <div className="flex justify-between">
             <span>Amount</span>
-            <span className="font-mono">
+            <span className="tabular-nums">
               {match.transactionAmount
                 ? parseFloat(match.transactionAmount).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -477,7 +478,7 @@ export function DocumentDetailSidebar({
                   <Input
                     value={form.subtotal}
                     onChange={(e) => updateField("subtotal", e.target.value)}
-                    className="font-mono"
+                    className="tabular-nums"
                     inputMode="decimal"
                   />
                 </div>
@@ -488,7 +489,7 @@ export function DocumentDetailSidebar({
                   <Input
                     value={form.vatAmount}
                     onChange={(e) => updateField("vatAmount", e.target.value)}
-                    className="font-mono"
+                    className="tabular-nums"
                     inputMode="decimal"
                   />
                 </div>
@@ -499,7 +500,7 @@ export function DocumentDetailSidebar({
                   <Input
                     value={form.totalAmount}
                     onChange={(e) => updateField("totalAmount", e.target.value)}
-                    className="font-mono"
+                    className="tabular-nums"
                     inputMode="decimal"
                   />
                 </div>
@@ -520,7 +521,7 @@ export function DocumentDetailSidebar({
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Tax invoice type
                   </label>
-                  <select
+                  <NativeSelect
                     value={form.taxInvoiceSubtype}
                     onChange={(e) =>
                       updateField(
@@ -528,14 +529,14 @@ export function DocumentDetailSidebar({
                         e.target.value as FormState["taxInvoiceSubtype"]
                       )
                     }
-                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                    className="w-full"
                   >
                     <option value="">Select type</option>
                     <option value="full_ti">Full tax invoice</option>
                     <option value="e_tax_invoice">E-tax invoice</option>
                     <option value="abb">ABB / abbreviated</option>
                     <option value="not_a_ti">Not a tax invoice</option>
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
 
@@ -553,12 +554,12 @@ export function DocumentDetailSidebar({
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     VAT treatment
                   </label>
-                  <select
+                  <NativeSelect
                     value={form.vatTreatment}
                     onChange={(e) =>
                       updateField("vatTreatment", e.target.value as FormState["vatTreatment"])
                     }
-                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                    className="w-full"
                   >
                     <option value="">Auto</option>
                     <option value="no_vat">No VAT</option>
@@ -567,7 +568,7 @@ export function DocumentDetailSidebar({
                     <option value="exempt">Exempt</option>
                     <option value="not_claimable">Not claimable</option>
                     <option value="pp36">PP36</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -576,7 +577,7 @@ export function DocumentDetailSidebar({
                   <Input
                     value={form.vatRate}
                     onChange={(e) => updateField("vatRate", e.target.value)}
-                    className="font-mono"
+                    className="tabular-nums"
                     inputMode="decimal"
                   />
                 </div>
@@ -584,10 +585,10 @@ export function DocumentDetailSidebar({
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     VAT branch
                   </label>
-                  <select
+                  <NativeSelect
                     value={form.vatEstablishmentId}
                     onChange={(e) => updateField("vatEstablishmentId", e.target.value)}
-                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                    className="w-full"
                   >
                     <option value="">Select branch</option>
                     {vatBranches.map((branch) => (
@@ -595,7 +596,7 @@ export function DocumentDetailSidebar({
                         {branch.isHeadOffice ? "HQ" : branch.branchNumber} - {branch.nameEn || branch.nameTh || branch.branchNumber}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

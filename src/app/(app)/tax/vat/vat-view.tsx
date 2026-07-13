@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -220,24 +224,20 @@ function centsToMoney(cents: bigint): string {
   return `${sign}${whole}.${fractional}`;
 }
 
-function getStatusVariant(status: string | null) {
-  switch (status) {
-    case "filed":
-    case "paid":
-      return "default" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export function VatView() {
+export function VatView({
+  initialYear,
+  initialMonth,
+}: {
+  initialYear?: number;
+  initialMonth?: number;
+}) {
   const currentDate = new Date();
-  const [year, setYear] = useState(currentDate.getFullYear());
-  const [month, setMonth] = useState(currentDate.getMonth() + 1);
+  const [year, setYear] = useState(initialYear ?? currentDate.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? currentDate.getMonth() + 1);
   const [isPending, startTransition] = useTransition();
   const [dashboard, setDashboard] = useState<VatLedgerPeriodDashboard | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -408,7 +408,7 @@ export function VatView() {
               <label className="text-sm font-medium text-muted-foreground">
                 Year
               </label>
-              <select
+              <NativeSelect
                 value={year}
                 onChange={(e) => {
                   setYear(Number(e.target.value));
@@ -417,20 +417,20 @@ export function VatView() {
                   setBranchReadiness([]);
                   setSelectedEstablishmentId("");
                 }}
-                className="flex h-8 w-24 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-24"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>
                     {y}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-muted-foreground">
                 Month
               </label>
-              <select
+              <NativeSelect
                 value={month}
                 onChange={(e) => {
                   setMonth(Number(e.target.value));
@@ -439,14 +439,14 @@ export function VatView() {
                   setBranchReadiness([]);
                   setSelectedEstablishmentId("");
                 }}
-                className="flex h-8 w-36 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-36"
               >
                 {MONTHS.map((name, i) => (
                   <option key={i + 1} value={i + 1}>
                     {name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <Button
               onClick={handleLoadData}
@@ -475,22 +475,14 @@ export function VatView() {
         <>
           {/* Nil Filing Indicator */}
           {isNilFiling && (
-            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-              <CardContent className="py-4">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="size-5 text-amber-600" />
-                  <div>
-                    <p className="font-medium text-amber-800 dark:text-amber-200">
-                      Nil Filing Required
-                    </p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      No VAT activity in {MONTHS[month - 1]} {year}. PP 30 must
-                      still be filed every month even with zero activity.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <Alert variant="warning">
+              <AlertTriangle />
+              <AlertTitle>Nil Filing Required</AlertTitle>
+              <AlertDescription>
+                No VAT activity in {MONTHS[month - 1]} {year}. PP 30 must
+                still be filed every month even with zero activity.
+              </AlertDescription>
+            </Alert>
           )}
 
           <Card>
@@ -500,18 +492,18 @@ export function VatView() {
             <CardContent className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Label htmlFor="pp30-branch">Draft branch</Label>
-                <select
+                <NativeSelect
                   id="pp30-branch"
                   value={selectedEstablishmentId}
                   onChange={(event) => setSelectedEstablishmentId(event.target.value)}
-                  className="flex h-8 min-w-52 items-center rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="min-w-52"
                 >
                   {branchReadiness.map((branch) => (
                     <option key={branch.id} value={branch.id}>
                       {branch.isHeadOffice ? "HQ" : branch.branchNumber} - {branch.nameEn || branch.nameTh || branch.branchNumber}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <Table>
                 <TableHeader>
@@ -536,22 +528,23 @@ export function VatView() {
                           {branch.consolidatedFilingApproved ? " - consolidated approved" : ""}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatAmount(branch.pp30.outputVatTotal)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatAmount(branch.pp30.inputVatTotal)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatAmount(branch.pp30.netPayable)}
                       </TableCell>
                       <TableCell className="text-right">
                         {branch.missingBranchCount}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusVariant(branch.pp30.status)}>
-                          {formatStatusLabel(branch.pp30.status)}
-                        </Badge>
+                        <StatusBadge
+                          status={branch.pp30.status}
+                          label={formatStatusLabel(branch.pp30.status)}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -597,9 +590,10 @@ export function VatView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getStatusVariant(pp30Status)}>
-                    {formatStatusLabel(pp30Status)}
-                  </Badge>
+                  <StatusBadge
+                    status={pp30Status}
+                    label={formatStatusLabel(pp30Status)}
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -659,9 +653,10 @@ export function VatView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getStatusVariant(pp36Status)}>
-                    {formatStatusLabel(pp36Status)}
-                  </Badge>
+                  <StatusBadge
+                    status={pp36Status}
+                    label={formatStatusLabel(pp36Status)}
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -1008,7 +1003,7 @@ function LedgerStatusGroup({
               <span className="truncate text-muted-foreground">
                 {formatStatusLabel(item.status)}
               </span>
-              <span className="font-mono tabular-nums">
+              <span className="tabular-nums">
                 {item.count} / {formatAmount(item.vatAmount)}
               </span>
             </div>
@@ -1058,13 +1053,13 @@ function VatForecastDisplay({ forecast }: { forecast: VatForecastRow[] }) {
                 <TableCell>
                   <Badge variant="outline">{formatStatusLabel(row.pp36.status)}</Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right tabular-nums">
                   {row.expiringInputVat.count} / {formatAmount(row.expiringInputVat.vatAmount)}
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right tabular-nums">
                   {row.pp36Reclaimable.count} / {formatAmount(row.pp36Reclaimable.vatAmount)}
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right tabular-nums">
                   {formatAmount(row.pp30.netPayable)}
                 </TableCell>
               </TableRow>
@@ -1103,21 +1098,16 @@ function SummaryCard({
 }) {
   const numValue = parseFloat(value ?? "0");
   return (
-    <div
-      className={`rounded-lg border p-4 ${
-        highlight ? "border-primary/30 bg-primary/5" : ""
-      }`}
-    >
-      <p className="text-sm font-medium text-muted-foreground">{label}</p>
-      <p className="text-xs text-muted-foreground">{sublabel}</p>
-      <p
-        className={`mt-1 text-2xl font-semibold tabular-nums ${
-          highlight && numValue < 0 ? "text-green-600" : ""
-        }`}
-      >
-        {formatAmount(value)}
-      </p>
-    </div>
+    <StatCard
+      label={label}
+      hint={sublabel}
+      value={
+        <span className={highlight && numValue < 0 ? "text-success" : undefined}>
+          {formatAmount(value)}
+        </span>
+      }
+      className={highlight ? "border-primary/30 bg-primary/5" : undefined}
+    />
   );
 }
 
@@ -1164,7 +1154,7 @@ function VatRegisterDisplay({
                 {data.outputRegister.map((entry, i) => (
                   <TableRow
                     key={i}
-                    className={entry.isCreditNote ? "text-red-600" : ""}
+                    className={entry.isCreditNote ? "text-destructive" : ""}
                   >
                     <TableCell>{entry.date || "-"}</TableCell>
                     <TableCell className="font-mono text-xs">
@@ -1172,7 +1162,7 @@ function VatRegisterDisplay({
                       {entry.isCreditNote && (
                         <Badge
                           variant="secondary"
-                          className="ml-2 text-[10px]"
+                          className="ml-2 text-xs"
                         >
                           CN
                         </Badge>
@@ -1182,10 +1172,10 @@ function VatRegisterDisplay({
                     <TableCell className="font-mono text-xs">
                       {entry.customerTaxId || "-"}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(entry.baseAmount)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(entry.vatAmount)}
                     </TableCell>
                   </TableRow>
@@ -1196,7 +1186,7 @@ function VatRegisterDisplay({
                   <TableCell colSpan={5} className="font-medium">
                     Total Output VAT
                   </TableCell>
-                  <TableCell className="text-right font-mono font-medium">
+                  <TableCell className="text-right font-medium tabular-nums">
                     {formatAmount(data.outputTotal)}
                   </TableCell>
                 </TableRow>
@@ -1234,7 +1224,7 @@ function VatRegisterDisplay({
                 {data.inputRegister.map((entry, i) => (
                   <TableRow
                     key={i}
-                    className={entry.isCreditNote ? "text-red-600" : ""}
+                    className={entry.isCreditNote ? "text-destructive" : ""}
                   >
                     <TableCell>{entry.date || "-"}</TableCell>
                     <TableCell className="font-mono text-xs">
@@ -1242,7 +1232,7 @@ function VatRegisterDisplay({
                       {entry.isCreditNote && (
                         <Badge
                           variant="secondary"
-                          className="ml-2 text-[10px]"
+                          className="ml-2 text-xs"
                         >
                           CN
                         </Badge>
@@ -1252,10 +1242,10 @@ function VatRegisterDisplay({
                     <TableCell className="font-mono text-xs">
                       {entry.vendorTaxId || "-"}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(entry.baseAmount)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {formatAmount(entry.vatAmount)}
                     </TableCell>
                   </TableRow>
@@ -1266,7 +1256,7 @@ function VatRegisterDisplay({
                   <TableCell colSpan={5} className="font-medium">
                     Total Input VAT
                   </TableCell>
-                  <TableCell className="text-right font-mono font-medium">
+                  <TableCell className="text-right font-medium tabular-nums">
                     {formatAmount(data.inputTotal)}
                   </TableCell>
                 </TableRow>

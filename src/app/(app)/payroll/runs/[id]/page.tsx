@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ReceiptText } from "lucide-react";
+import { ArrowLeft, CircleAlert, ReceiptText } from "lucide-react";
 import { getPayrollPayRunDetail } from "@/lib/db/queries/payroll";
 import { getCurrentUserId } from "@/lib/utils/auth";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -41,13 +46,6 @@ async function submitPayRunPayment(formData: FormData) {
     const payRunId = String(formData.get("payRunId") ?? "");
     redirect(`/payroll/runs/${payRunId}?error=${encodeURIComponent(result.error)}`);
   }
-}
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 function employeeName(slip: {
@@ -100,81 +98,52 @@ export default async function PayrollPayRunPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-sm text-muted-foreground">
-            Per-employee slip preview, payroll tax summary, and approval/payment controls.
-          </p>
-        </div>
+      <PageHeader
+        title={title}
+        description="Per-employee slip preview, payroll tax summary, and approval/payment controls."
+      >
         <Button variant="outline" render={<Link href="/payroll" />}>
           <ArrowLeft className="mr-2 size-4" />
           Payroll
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId || !detail ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <ReceiptText className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view payroll pay-run detail.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<ReceiptText />}
+              title="Select an organization to view payroll pay-run detail."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Gross Pay</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.grossSalary)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.summary.slipCount} employee slips.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">PIT Withheld</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.pitWht)}
-                </div>
-                <p className="text-xs text-muted-foreground">PND.1 wage tax.</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">SSO</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.ssoEmployee)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Employer {amount(detail.summary.ssoEmployer)}.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Net Pay</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.netPay)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Status {detail.payRun.status}.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Gross Pay"
+              value={<Amount value={detail.summary.grossSalary} />}
+              hint={`${detail.summary.slipCount} employee slips.`}
+            />
+            <StatCard
+              label="PIT Withheld"
+              value={<Amount value={detail.summary.pitWht} />}
+              hint="PND.1 wage tax."
+            />
+            <StatCard
+              label="SSO"
+              value={<Amount value={detail.summary.ssoEmployee} />}
+              hint={
+                <>
+                  Employer <Amount value={detail.summary.ssoEmployer} />.
+                </>
+              }
+            />
+            <StatCard
+              label="Net Pay"
+              value={<Amount value={detail.summary.netPay} />}
+              hint={`Status ${detail.payRun.status}.`}
+            />
           </div>
 
           <Card>
@@ -212,11 +181,10 @@ export default async function PayrollPayRunPage({
           </Card>
 
           {error ? (
-            <Card>
-              <CardContent className="py-4 text-sm text-destructive">
-                {error}
-              </CardContent>
-            </Card>
+            <Alert variant="destructive">
+              <CircleAlert />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : null}
 
           <Card>
@@ -260,9 +228,7 @@ export default async function PayrollPayRunPage({
             </CardHeader>
             <CardContent>
               {detail.slips.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No slips generated for this pay run.
-                </p>
+                <EmptyState size="sm" title="No slips generated for this pay run." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -287,23 +253,23 @@ export default async function PayrollPayRunPage({
                           </div>
                         </TableCell>
                         <TableCell>{incomeTypeLabel(slip.pnd1IncomeType)}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.grossSalary)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.grossSalary} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.pitWht)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.pitWht} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.ssoEmployee)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.ssoEmployee} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.ssoEmployer)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.ssoEmployer} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.otherDeductions)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.otherDeductions} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(slip.netPay)}
+                        <TableCell className="text-right">
+                          <Amount value={slip.netPay} />
                         </TableCell>
                       </TableRow>
                     ))}

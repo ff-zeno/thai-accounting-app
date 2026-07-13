@@ -132,16 +132,16 @@ describe("getConfidenceLevel", () => {
 });
 
 describe("getConfidenceColor", () => {
-  it("returns green classes for high", () => {
-    expect(getConfidenceColor("high")).toContain("green");
+  it("returns success token classes for high", () => {
+    expect(getConfidenceColor("high")).toContain("success");
   });
 
-  it("returns amber classes for medium", () => {
-    expect(getConfidenceColor("medium")).toContain("amber");
+  it("returns warning token classes for medium", () => {
+    expect(getConfidenceColor("medium")).toContain("warning");
   });
 
-  it("returns red classes for low", () => {
-    expect(getConfidenceColor("low")).toContain("red");
+  it("returns destructive token classes for low", () => {
+    expect(getConfidenceColor("low")).toContain("destructive");
   });
 });
 

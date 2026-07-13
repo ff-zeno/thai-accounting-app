@@ -93,11 +93,11 @@ export default async function WhtRegisterPage() {
                     <TableCell>{row.counterpartyName}</TableCell>
                     <TableCell>{row.paymentDate ?? "-"}</TableCell>
                     <TableCell>{formLabel(row.formType)}</TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {amount(row.grossAmount)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">{rate(row.whtRate)}</TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">{rate(row.whtRate)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {amount(row.whtAmount)}
                     </TableCell>
                     <TableCell>{row.certificateStatus}</TableCell>

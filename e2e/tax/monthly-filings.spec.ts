@@ -2,7 +2,7 @@ import { test, expect } from "../fixtures/auth";
 
 test.describe("WHT Filings", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/tax/monthly-filings");
+    await page.goto("/tax/withholding/filings");
     await expect(page.locator("main")).toBeVisible();
   });
 

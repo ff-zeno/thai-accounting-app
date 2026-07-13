@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getJournalEntryDetail } from "@/lib/db/queries/general-ledger";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,13 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default async function JournalEntryDetailPage({
   params,
@@ -65,13 +59,17 @@ export default async function JournalEntryDetailPage({
               <CardHeader>
                 <CardTitle className="text-sm">Debit</CardTitle>
               </CardHeader>
-              <CardContent>{amount(detail.entry.totalDebit)}</CardContent>
+              <CardContent>
+                <Amount value={detail.entry.totalDebit} />
+              </CardContent>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Credit</CardTitle>
               </CardHeader>
-              <CardContent>{amount(detail.entry.totalCredit)}</CardContent>
+              <CardContent>
+                <Amount value={detail.entry.totalCredit} />
+              </CardContent>
             </Card>
           </div>
 
@@ -100,8 +98,8 @@ export default async function JournalEntryDetailPage({
                     <TableHead>Line</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>Debit</TableHead>
-                    <TableHead>Credit</TableHead>
+                    <TableHead className="text-right tabular-nums">Debit</TableHead>
+                    <TableHead className="text-right tabular-nums">Credit</TableHead>
                     <TableHead>Subledger</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -113,8 +111,12 @@ export default async function JournalEntryDetailPage({
                         {line.accountCode} {line.accountNameEn}
                       </TableCell>
                       <TableCell>{line.description ?? "n/a"}</TableCell>
-                      <TableCell>{amount(line.debitAmount)}</TableCell>
-                      <TableCell>{amount(line.creditAmount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={line.debitAmount} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={line.creditAmount} />
+                      </TableCell>
                       <TableCell>
                         {line.subledgerEntityType
                           ? `${line.subledgerEntityType}:${line.subledgerEntityId ?? ""}`

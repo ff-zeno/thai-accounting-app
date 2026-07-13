@@ -4,7 +4,7 @@ export default function CaptureLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       {children}
     </div>
   );

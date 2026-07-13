@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
 import {
   getGeneralLedgerDetail,
   getGlAccounts,
   seedStandardGlAccounts,
 } from "@/lib/db/queries/general-ledger";
+import { Amount } from "@/components/ui/amount";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -16,13 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function dateParam(value: string | undefined) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") ? value : undefined;
@@ -74,12 +72,12 @@ export default async function GeneralLedgerReportPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">General Ledger Detail</h1>
-        <p className="text-sm text-muted-foreground">
-          Line-level ledger detail with journal and source references.
-        </p>
-      </div>
+      <PageHeader
+        title="General Ledger Detail"
+        description="Line-level ledger detail with journal and source references."
+      >
+        <ReportSwitcher current="/accounting/reports/general-ledger" />
+      </PageHeader>
 
       {!orgId ? (
         <Card>
@@ -101,9 +99,9 @@ export default async function GeneralLedgerReportPage({
                 className="grid gap-3 md:grid-cols-[minmax(0,1fr)_repeat(2,10rem)_auto]"
                 action="/accounting/reports/general-ledger"
               >
-                <select
+                <NativeSelect
                   name="accountId"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  className="w-full"
                   defaultValue={accountId ?? ""}
                 >
                   <option value="">All accounts</option>
@@ -112,15 +110,12 @@ export default async function GeneralLedgerReportPage({
                       {account.accountCode} {account.nameEn}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 <Input name="startDate" type="date" defaultValue={startDate ?? ""} />
                 <Input name="endDate" type="date" defaultValue={endDate ?? ""} />
-                <button
-                  type="submit"
-                  className="h-9 rounded-md border border-input px-3 text-sm hover:bg-muted"
-                >
+                <Button type="submit" variant="outline" size="sm">
                   Filter
-                </button>
+                </Button>
               </form>
               {selectedAccount ? (
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -134,12 +129,9 @@ export default async function GeneralLedgerReportPage({
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-3">
                 <span>Ledger Lines</span>
-                <Link
-                  href={exportHref}
-                  className="text-sm font-normal text-muted-foreground underline-offset-4 hover:underline"
-                >
+                <Button variant="outline" size="sm" render={<Link href={exportHref} />}>
                   Download CSV
-                </Link>
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -150,9 +142,11 @@ export default async function GeneralLedgerReportPage({
                     <TableHead>Journal</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>Debit</TableHead>
-                    <TableHead>Credit</TableHead>
-                    <TableHead>Running balance</TableHead>
+                    <TableHead className="text-right tabular-nums">Debit</TableHead>
+                    <TableHead className="text-right tabular-nums">Credit</TableHead>
+                    <TableHead className="text-right tabular-nums">
+                      Running balance
+                    </TableHead>
                     <TableHead>Source</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -172,10 +166,18 @@ export default async function GeneralLedgerReportPage({
                         {row.accountCode} {row.accountNameEn}
                       </TableCell>
                       <TableCell>{row.description ?? "n/a"}</TableCell>
-                      <TableCell>{amount(row.debitAmount)}</TableCell>
-                      <TableCell>{amount(row.creditAmount)}</TableCell>
-                      <TableCell>
-                        {selectedAccount ? amount(runningBalances.get(row.lineId)) : "Select account"}
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={row.debitAmount} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Amount value={row.creditAmount} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {selectedAccount ? (
+                          <Amount value={runningBalances.get(row.lineId)} />
+                        ) : (
+                          "Select account"
+                        )}
                       </TableCell>
                       <TableCell>
                         {row.subledgerEntityType

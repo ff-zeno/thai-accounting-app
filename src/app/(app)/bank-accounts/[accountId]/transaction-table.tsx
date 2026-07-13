@@ -28,6 +28,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -527,7 +535,7 @@ export function TransactionTable({
           <Filter className="size-4" />
           Filters
           {activeFilterCount > 0 && (
-            <Badge variant="secondary" className="ml-1 size-5 justify-center rounded-full p-0 text-[10px]">
+            <Badge variant="secondary" className="ml-1 size-5 justify-center rounded-full p-0 text-xs">
               {activeFilterCount}
             </Badge>
           )}
@@ -566,10 +574,10 @@ export function TransactionTable({
 
       {/* Table */}
       <div className="overflow-hidden rounded-md border">
-        <table className="w-full table-fixed">
-          <thead>
+        <Table className="table-fixed">
+          <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/50">
+              <TableRow key={headerGroup.id} className="bg-muted/50">
                 {headerGroup.headers.map((header) => {
                   // Assign widths based on column id
                   let widthClass = "";
@@ -586,7 +594,7 @@ export function TransactionTable({
                     case "actions": widthClass = "w-12"; break;
                   }
                   return (
-                    <th
+                    <TableHead
                       key={header.id}
                       className={`px-3 py-2 text-left text-xs font-medium text-muted-foreground ${widthClass}`}
                     >
@@ -596,16 +604,16 @@ export function TransactionTable({
                             header.column.columnDef.header,
                             header.getContext()
                           )}
-                    </th>
+                    </TableHead>
                   );
                 })}
-              </tr>
+              </TableRow>
             ))}
-          </thead>
-          <tbody>
+          </TableHeader>
+          <TableBody>
             {table.getRowModel().rows.length === 0 ? (
-              <tr>
-                <td
+              <TableRow>
+                <TableCell
                   colSpan={columns.length}
                   className="py-8 text-center text-sm text-muted-foreground"
                 >
@@ -615,19 +623,19 @@ export function TransactionTable({
                   {activeSearch || activeFilterCount > 0
                     ? "No transactions match your search."
                     : "No transactions yet. Upload a bank statement to get started."}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr
+                <TableRow
                   key={row.id}
-                  className={`border-b last:border-0 transition-colors hover:bg-muted/50 ${
+                  className={`${
                     selectedIds.has(row.original.id) ? "bg-primary/5" : ""
                   }${selectedIds.size > 0 ? " cursor-pointer" : ""}`}
                   onClick={selectedIds.size > 0 ? (e) => handleRowClick(e, row.original.id) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td
+                    <TableCell
                       key={cell.id}
                       className={`px-3 py-2${cell.column.id === "description" ? " max-w-0" : ""}`}
                     >
@@ -635,13 +643,13 @@ export function TransactionTable({
                         cell.column.columnDef.cell,
                         cell.getContext()
                       )}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pagination */}

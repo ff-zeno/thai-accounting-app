@@ -100,7 +100,7 @@ export function RuleList({ rules, onEdit }: Props) {
                       P{rule.priority}
                     </Badge>
                     {rule.isAutoSuggested && (
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                      <Badge variant="warning" className="text-xs">
                         Auto-suggested
                       </Badge>
                     )}
@@ -203,7 +203,7 @@ export function RuleList({ rules, onEdit }: Props) {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-sm font-medium">{rule.name}</CardTitle>
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                      <Badge variant="warning" className="text-xs">
                         Auto-suggested
                       </Badge>
                     </div>

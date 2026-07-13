@@ -15,7 +15,7 @@ export function LearningIndicator({
 
   if (tierUsed >= 3) {
     return (
-      <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+      <div className="flex items-center gap-1.5 rounded-md bg-success/10 px-2.5 py-1.5 text-xs text-success">
         <Zap className="size-3.5 shrink-0" />
         <span>
           AI used a compiled pattern for this vendor
@@ -26,7 +26,7 @@ export function LearningIndicator({
 
   if (tierUsed === 2) {
     return (
-      <div className="flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+      <div className="flex items-center gap-1.5 rounded-md bg-info/10 px-2.5 py-1.5 text-xs text-info">
         <Globe className="size-3.5 shrink-0" />
         <span>
           AI used community patterns for this vendor
@@ -36,7 +36,7 @@ export function LearningIndicator({
   }
 
   return (
-    <div className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+    <div className="flex items-center gap-1.5 rounded-md bg-warning/10 px-2.5 py-1.5 text-xs text-warning">
       <Sparkles className="size-3.5 shrink-0" />
       <span>
         AI learned from your {exemplarCount} previous correction{exemplarCount !== 1 ? "s" : ""}

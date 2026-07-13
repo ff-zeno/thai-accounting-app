@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, Upload } from "lucide-react";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getFixedAssetsByIds } from "@/lib/db/queries/fixed-assets";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
 import { importFixedAssetsCsvAction } from "../actions";
 
@@ -68,30 +71,27 @@ export default async function FixedAssetImportPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Fixed Asset CSV Import
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Onboard prior asset registers into the same fixed-asset ledger used by depreciation.
-          </p>
-        </div>
+      <PageHeader
+        title="Fixed Asset CSV Import"
+        description="Onboard prior asset registers into the same fixed-asset ledger used by depreciation."
+      >
         <Button variant="outline" render={<Link href="/fixed-assets" />}>
           <ArrowLeft className="mr-2 size-4" />
           Fixed Assets
         </Button>
-      </div>
+      </PageHeader>
 
       {messages.error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {messages.error}
-        </div>
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{messages.error}</AlertDescription>
+        </Alert>
       ) : null}
       {messages.status ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-          {messages.status}
-        </div>
+        <Alert variant="success">
+          <CircleCheck />
+          <AlertDescription>{messages.status}</AlertDescription>
+        </Alert>
       ) : null}
       {importedAssets.length > 0 ? (
         <Card>
@@ -124,11 +124,11 @@ export default async function FixedAssetImportPage({
 
       {!orgId ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Upload className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to import fixed assets.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Upload />}
+              title="Select an organization to import fixed assets."
+            />
           </CardContent>
         </Card>
       ) : (

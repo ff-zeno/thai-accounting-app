@@ -3,10 +3,15 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Calculator, Landmark } from "lucide-react";
 import { getFixedAssetDetail } from "@/lib/db/queries/fixed-assets";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { StatusBadge } from "@/components/status-badge";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -32,13 +37,6 @@ async function submitSchedule(formData: FormData) {
 async function submitDisposal(formData: FormData) {
   "use server";
   await disposeFixedAssetAction(formData);
-}
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 function label(value: string) {
@@ -68,83 +66,52 @@ export default async function FixedAssetDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-sm text-muted-foreground">
-            Depreciation schedule, book-tax cap, GL trace, and disposal controls.
-          </p>
-        </div>
+      <PageHeader
+        title={title}
+        description="Depreciation schedule, book-tax cap, GL trace, and disposal controls."
+      >
         <Button variant="outline" render={<Link href="/fixed-assets" />}>
           <ArrowLeft className="mr-2 size-4" />
           Fixed Assets
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId || !detail ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Landmark className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view fixed asset detail.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Landmark />}
+              title="Select an organization to view fixed asset detail."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Original Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.asset.originalCost)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Salvage {amount(detail.asset.salvageValue)}.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Accumulated Dep.</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.accumulatedDepreciation)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.summary.postedRows} posted rows.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Book Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.bookValue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.summary.scheduleRows} schedule rows.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Book-Tax Addback</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.summary.bookTaxDifference)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From tax depreciation cap.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Original Cost"
+              value={<Amount value={detail.asset.originalCost} />}
+              hint={
+                <>
+                  Salvage <Amount value={detail.asset.salvageValue} />.
+                </>
+              }
+            />
+            <StatCard
+              label="Accumulated Dep."
+              value={<Amount value={detail.summary.accumulatedDepreciation} />}
+              hint={`${detail.summary.postedRows} posted rows.`}
+            />
+            <StatCard
+              label="Book Value"
+              value={<Amount value={detail.summary.bookValue} />}
+              hint={`${detail.summary.scheduleRows} schedule rows.`}
+            />
+            <StatCard
+              label="Book-Tax Addback"
+              value={<Amount value={detail.summary.bookTaxDifference} />}
+              hint="From tax depreciation cap."
+            />
           </div>
 
           <Card>
@@ -168,8 +135,15 @@ export default async function FixedAssetDetailPage({
               </div>
               <div>
                 <p className="text-muted-foreground">Status</p>
-                <p className="font-medium">
-                  {detail.asset.disposedAt ? `Disposed ${detail.asset.disposedAt}` : "Active"}
+                <p>
+                  <StatusBadge
+                    status={detail.asset.disposedAt ? "disposed" : "active"}
+                    label={
+                      detail.asset.disposedAt
+                        ? `Disposed ${detail.asset.disposedAt}`
+                        : "Active"
+                    }
+                  />
                 </p>
               </div>
               <div>
@@ -222,8 +196,8 @@ export default async function FixedAssetDetailPage({
               <CardContent>
                 {detail.asset.disposedAt ? (
                   <div className="text-sm text-muted-foreground">
-                    Disposed for {amount(detail.asset.disposalProceeds)} with gain/loss{" "}
-                    {amount(detail.asset.gainLossOnDisposal)}.
+                    Disposed for <Amount value={detail.asset.disposalProceeds} /> with
+                    gain/loss <Amount value={detail.asset.gainLossOnDisposal} />.
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -261,9 +235,7 @@ export default async function FixedAssetDetailPage({
             </CardHeader>
             <CardContent>
               {detail.schedule.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No depreciation schedule rows yet.
-                </p>
+                <EmptyState size="sm" title="No depreciation schedule rows yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -281,20 +253,20 @@ export default async function FixedAssetDetailPage({
                     {detail.schedule.map((row) => (
                       <TableRow key={row.id}>
                         <TableCell>{periodLabel(row.periodYear, row.periodMonth)}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.depreciationAmount)}
+                        <TableCell className="text-right">
+                          <Amount value={row.depreciationAmount} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.taxDepreciationCappedAmount)}
+                        <TableCell className="text-right">
+                          <Amount value={row.taxDepreciationCappedAmount} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.bookTaxDifference)}
+                        <TableCell className="text-right">
+                          <Amount value={row.bookTaxDifference} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.accumulatedDepreciationAfter)}
+                        <TableCell className="text-right">
+                          <Amount value={row.accumulatedDepreciationAfter} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(row.bookValueAfter)}
+                        <TableCell className="text-right">
+                          <Amount value={row.bookValueAfter} />
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {shortId(row.journalEntryId)}

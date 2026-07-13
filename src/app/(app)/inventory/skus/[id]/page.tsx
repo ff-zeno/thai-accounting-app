@@ -4,10 +4,14 @@ import { ArrowLeft, Boxes } from "lucide-react";
 import { updateSkuProfileAction } from "../../actions";
 import { getInventorySkuDetail } from "@/lib/db/queries/inventory";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -124,85 +128,48 @@ export default async function InventorySkuPage({ params }: InventorySkuPageProps
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {detail?.sku.skuCode ?? "SKU Detail"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Movement history, running cost, source evidence, and GL trace.
-          </p>
-        </div>
+      <PageHeader
+        title={detail?.sku.skuCode ?? "SKU Detail"}
+        description="Movement history, running cost, source evidence, and GL trace."
+      >
         <Button variant="outline" render={<Link href="/inventory" />}>
           <ArrowLeft className="mr-2 size-4" />
           Inventory
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId || !detail ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Boxes className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view SKU detail.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Boxes />}
+              title="Select an organization to view SKU detail."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Quantity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.sku.currentQuantity, 4)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.sku.unitOfMeasure}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Average Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.sku.currentAvgCost, 4)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.sku.valuationMethod}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Inventory Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(detail.sku.currentValue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Current SKU ledger value.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Branch</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {detail.sku.branchNumber ?? "All"}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {detail.sku.establishmentName || "Org-wide SKU"}
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Quantity"
+              value={amount(detail.sku.currentQuantity, 4)}
+              hint={detail.sku.unitOfMeasure}
+            />
+            <StatCard
+              label="Average Cost"
+              value={amount(detail.sku.currentAvgCost, 4)}
+              hint={detail.sku.valuationMethod}
+            />
+            <StatCard
+              label="Inventory Value"
+              value={<Amount value={detail.sku.currentValue} />}
+              hint="Current SKU ledger value."
+            />
+            <StatCard
+              label="Branch"
+              value={detail.sku.branchNumber ?? "All"}
+              hint={detail.sku.establishmentName || "Org-wide SKU"}
+            />
           </div>
 
           <Card>
@@ -291,9 +258,7 @@ export default async function InventorySkuPage({ params }: InventorySkuPageProps
             </CardHeader>
             <CardContent>
               {detail.movements.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No movements recorded for this SKU.
-                </p>
+                <EmptyState size="sm" title="No movements recorded for this SKU." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -323,16 +288,16 @@ export default async function InventorySkuPage({ params }: InventorySkuPageProps
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {shortId(movement.journalEntryId)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(movement.quantity, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(movement.unitCost, 4)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(movement.totalCost)}
+                        <TableCell className="text-right">
+                          <Amount value={movement.totalCost} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {amount(movement.runningQuantityAfter, 4)}
                         </TableCell>
                         <TableCell>{movement.notes ?? "-"}</TableCell>

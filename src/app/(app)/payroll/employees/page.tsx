@@ -2,8 +2,13 @@ import Link from "next/link";
 import { UsersRound } from "lucide-react";
 import { getPayrollEmployees } from "@/lib/db/queries/payroll";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -20,69 +25,42 @@ export default async function PayrollEmployeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Payroll Employees
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Employee roster, branch filing scope, salary class, and allowance readiness.
-          </p>
-        </div>
+      <PageHeader
+        title="Payroll Employees"
+        description="Employee roster, branch filing scope, salary class, and allowance readiness."
+      >
         <Button variant="outline" render={<Link href="/payroll" />}>
           Payroll
         </Button>
-      </div>
+      </PageHeader>
 
       {!orgId ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <UsersRound className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view payroll employees.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<UsersRound />}
+              title="Select an organization to view payroll employees."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Employees</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{employees.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  {activeCount} active.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Director Income</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {employees.filter((employee) => employee.isDirector).length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  PND.1 income type 40(2).
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Allowance Records</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {employees.reduce((sum, employee) => sum + employee.allowanceCount, 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Lor.Yor.01 rows on file.
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Employees"
+              value={employees.length}
+              hint={`${activeCount} active.`}
+            />
+            <StatCard
+              label="Director Income"
+              value={employees.filter((employee) => employee.isDirector).length}
+              hint="PND.1 income type 40(2)."
+            />
+            <StatCard
+              label="Allowance Records"
+              value={employees.reduce((sum, employee) => sum + employee.allowanceCount, 0)}
+              hint="Lor.Yor.01 rows on file."
+            />
           </div>
 
           <Card>
@@ -91,9 +69,7 @@ export default async function PayrollEmployeesPage() {
             </CardHeader>
             <CardContent>
               {employees.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No employees recorded yet.
-                </p>
+                <EmptyState size="sm" title="No employees recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -123,18 +99,19 @@ export default async function PayrollEmployeesPage() {
                         <TableCell>{employee.branchNumber}</TableCell>
                         <TableCell>{employee.position ?? "-"}</TableCell>
                         <TableCell>{employee.startDate}</TableCell>
-                        <TableCell>{employee.endDate ? "Ended" : "Active"}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {Number(employee.baseMonthlySalary).toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
+                        <TableCell>
+                          <StatusBadge
+                            status={employee.endDate ? "ended" : "active"}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Amount value={employee.baseMonthlySalary} />
                         </TableCell>
                         <TableCell>
                           {employee.payFrequency} / {employee.payPeriodsPerYear}
                         </TableCell>
                         <TableCell>{employee.isDirector ? "40(2)" : "40(1)"}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right tabular-nums">
                           {employee.allowanceCount}
                         </TableCell>
                       </TableRow>

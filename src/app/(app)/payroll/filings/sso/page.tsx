@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, FileText } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CircleAlert,
+  CircleCheck,
+  FileText,
+} from "lucide-react";
 import {
   markSsoFilingAcceptedAction,
   markSsoFilingSubmittedAction,
@@ -8,9 +14,14 @@ import {
 } from "../../actions";
 import { getActiveSsoConfig, getPayrollSsoFilings } from "@/lib/db/queries/payroll";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -19,13 +30,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function dateOnly(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : "-";
@@ -72,28 +76,27 @@ export default async function PayrollSsoFilingsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">SSO Filings</h1>
-          <p className="text-sm text-muted-foreground">
-            Monthly Social Security drafts, employee/employer totals, and remittance state.
-          </p>
-        </div>
+      <PageHeader
+        title="SSO Filings"
+        description="Monthly Social Security drafts, employee/employer totals, and remittance state."
+      >
         <Button variant="outline" render={<Link href="/payroll" />}>
           <ArrowLeft className="mr-2 size-4" />
           Payroll
         </Button>
-      </div>
+      </PageHeader>
 
       {messages.error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {messages.error}
-        </div>
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{messages.error}</AlertDescription>
+        </Alert>
       ) : null}
       {messages.status ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-          {messages.status}
-        </div>
+        <Alert variant="success">
+          <CircleCheck />
+          <AlertDescription>{messages.status}</AlertDescription>
+        </Alert>
       ) : null}
 
       <Card>
@@ -106,39 +109,45 @@ export default async function PayrollSsoFilingsPage({
               <div className="grid gap-3 md:grid-cols-4">
                 <div>
                   <div className="text-xs text-muted-foreground">Employee rate</div>
-                  <div className="font-mono">
+                  <div className="tabular-nums">
                     {(Number(activeSsoConfig.employeeRate) * 100).toFixed(2)}%
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Employer rate</div>
-                  <div className="font-mono">
+                  <div className="tabular-nums">
                     {(Number(activeSsoConfig.employerRate) * 100).toFixed(2)}%
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Wage cap</div>
-                  <div className="font-mono">
-                    {amount(activeSsoConfig.insurableWageCap)}
+                  <div>
+                    <Amount value={activeSsoConfig.insurableWageCap} />
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Max / side</div>
-                  <div className="font-mono">
-                    {amount(activeSsoConfig.monthlyMaxPerSide)}
+                  <div>
+                    <Amount value={activeSsoConfig.monthlyMaxPerSide} />
                   </div>
                 </div>
               </div>
-              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-800">
-                Verify the current SSO contribution rate, wage floor/cap, and submission
-                channel before filing. Source: {activeSsoConfig.sourceCitation}
-              </div>
+              <Alert variant="warning">
+                <AlertTriangle />
+                <AlertDescription>
+                  Verify the current SSO contribution rate, wage floor/cap, and submission
+                  channel before filing. Source: {activeSsoConfig.sourceCitation}
+                </AlertDescription>
+              </Alert>
             </>
           ) : (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
-              No active SSO contribution configuration is available for today. Build pay
-              runs and filings only after current SSO rates are configured.
-            </div>
+            <Alert variant="destructive">
+              <CircleAlert />
+              <AlertDescription>
+                No active SSO contribution configuration is available for today. Build pay
+                runs and filings only after current SSO rates are configured.
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
@@ -149,12 +158,7 @@ export default async function PayrollSsoFilingsPage({
         </CardHeader>
         <CardContent>
           {filings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <FileText className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                No SSO filings drafted yet.
-              </p>
-            </div>
+            <EmptyState icon={<FileText />} title="No SSO filings drafted yet." />
           ) : (
             <Table>
               <TableHeader>
@@ -173,17 +177,19 @@ export default async function PayrollSsoFilingsPage({
                 {filings.map((filing) => (
                   <TableRow key={filing.id}>
                     <TableCell className="font-medium">{filing.taxMonth}</TableCell>
-                    <TableCell>{filing.filingStatus}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={filing.filingStatus} />
+                    </TableCell>
                     <TableCell>{dateOnly(filing.paidAt)}</TableCell>
                     <TableCell>{filing.ssoReferenceNumber ?? "-"}</TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {filing.totalEmployees ?? 0}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {amount(filing.totalEmployeeContribution)}
+                    <TableCell className="text-right">
+                      <Amount value={filing.totalEmployeeContribution} />
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {amount(filing.totalEmployerContribution)}
+                    <TableCell className="text-right">
+                      <Amount value={filing.totalEmployerContribution} />
                     </TableCell>
                     <TableCell className="text-right">
                       {filing.filingStatus === "draft" ? (

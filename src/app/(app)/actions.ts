@@ -62,7 +62,7 @@ export async function createOrgAction(formData: FormData) {
 }
 
 export async function updateOrgAction(orgId: string, formData: FormData) {
-  const { orgId: activeOrgId } = await requireOrgAdmin();
+  const { orgId: activeOrgId, userId } = await requireOrgAdmin();
   if (activeOrgId !== orgId) return { error: "Access denied" };
 
   const name = formData.get("name") as string;
@@ -73,6 +73,9 @@ export async function updateOrgAction(orgId: string, formData: FormData) {
   const address = (formData.get("address") as string) || null;
   const addressTh = (formData.get("addressTh") as string) || null;
   const isVatRegistered = formData.get("isVatRegistered") === "on";
+  const hasPosSales = formData.get("hasPosSales") === "on";
+  const hasEmployees = formData.get("hasEmployees") === "on";
+  const hasImportedServices = formData.get("hasImportedServices") === "on";
   const fiscalYearEndMonth = parseInt(
     (formData.get("fiscalYearEndMonth") as string) || "12"
   );
@@ -88,18 +91,25 @@ export async function updateOrgAction(orgId: string, formData: FormData) {
     return { error: "Branch number must be exactly 5 digits" };
   }
 
-  await updateOrganization(orgId, {
-    name,
-    nameTh,
-    taxId,
-    branchNumber,
-    registrationNo,
-    address,
-    addressTh,
-    isVatRegistered,
-    fiscalYearEndMonth,
-    fiscalYearEndDay,
-  });
+  await updateOrganization(
+    orgId,
+    {
+      name,
+      nameTh,
+      taxId,
+      branchNumber,
+      registrationNo,
+      address,
+      addressTh,
+      isVatRegistered,
+      hasPosSales,
+      hasEmployees,
+      hasImportedServices,
+      fiscalYearEndMonth,
+      fiscalYearEndDay,
+    },
+    userId
+  );
 
   revalidatePath("/", "layout");
   return { success: true };

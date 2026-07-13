@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 type CategoryDefault = {
   category: string;
@@ -47,10 +48,10 @@ export function FixedAssetIntakeFields({
       </div>
       <div className="space-y-2">
         <Label htmlFor="category">Category</Label>
-        <select
+        <NativeSelect
           id="category"
           name="category"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+          className="w-full"
           value={category}
           onChange={(event) => setCategory(event.target.value)}
         >
@@ -59,7 +60,7 @@ export function FixedAssetIntakeFields({
               {label(row.category)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <div className="space-y-2">
         <Label htmlFor="acquisitionDate">Acquisition date</Label>
@@ -108,7 +109,7 @@ export function FixedAssetIntakeFields({
         <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
           Tax minimum for {label(category)}: {taxMinimum} months.
           {belowTaxMinimum ? (
-            <span className="block text-amber-700">
+            <span className="block text-warning">
               Book life is shorter than the tax minimum. The excess book depreciation is
               tracked as a PND.50 addback.
             </span>

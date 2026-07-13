@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, Puzzle } from "lucide-react";
+import { ChevronDown, Menu, Puzzle } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -16,6 +16,8 @@ import {
   navCategories,
   type NavCategory,
 } from "@/lib/nav/structure";
+import { resolvePinnedNavItems } from "@/lib/nav/pins";
+import { useCollapsibleSections } from "./use-collapsible-sections";
 
 interface Org {
   id: string;
@@ -26,9 +28,14 @@ interface Org {
 interface MobileDrawerProps {
   orgs: Org[];
   activeOrgId: string | null;
+  pinnedHrefs: string[];
 }
 
-export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
+export function MobileDrawer({
+  orgs,
+  activeOrgId,
+  pinnedHrefs,
+}: MobileDrawerProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
@@ -63,7 +70,7 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
               >
                 <Puzzle className="size-5" />
                 <span className="text-lg font-semibold tracking-tight">
-                  Long Tua
+                  Long Dtua
                 </span>
               </Link>
               <OrgSwitcher
@@ -74,7 +81,7 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
             </div>
 
             <div className="border-b px-2 py-2">
-              <div className="grid grid-cols-5 gap-1">
+              <div className="grid grid-cols-4 gap-1">
                 {navCategories.map((category) => (
                   <MobileCategoryButton
                     key={category.labelKey}
@@ -87,39 +94,13 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
               </div>
             </div>
 
-            <nav aria-label="Mobile navigation" className="flex-1 overflow-y-auto px-3 py-3">
-              {selectedCategory.sections.map((section) => (
-                <section key={section.labelKey} className="mb-5">
-                  {selectedCategory.sections.length > 1 && (
-                    <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase text-muted-foreground">
-                      {t(section.labelKey)}
-                    </div>
-                  )}
-                  <ul className="space-y-1">
-                    {section.items.map((item) => {
-                      const active = isNavItemActive(pathname, item);
-                      return (
-                        <li key={item.href}>
-                          <Link
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              "flex min-h-11 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm",
-                              active
-                                ? "bg-accent font-semibold text-primary"
-                                : "font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                            )}
-                          >
-                            <item.icon className="size-4" />
-                            {t(item.labelKey)}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </nav>
+            <MobileSectionList
+              category={selectedCategory}
+              pathname={pathname}
+              pinnedHrefs={pinnedHrefs}
+              onNavigate={() => setOpen(false)}
+            />
+
 
             <div className="space-y-3 border-t p-3">
               <LocaleSwitcher />
@@ -133,6 +114,115 @@ export function MobileDrawer({ orgs, activeOrgId }: MobileDrawerProps) {
         onOpenChange={setCreateDialogOpen}
       />
     </>
+  );
+}
+
+function MobileSectionList({
+  category,
+  pathname,
+  pinnedHrefs,
+  onNavigate,
+}: {
+  category: NavCategory;
+  pathname: string;
+  pinnedHrefs: string[];
+  onNavigate: () => void;
+}) {
+  const t = useTranslations("nav");
+  const { isOpen, toggle } = useCollapsibleSections(category, pathname);
+  // No pin/unpin affordance on mobile — pins are managed on desktop or the
+  // Home cockpit; here they only render as shortcuts in the Home category.
+  const pinnedItems =
+    category.labelKey === "home" ? resolvePinnedNavItems(pinnedHrefs) : [];
+
+  return (
+    <nav aria-label="Mobile navigation" className="flex-1 overflow-y-auto px-3 py-3">
+      {category.sections.map((section) => {
+        const open = isOpen(section);
+        return (
+          <section
+            key={section.labelKey}
+            className="mb-4 border-t pt-4 first:border-t-0 first:pt-0"
+          >
+            {category.sections.length > 1 &&
+              (section.collapsible ? (
+                <button
+                  type="button"
+                  onClick={() => toggle(section)}
+                  aria-expanded={open}
+                  className="mb-2 flex w-full items-center justify-between rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/70 hover:bg-accent/60 hover:text-foreground"
+                >
+                  {t(section.labelKey)}
+                  <ChevronDown
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      !open && "-rotate-90"
+                    )}
+                  />
+                </button>
+              ) : (
+                <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/70">
+                  {t(section.labelKey)}
+                </div>
+              ))}
+            {open && (
+              <ul className="space-y-1">
+                {section.items.map((item) => {
+                  const active = isNavItemActive(pathname, item);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex min-h-11 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm",
+                          active
+                            ? "bg-accent font-semibold text-primary"
+                            : "font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className="size-4" />
+                        {t(item.labelKey)}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        );
+      })}
+
+      {pinnedItems.length > 0 && (
+        <section className="mb-4 border-t pt-4">
+          <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/70">
+            Pinned
+          </div>
+          <ul className="space-y-1">
+            {pinnedItems.map((item) => {
+              const active = isNavItemActive(pathname, item);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex min-h-11 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm",
+                      active
+                        ? "bg-accent font-semibold text-primary"
+                        : "font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="size-4" />
+                    {t(item.labelKey)}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </nav>
   );
 }
 

@@ -1,6 +1,11 @@
 import { buildAgingSnapshot, summarizeAging } from "@/lib/analytics/aging";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -10,13 +15,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-function amount(value: string | number) {
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 export default async function ApAgingPage() {
   const orgId = await getActiveOrgId();
   const asOfDate = new Date().toISOString().slice(0, 10);
@@ -25,63 +23,64 @@ export default async function ApAgingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">AP Aging</h1>
-        <p className="text-sm text-muted-foreground">
-          Open expense documents bucketed by due date as of {asOfDate}.
-        </p>
-      </div>
+      <PageHeader
+        title="AP Aging"
+        description={`Open expense documents bucketed by due date as of ${asOfDate}.`}
+      >
+        <ReportSwitcher current="/analytics/ap-aging" />
+      </PageHeader>
       <div className="grid gap-4 md:grid-cols-5">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Current</CardTitle></CardHeader>
-          <CardContent><div className="text-xl font-semibold">{amount(summary.current)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">1-30</CardTitle></CardHeader>
-          <CardContent><div className="text-xl font-semibold">{amount(summary.days1To30)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">31-60</CardTitle></CardHeader>
-          <CardContent><div className="text-xl font-semibold">{amount(summary.days31To60)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">61-90</CardTitle></CardHeader>
-          <CardContent><div className="text-xl font-semibold">{amount(summary.days61To90)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">91+</CardTitle></CardHeader>
-          <CardContent><div className="text-xl font-semibold">{amount(summary.days91Plus)}</div></CardContent>
-        </Card>
+        <StatCard label="Current" value={<Amount value={summary.current} />} />
+        <StatCard label="1-30" value={<Amount value={summary.days1To30} />} />
+        <StatCard label="31-60" value={<Amount value={summary.days31To60} />} />
+        <StatCard label="61-90" value={<Amount value={summary.days61To90} />} />
+        <StatCard label="91+" value={<Amount value={summary.days91Plus} />} />
       </div>
       <Card>
         <CardHeader><CardTitle>Counterparties</CardTitle></CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Current</TableHead>
-                <TableHead>1-30</TableHead>
-                <TableHead>31-60</TableHead>
-                <TableHead>61-90</TableHead>
-                <TableHead>91+</TableHead>
-                <TableHead>Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.counterpartyId ?? "unassigned"}>
-                  <TableCell>{row.counterpartyName}</TableCell>
-                  <TableCell>{amount(row.current)}</TableCell>
-                  <TableCell>{amount(row.days1To30)}</TableCell>
-                  <TableCell>{amount(row.days31To60)}</TableCell>
-                  <TableCell>{amount(row.days61To90)}</TableCell>
-                  <TableCell>{amount(row.days91Plus)}</TableCell>
-                  <TableCell>{amount(row.total)}</TableCell>
+          {rows.length === 0 ? (
+            <EmptyState size="sm" title="No invoices in this period." />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead className="text-right tabular-nums">Current</TableHead>
+                  <TableHead className="text-right tabular-nums">1-30</TableHead>
+                  <TableHead className="text-right tabular-nums">31-60</TableHead>
+                  <TableHead className="text-right tabular-nums">61-90</TableHead>
+                  <TableHead className="text-right tabular-nums">91+</TableHead>
+                  <TableHead className="text-right tabular-nums">Total</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.counterpartyId ?? "unassigned"}>
+                    <TableCell>{row.counterpartyName}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={row.current} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={row.days1To30} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={row.days31To60} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={row.days61To90} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={row.days91Plus} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={row.total} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

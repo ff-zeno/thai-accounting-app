@@ -31,7 +31,7 @@ export async function createWhtCreditReceivedAction(formData: FormData) {
       certificateNo,
       notes,
     });
-    revalidatePath("/tax/wht-credits-received");
+    revalidatePath("/tax/withholding/incoming");
     return { success: true, id };
   } catch (error) {
     return {

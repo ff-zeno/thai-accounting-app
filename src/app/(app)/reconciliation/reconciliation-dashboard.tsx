@@ -10,6 +10,8 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -185,15 +187,15 @@ function UndoButton({ matchId }: { matchId: string }) {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 70) return "text-green-600";
-  if (score >= 40) return "text-amber-600";
-  return "text-red-600";
+  if (score >= 70) return "text-success";
+  if (score >= 40) return "text-warning";
+  return "text-destructive";
 }
 
 function getScoreBg(score: number): string {
-  if (score >= 70) return "bg-green-50 border-green-200";
-  if (score >= 40) return "bg-amber-50 border-amber-200";
-  return "bg-red-50 border-red-200";
+  if (score >= 70) return "bg-success/10 border-success/30";
+  if (score >= 40) return "bg-warning/10 border-warning/40";
+  return "bg-destructive/10 border-destructive/30";
 }
 
 function getScoreLabel(score: number): string {
@@ -285,8 +287,8 @@ export function ReconciliationDashboard({
               </span>
               {prevQualityScore && (() => {
                 const delta = qualityScore.score - prevQualityScore.score;
-                if (delta > 0) return <ArrowUp className="size-3 text-green-600" />;
-                if (delta < 0) return <ArrowDown className="size-3 text-red-600" />;
+                if (delta > 0) return <ArrowUp className="size-3 text-success" />;
+                if (delta < 0) return <ArrowDown className="size-3 text-destructive" />;
                 return <Minus className="size-3 text-muted-foreground" />;
               })()}
               {prevQualityScore && (
@@ -353,25 +355,22 @@ export function ReconciliationDashboard({
 
       {/* AI Suggestions Banner */}
       {suggestionCounts.pending > 0 && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <Brain className="size-5 text-amber-600" />
-              <p className="text-sm font-medium text-amber-800">
-                AI has {suggestionCounts.pending} suggested match{suggestionCounts.pending !== 1 ? "es" : ""} ready for review
-              </p>
-            </div>
+        <Alert variant="warning">
+          <Brain />
+          <AlertTitle className="flex items-center justify-between gap-3">
+            <span>
+              AI has {suggestionCounts.pending} suggested match{suggestionCounts.pending !== 1 ? "es" : ""} ready for review
+            </span>
             <Button
               size="sm"
               variant="outline"
-              className="border-amber-300 text-amber-800 hover:bg-amber-100"
               render={<Link href="/reconciliation/ai-review" />}
             >
               Review
               <ArrowRight className="ml-1 size-3.5" />
             </Button>
-          </CardContent>
-        </Card>
+          </AlertTitle>
+        </Alert>
       )}
 
       {/* Unmatched Lists */}
@@ -411,18 +410,11 @@ export function ReconciliationDashboard({
                       <p className="text-xs text-muted-foreground">{txn.date}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`whitespace-nowrap font-mono text-sm ${
-                          txn.type === "credit"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {txn.type === "debit" ? "-" : "+"}
-                        {parseFloat(txn.amount).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </span>
+                      <Amount
+                        signed
+                        value={txn.type === "debit" ? `-${txn.amount}` : txn.amount}
+                        className="whitespace-nowrap text-sm"
+                      />
                       <Button
                         variant="outline"
                         size="xs"

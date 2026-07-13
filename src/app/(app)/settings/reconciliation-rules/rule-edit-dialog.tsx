@@ -180,7 +180,7 @@ export function RuleEditDialog({ open, onOpenChange, initialRule }: Props) {
                       });
                     }}
                   >
-                    <SelectTrigger className="w-[130px]">
+                    <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -196,7 +196,7 @@ export function RuleEditDialog({ open, onOpenChange, initialRule }: Props) {
                     value={cond.operator}
                     onValueChange={(v) => updateCondition(idx, { operator: v as RuleCondition["operator"] })}
                   >
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -271,7 +271,7 @@ export function RuleEditDialog({ open, onOpenChange, initialRule }: Props) {
                   value={action.type}
                   onValueChange={(v) => updateAction(idx, { type: v as RuleAction["type"] })}
                 >
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

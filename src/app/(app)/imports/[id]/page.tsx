@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getImportPacketDetail } from "@/lib/db/queries/imports";
+import { formatAmount } from "@/lib/utils/money";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -13,8 +16,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import { DeleteLineButton } from "../delete-line-button";
 import {
   addImportGoodsLineAction,
@@ -109,13 +117,6 @@ async function redirectActionResult(
   redirect(`/imports/${importId}?status=updated`);
 }
 
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 export default async function ImportDetailPage({
   params,
   searchParams,
@@ -147,72 +148,57 @@ export default async function ImportDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <Link
-            href="/imports"
-            className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="mr-2 size-4" />
-            Imports
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {packet.importReference ?? packet.customsDeclarationNumber ?? "Import Packet"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Customs clearance {packet.customsClearanceDate} · {packet.isFinalized ? "finalized" : "open"}
-          </p>
-        </div>
+      <div>
+        <Link
+          href="/imports"
+          className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-2 size-4" />
+          Imports
+        </Link>
+        <PageHeader
+          title={
+            packet.importReference ?? packet.customsDeclarationNumber ?? "Import Packet"
+          }
+          description={
+            <>
+              Customs clearance {packet.customsClearanceDate} ·{" "}
+              <StatusBadge status={packet.isFinalized ? "finalized" : "open"} />
+            </>
+          }
+        />
       </div>
 
       {messages.error ? (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="py-3 text-sm text-destructive">
-            {messages.error}
-          </CardContent>
-        </Card>
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{messages.error}</AlertDescription>
+        </Alert>
       ) : null}
       {messages.status ? (
-        <Card className="border-emerald-200 bg-emerald-50 text-emerald-900">
-          <CardContent className="py-3 text-sm">
-            Import packet updated.
-          </CardContent>
-        </Card>
+        <Alert variant="success">
+          <CircleCheck />
+          <AlertDescription>Import packet updated.</AlertDescription>
+        </Alert>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Customs Declaration</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {packet.customsDeclarationNumber ?? "Not linked"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Currency / FX</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {packet.originalCurrency} @ {packet.fxRateAtClearance}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Assessed Duty</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {amount(packet.customsAssessedDutyThb)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Import VAT</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {amount(packet.customsAssessedImportVatThb)}
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Customs Declaration"
+          value={packet.customsDeclarationNumber ?? "Not linked"}
+        />
+        <StatCard
+          label="Currency / FX"
+          value={`${packet.originalCurrency} @ ${packet.fxRateAtClearance}`}
+        />
+        <StatCard
+          label="Assessed Duty"
+          value={<Amount value={packet.customsAssessedDutyThb} />}
+        />
+        <StatCard
+          label="Import VAT"
+          value={<Amount value={packet.customsAssessedImportVatThb} />}
+        />
       </div>
 
       {!packet.isFinalized ? (
@@ -295,9 +281,7 @@ export default async function ImportDetailPage({
           ) : null}
 
           {detail.goodsLines.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No goods lines linked yet.
-            </p>
+            <EmptyState size="sm" title="No goods lines linked yet." />
           ) : (
             <Table>
               <TableHeader>
@@ -314,9 +298,13 @@ export default async function ImportDetailPage({
                 {detail.goodsLines.map((line) => (
                   <TableRow key={line.id}>
                     <TableCell>{line.skuCode}</TableCell>
-                    <TableCell className="text-right font-mono">{line.quantity}</TableCell>
-                    <TableCell className="text-right font-mono">{amount(line.goodsValueOriginal)}</TableCell>
-                    <TableCell className="text-right font-mono">{amount(line.goodsValueThb)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{line.quantity}</TableCell>
+                    <TableCell className="text-right">
+                      <Amount value={line.goodsValueOriginal} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Amount value={line.goodsValueThb} />
+                    </TableCell>
                     <TableCell>{line.lotSequence}</TableCell>
                     {!packet.isFinalized ? (
                       <TableCell className="text-right">
@@ -381,10 +369,10 @@ export default async function ImportDetailPage({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="vatTreatment">Treatment</Label>
-                  <select
+                  <NativeSelect
                     id="vatTreatment"
                     name="vatTreatment"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="service_with_vat_pct"
                   >
                     <option value="service_with_vat_pct">Service with VAT</option>
@@ -392,7 +380,7 @@ export default async function ImportDetailPage({
                     <option value="service_vat_exempt">VAT-exempt service</option>
                     <option value="is_pass_through">Pass-through</option>
                     <option value="excise_pass_through">Excise pass-through</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="chargeAmountThb">Amount THB</Label>
@@ -410,9 +398,10 @@ export default async function ImportDetailPage({
           ) : null}
 
           {detail.chargeLines.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No broker or customs charge lines linked yet.
-            </p>
+            <EmptyState
+              size="sm"
+              title="No broker or customs charge lines linked yet."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -431,8 +420,12 @@ export default async function ImportDetailPage({
                     <TableCell>{line.lineDescription}</TableCell>
                     <TableCell>{line.vatTreatment}</TableCell>
                     <TableCell>{line.vatPeriodOverride ?? "document period"}</TableCell>
-                    <TableCell className="text-right font-mono">{amount(line.amountThb)}</TableCell>
-                    <TableCell className="text-right font-mono">{amount(line.vatAmountThb)}</TableCell>
+                    <TableCell className="text-right">
+                      <Amount value={line.amountThb} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Amount value={line.vatAmountThb} />
+                    </TableCell>
                     {!packet.isFinalized ? (
                       <TableCell className="text-right">
                         <form action={submitDeleteChargeLine}>
@@ -464,10 +457,10 @@ export default async function ImportDetailPage({
                 <input type="hidden" name="importId" value={packet.id} />
                 <div className="space-y-2">
                   <Label htmlFor="documentRole">Role</Label>
-                  <select
+                  <NativeSelect
                     id="documentRole"
                     name="documentRole"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="foreign_supplier_invoice"
                   >
                     <option value="foreign_supplier_invoice">Supplier invoice</option>
@@ -476,7 +469,7 @@ export default async function ImportDetailPage({
                     <option value="shipping_invoice">Shipping invoice</option>
                     <option value="bank_remittance_advice">Bank remittance advice</option>
                     <option value="other">Other</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="documentNumber">Document no.</Label>
@@ -539,17 +532,17 @@ export default async function ImportDetailPage({
                 <input type="hidden" name="importId" value={packet.id} />
                 <div className="space-y-2">
                   <Label htmlFor="paymentRole">Role</Label>
-                  <select
+                  <NativeSelect
                     id="paymentRole"
                     name="paymentRole"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="broker_settlement"
                   >
                     <option value="foreign_supplier_payment">Supplier payment</option>
                     <option value="broker_settlement">Broker settlement</option>
                     <option value="shipper_settlement">Shipper settlement</option>
                     <option value="customs_direct_payment">Customs direct payment</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amountThb">Amount THB</Label>
@@ -558,19 +551,19 @@ export default async function ImportDetailPage({
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="bankTransactionId">Bank transaction</Label>
                   {detail.paymentCandidates.length > 0 ? (
-                    <select
+                    <NativeSelect
                       id="bankTransactionId"
                       name="bankTransactionId"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      className="w-full"
                       required
                     >
                       {detail.paymentCandidates.map((candidate) => (
                         <option key={candidate.id} value={candidate.id}>
-                          {candidate.date} · {amount(candidate.amount)} ·{" "}
+                          {candidate.date} · {formatAmount(candidate.amount)} ·{" "}
                           {candidate.description ?? candidate.id.slice(0, 8)}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   ) : (
                     <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
                       No unmatched debit bank transactions available.
@@ -603,8 +596,8 @@ export default async function ImportDetailPage({
                   {detail.payments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell>{payment.paymentRole}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {amount(payment.amountThb)}
+                      <TableCell className="text-right">
+                        <Amount value={payment.amountThb} />
                       </TableCell>
                       <TableCell>{payment.bankTransactionId.slice(0, 8)}</TableCell>
                       {!packet.isFinalized ? (
@@ -634,9 +627,7 @@ export default async function ImportDetailPage({
         </CardHeader>
         <CardContent>
           {detail.auditTrail.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No paper-trail events linked yet.
-            </p>
+            <EmptyState size="sm" title="No paper-trail events linked yet." />
           ) : (
             <Table>
               <TableHeader>
@@ -655,8 +646,8 @@ export default async function ImportDetailPage({
                     <TableCell>{event.eventType}</TableCell>
                     <TableCell>{event.label}</TableCell>
                     <TableCell>{event.detail}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {event.amount ? amount(event.amount) : ""}
+                    <TableCell className="text-right">
+                      {event.amount ? <Amount value={event.amount} /> : ""}
                     </TableCell>
                   </TableRow>
                 ))}

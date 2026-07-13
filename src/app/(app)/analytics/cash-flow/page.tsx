@@ -3,7 +3,11 @@ import {
   computeCounterpartyConcentration,
 } from "@/lib/analytics/kpi-engine";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -12,13 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | number) {
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function pct(value: string | number) {
   return `${(Number(value) * 100).toFixed(1)}%`;
@@ -49,12 +46,12 @@ export default async function CashFlowPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Cash Forecast</h1>
-        <p className="text-sm text-muted-foreground">
-          THB cash, 30-day AR/AP forecast, runway, and concentration as of {asOfDate}.
-        </p>
-      </div>
+      <PageHeader
+        title="Cash Forecast"
+        description={`THB cash, 30-day AR/AP forecast, runway, and concentration as of ${asOfDate}.`}
+      >
+        <ReportSwitcher current="/analytics/cash-flow" />
+      </PageHeader>
 
       {!forecast ? (
         <Card>
@@ -65,40 +62,41 @@ export default async function CashFlowPage() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Cash Balance</CardTitle></CardHeader>
-              <CardContent><div className="text-xl font-semibold">{amount(forecast.cashBalance)}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">30-day Inflows</CardTitle></CardHeader>
-              <CardContent><div className="text-xl font-semibold">{amount(forecast.expected30DayInflows)}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">30-day Outflows</CardTitle></CardHeader>
-              <CardContent><div className="text-xl font-semibold">{amount(forecast.expected30DayOutflows)}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Payroll Outflows</CardTitle></CardHeader>
-              <CardContent><div className="text-xl font-semibold">{amount(forecast.scheduledPayrollOutflows)}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Runway</CardTitle></CardHeader>
-              <CardContent>
-                <div className="text-xl font-semibold">
-                  {forecast.runwayMonths === null ? "No burn" : `${forecast.runwayMonths} mo`}
-                </div>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Cash Balance"
+              value={<Amount value={forecast.cashBalance} />}
+            />
+            <StatCard
+              label="30-day Inflows"
+              value={<Amount value={forecast.expected30DayInflows} />}
+            />
+            <StatCard
+              label="30-day Outflows"
+              value={<Amount value={forecast.expected30DayOutflows} />}
+            />
+            <StatCard
+              label="Payroll Outflows"
+              value={<Amount value={forecast.scheduledPayrollOutflows} />}
+            />
+            <StatCard
+              label="Runway"
+              value={
+                forecast.runwayMonths === null ? "No burn" : `${forecast.runwayMonths} mo`
+              }
+            />
           </div>
 
           <Card>
             <CardHeader><CardTitle>Projected Cash</CardTitle></CardHeader>
             <CardContent>
               <div className="text-3xl font-semibold">
-                {amount(forecast.projected30DayCash)}
+                <Amount value={forecast.projected30DayCash} />
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Net monthly burn: {amount(forecast.netMonthlyBurn)}. Open AR: {amount(forecast.arTotal)}. Open AP: {amount(forecast.apTotal)}. Scheduled non-cash depreciation: {amount(forecast.scheduledDepreciationExpense)}.
+                Net monthly burn: <Amount value={forecast.netMonthlyBurn} />. Open AR:{" "}
+                <Amount value={forecast.arTotal} />. Open AP:{" "}
+                <Amount value={forecast.apTotal} />. Scheduled non-cash depreciation:{" "}
+                <Amount value={forecast.scheduledDepreciationExpense} />.
               </p>
             </CardContent>
           </Card>
@@ -144,8 +142,10 @@ function ConcentrationTable({
               {rows.map((row) => (
                 <TableRow key={row.counterpartyId ?? row.counterpartyName}>
                   <TableCell>{row.counterpartyName}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.amount)}</TableCell>
-                  <TableCell className="text-right font-mono">{pct(row.sharePct)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.amount} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{pct(row.sharePct)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

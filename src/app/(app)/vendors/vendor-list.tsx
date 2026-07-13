@@ -28,6 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { createVendorAction, deleteVendorAction } from "./actions";
 import { toast } from "sonner";
 import { validateName, validateTaxId, validateEmail, validateAddress } from "@/lib/utils/validators";
@@ -437,14 +446,14 @@ export function VendorList({ vendors }: { vendors: Vendor[] }) {
       </div>
 
       <div className="rounded-md border">
-        <table className="w-full">
-          <thead>
+        <Table>
+          <TableHeader>
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="border-b bg-muted/50">
+              <TableRow key={hg.id} className="bg-muted/50">
                 {hg.headers.map((header) => (
-                  <th
+                  <TableHead
                     key={header.id}
-                    className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                    className="px-3 text-xs text-muted-foreground"
                   >
                     {header.isPlaceholder
                       ? null
@@ -452,41 +461,39 @@ export function VendorList({ vendors }: { vendors: Vendor[] }) {
                           header.column.columnDef.header,
                           header.getContext()
                         )}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </thead>
-          <tbody>
+          </TableHeader>
+          <TableBody>
             {table.getRowModel().rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="py-8 text-center text-sm text-muted-foreground"
-                >
-                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10">
-                    <Users className="size-6 text-primary" />
-                  </div>
-                  <p className="font-medium text-foreground">No vendors yet</p>
-                  <p className="mt-1">Add your first vendor to get started.</p>
-                </td>
-              </tr>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length}>
+                  <EmptyState
+                    size="sm"
+                    icon={<Users />}
+                    title="No vendors yet"
+                    description="Add your first vendor to get started."
+                  />
+                </TableCell>
+              </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-b last:border-0">
+                <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2">
+                    <TableCell key={cell.id} className="px-3">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
                       )}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

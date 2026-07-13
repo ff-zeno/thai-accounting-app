@@ -30,7 +30,22 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -210,7 +225,7 @@ function FilterPanel({
   const statuses = ["draft", "confirmed", "partially_paid", "paid", "voided"];
 
   return (
-    <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border bg-popover p-3 shadow-md">
+    <div>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-medium">{t("filters")}</span>
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
@@ -648,7 +663,7 @@ export function DocumentTable({
       id: "vendor",
       header: () => <span className="text-xs">{t("vendor")}</span>,
       cell: ({ row }) => (
-        <span className="line-clamp-1 max-w-[200px] text-sm">
+        <span className="line-clamp-1 max-w-[200px] whitespace-normal text-sm">
           {row.original.vendorDisplayAlias ||
             row.original.vendorName ||
             row.original.vendorNameTh ||
@@ -689,7 +704,7 @@ export function DocumentTable({
         <span className="whitespace-nowrap text-xs">{t("totalAmount")}</span>
       ),
       cell: ({ row }) => (
-        <span className="whitespace-nowrap text-right font-mono text-sm">
+        <span className="whitespace-nowrap text-right text-sm tabular-nums">
           {row.original.totalAmount
             ? `${parseFloat(row.original.totalAmount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -704,7 +719,7 @@ export function DocumentTable({
         <span className="whitespace-nowrap text-xs">{t("vatAmount")}</span>
       ),
       cell: ({ row }) => (
-        <span className="whitespace-nowrap text-right font-mono text-sm">
+        <span className="whitespace-nowrap text-right text-sm tabular-nums">
           {row.original.vatAmount
             ? parseFloat(row.original.vatAmount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -830,14 +845,14 @@ export function DocumentTable({
             <Loader2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
           )}
         </div>
-        <div className="relative h-8">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setPendingFilters(appliedFilters);
-              setShowFilters(!showFilters);
-            }}
-          >
+        <Popover
+          open={showFilters}
+          onOpenChange={(open) => {
+            if (open) setPendingFilters(appliedFilters);
+            setShowFilters(open);
+          }}
+        >
+          <PopoverTrigger render={<Button variant="outline" />}>
             <Filter className="mr-1 size-4" />
             {t("filters")}
             {activeFilterCount > 0 && (
@@ -845,8 +860,8 @@ export function DocumentTable({
                 {activeFilterCount}
               </Badge>
             )}
-          </Button>
-          {showFilters && (
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80">
             <FilterPanel
               options={filterOptions}
               filters={pendingFilters}
@@ -855,18 +870,18 @@ export function DocumentTable({
               onClear={handleClearFilters}
               onClose={() => setShowFilters(false)}
             />
-          )}
-        </div>
+          </PopoverContent>
+        </Popover>
 
         {selectedIds.size > 0 && (
           <div className="flex h-8 flex-1 items-center gap-2 rounded-md border bg-muted/50 px-2">
             <span className="text-sm font-medium">
               {selectedIds.size} selected
             </span>
-            <select
+            <NativeSelect
               value={bulkVatBranchId}
               onChange={(e) => setBulkVatBranchId(e.target.value)}
-              className="h-7 min-w-44 rounded-md border bg-background px-2 text-xs"
+              className="h-7 min-w-44 text-xs"
             >
               <option value="">VAT branch</option>
               {(filterOptions.vatBranches ?? []).map((branch) => (
@@ -874,7 +889,7 @@ export function DocumentTable({
                   {branch.isHeadOffice ? "HQ" : branch.branchNumber} - {branch.nameEn || branch.nameTh || branch.branchNumber}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             <Button
               size="sm"
               variant="outline"
@@ -906,14 +921,14 @@ export function DocumentTable({
 
       {/* Table */}
       <div className="rounded-md border">
-        <table className="w-full">
-          <thead>
+        <Table>
+          <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/50">
+              <TableRow key={headerGroup.id} className="bg-muted/50">
                 {headerGroup.headers.map((header) => (
-                  <th
+                  <TableHead
                     key={header.id}
-                    className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                    className="px-3 text-xs text-muted-foreground"
                   >
                     {header.isPlaceholder
                       ? null
@@ -921,48 +936,48 @@ export function DocumentTable({
                           header.column.columnDef.header,
                           header.getContext()
                         )}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </thead>
-          <tbody>
+          </TableHeader>
+          <TableBody>
             {table.getRowModel().rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="py-8 text-center text-sm text-muted-foreground"
-                >
-                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10">
-                    <FileText className="size-6 text-primary" />
-                  </div>
-                  {searchQuery || activeFilterCount > 0
-                    ? t("noMatchSearch")
-                    : t("noDocuments")}
-                </td>
-              </tr>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length}>
+                  <EmptyState
+                    size="sm"
+                    icon={<FileText />}
+                    title={
+                      searchQuery || activeFilterCount > 0
+                        ? t("noMatchSearch")
+                        : t("noDocuments")
+                    }
+                  />
+                </TableCell>
+              </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr
+                <TableRow
                   key={row.id}
-                  className={`cursor-pointer border-b last:border-0 transition-colors hover:bg-muted/50 ${
+                  className={`cursor-pointer ${
                     selectedIds.has(row.original.id) ? "bg-primary/5" : ""
                   }`}
                   onClick={(e) => handleRowClick(e, row.original.id)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2">
+                    <TableCell key={cell.id} className="px-3">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
                       )}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pagination */}

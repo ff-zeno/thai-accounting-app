@@ -1,11 +1,17 @@
 import Link from "next/link";
-import { CheckCircle2, LockKeyhole } from "lucide-react";
+import { AlertTriangle, CheckCircle2, LockKeyhole } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getCloseDashboard } from "@/lib/db/queries/close-checklists";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -41,6 +47,26 @@ async function postYearEndClose(formData: FormData) {
   await postYearEndCloseAction(formData);
 }
 
+// Deep links from checklist items to the page where each is resolved.
+const CHECKLIST_ITEM_LINKS: Record<string, { href: string; label: string }> = {
+  bank_reconciliation: { href: "/reconciliation", label: "Open reconciliation" },
+  ar_aging_reviewed: { href: "/analytics/ar-aging", label: "Open AR aging" },
+  ap_aging_reviewed: { href: "/analytics/ap-aging", label: "Open AP aging" },
+  pos_settlement_reconciled: { href: "/sales", label: "Open sales control tower" },
+  cash_deposits_matched: { href: "/sales", label: "Open sales control tower" },
+  pp30_prepared: { href: "/tax/vat", label: "Open VAT workspace" },
+  pnd_prepared: { href: "/tax/withholding/filings", label: "Open WHT filings" },
+  sso_prepared: { href: "/payroll/filings/sso", label: "Open SSO filings" },
+  month_end_adjustments: { href: "/accounting/journal", label: "Open journal" },
+  fx_revaluation_run: { href: "/analytics/fx-rates", label: "Open FX rates" },
+  depreciation_posted: { href: "/fixed-assets", label: "Open fixed assets" },
+  trial_balance_reviewed: {
+    href: "/accounting/reports/trial-balance",
+    label: "Open trial balance",
+  },
+  period_locked: { href: "/accounting", label: "Open general ledger" },
+};
+
 export default async function ClosePage() {
   const orgId = await getActiveOrgId();
   const dashboard = orgId ? await getCloseDashboard(orgId) : null;
@@ -48,61 +74,39 @@ export default async function ClosePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Close Checklist</h1>
-        <p className="text-sm text-muted-foreground">
-          Monthly close control list for reconciliations, tax prep, adjustments, and lock readiness.
-        </p>
-      </div>
+      <PageHeader
+        title="Close Checklist"
+        description="Monthly close control list for reconciliations, tax prep, adjustments, and lock readiness."
+      >
+        <Button variant="outline" render={<Link href="/year-end/cit" />}>
+          CIT Workbench
+        </Button>
+      </PageHeader>
 
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-        Year-end close can post retained earnings when readiness checks pass, but
-        DBD/TFRS financial statements and the DBD Builder/auditor pack are still
-        externally blocked pending CPA review and authenticated Builder validation.
-      </div>
+      <Alert variant="warning">
+        <AlertTriangle />
+        <AlertDescription>
+          Year-end close can post retained earnings when readiness checks pass, but
+          DBD/TFRS financial statements and the DBD Builder/auditor pack are still
+          externally blocked pending CPA review and authenticated Builder validation.
+        </AlertDescription>
+      </Alert>
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <LockKeyhole className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view close controls.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<LockKeyhole />}
+              title="Select an organization to view close controls."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Open Checklists</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.openCount}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Closed Periods</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.closedCount}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Blocked Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {dashboard.summary.blockedItemCount}
-                </div>
-              </CardContent>
-            </Card>
+            <StatCard label="Open Checklists" value={dashboard.summary.openCount} />
+            <StatCard label="Closed Periods" value={dashboard.summary.closedCount} />
+            <StatCard label="Blocked Items" value={dashboard.summary.blockedItemCount} />
           </div>
 
           <Card>
@@ -191,7 +195,9 @@ export default async function ClosePage() {
                   {dashboard.yearEndReadiness.checks.map((check) => (
                     <TableRow key={check.key}>
                       <TableCell>{check.label}</TableCell>
-                      <TableCell>{check.status}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={check.status} />
+                      </TableCell>
                       <TableCell>{check.evidenceId ?? "-"}</TableCell>
                     </TableRow>
                   ))}
@@ -208,38 +214,49 @@ export default async function ClosePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {dashboard.currentItems.map((item) => (
-                  <form
-                    key={item.id}
-                    action={updateItem}
-                    className="grid gap-3 rounded-md border p-3 md:grid-cols-[48px_1fr_140px_180px]"
-                  >
-                    <div className="text-sm text-muted-foreground">{item.sequence}</div>
-                    <div>
-                      <div className="font-medium">{item.description}</div>
-                      <div className="text-xs text-muted-foreground">{item.itemKey}</div>
-                    </div>
-                    <select
-                      name="status"
-                      defaultValue={item.status}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                {dashboard.currentItems.map((item) => {
+                  const link = CHECKLIST_ITEM_LINKS[item.itemKey];
+                  return (
+                    <form
+                      key={item.id}
+                      action={updateItem}
+                      className="grid gap-3 rounded-md border p-3 md:grid-cols-[48px_1fr_140px_180px]"
                     >
-                      <option value="pending">Pending</option>
-                      <option value="done">Done</option>
-                      <option value="skipped">Skipped</option>
-                      <option value="blocked">Blocked</option>
-                    </select>
-                    <div className="flex items-center gap-2">
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <Button type="submit" size="sm" variant="outline">
-                        Save
-                      </Button>
-                      {item.status === "done" ? (
-                        <CheckCircle2 className="size-4 text-emerald-600" />
-                      ) : null}
-                    </div>
-                  </form>
-                ))}
+                      <div className="text-sm text-muted-foreground">{item.sequence}</div>
+                      <div>
+                        <div className="font-medium">{item.description}</div>
+                        <div className="text-xs text-muted-foreground">{item.itemKey}</div>
+                        {link ? (
+                          <Link
+                            href={link.href}
+                            className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                          >
+                            {link.label}
+                          </Link>
+                        ) : null}
+                      </div>
+                      <NativeSelect
+                        name="status"
+                        defaultValue={item.status}
+                        className="w-full"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="done">Done</option>
+                        <option value="skipped">Skipped</option>
+                        <option value="blocked">Blocked</option>
+                      </NativeSelect>
+                      <div className="flex items-center gap-2">
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <Button type="submit" size="sm" variant="outline">
+                          Save
+                        </Button>
+                        {item.status === "done" ? (
+                          <CheckCircle2 className="size-4 text-success" />
+                        ) : null}
+                      </div>
+                    </form>
+                  );
+                })}
               </div>
               <form action={closeChecklist} className="mt-4">
                 <input
@@ -276,7 +293,9 @@ export default async function ClosePage() {
                         {checklist.periodYear}-{String(checklist.periodMonth).padStart(2, "0")}
                       </TableCell>
                       <TableCell>{checklist.branchNumber ?? "-"}</TableCell>
-                      <TableCell>{checklist.status}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={checklist.status} />
+                      </TableCell>
                       <TableCell>{checklist.doneCount} / {checklist.itemCount}</TableCell>
                       <TableCell>{checklist.blockedCount}</TableCell>
                     </TableRow>

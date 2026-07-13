@@ -5,6 +5,9 @@ import { AlertTriangle, Download, FileText, Loader2, RotateCcw } from "lucide-re
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Dialog,
   DialogClose,
@@ -66,16 +69,6 @@ const FORM_TYPE_LABELS: Record<string, string> = {
   pnd3: "PND 3",
   pnd53: "PND 53",
   pnd54: "PND 54",
-};
-
-const STATUS_VARIANT: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  draft: "secondary",
-  issued: "default",
-  voided: "destructive",
-  replaced: "outline",
 };
 
 function formatAmount(value: string | null): string {
@@ -230,16 +223,14 @@ export function CertificateTable({
                     ? formatThaiDateShort(cert.paymentDate)
                     : "-"}
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right tabular-nums">
                   {formatAmount(cert.totalBaseAmount)}
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right tabular-nums">
                   {formatAmount(cert.totalWht)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={STATUS_VARIANT[cert.status] ?? "secondary"}>
-                    {cert.status}
-                  </Badge>
+                  <StatusBadge status={cert.status} />
                 </TableCell>
                 <TableCell>
                   {cert.rateBelowDefaultAcknowledgedAt ? (
@@ -337,7 +328,7 @@ function ReissueDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-5 text-amber-500" />
+            <AlertTriangle className="size-5 text-warning" />
             Reissue Certificate
           </DialogTitle>
           <DialogDescription>
@@ -346,14 +337,12 @@ function ReissueDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor={`reissue-${certificateNo}`}>
-            Reason
-          </label>
-          <textarea
+          <Label htmlFor={`reissue-${certificateNo}`}>Reason</Label>
+          <Textarea
             id={`reissue-${certificateNo}`}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="min-h-24"
             placeholder="Correction requested by payee..."
           />
         </div>

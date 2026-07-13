@@ -32,19 +32,19 @@ export function AiMetrics({ data }: Props) {
             {/* Status breakdown */}
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-2xl font-bold tabular-nums text-green-600">
+                <div className="text-2xl font-bold tabular-nums text-success">
                   {data.approved}
                 </div>
                 <p className="text-xs text-muted-foreground">Approved</p>
               </div>
               <div>
-                <div className="text-2xl font-bold tabular-nums text-red-500">
+                <div className="text-2xl font-bold tabular-nums text-destructive">
                   {data.rejected}
                 </div>
                 <p className="text-xs text-muted-foreground">Rejected</p>
               </div>
               <div>
-                <div className="text-2xl font-bold tabular-nums text-amber-500">
+                <div className="text-2xl font-bold tabular-nums text-warning">
                   {data.pending}
                 </div>
                 <p className="text-xs text-muted-foreground">Pending</p>
@@ -62,13 +62,13 @@ export function AiMetrics({ data }: Props) {
                 </div>
                 <div className="flex h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="bg-green-600 transition-all"
+                    className="bg-success transition-all"
                     style={{
                       width: `${(data.approved / reviewed) * 100}%`,
                     }}
                   />
                   <div
-                    className="bg-red-500 transition-all"
+                    className="bg-destructive transition-all"
                     style={{
                       width: `${(data.rejected / reviewed) * 100}%`,
                     }}

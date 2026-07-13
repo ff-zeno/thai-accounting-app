@@ -22,9 +22,14 @@ interface Org {
 interface TwoTierSidebarProps {
   orgs: Org[];
   activeOrgId: string | null;
+  pinnedHrefs: string[];
 }
 
-export function TwoTierSidebar({ orgs, activeOrgId }: TwoTierSidebarProps) {
+export function TwoTierSidebar({
+  orgs,
+  activeOrgId,
+  pinnedHrefs,
+}: TwoTierSidebarProps) {
   const pathname = usePathname();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const activeCategory = getActiveNavCategory(pathname);
@@ -41,7 +46,7 @@ export function TwoTierSidebar({ orgs, activeOrgId }: TwoTierSidebarProps) {
           <div className="p-3">
             <div className="mb-3 flex items-center gap-2.5 text-primary">
               <span className="text-lg font-semibold tracking-tight">
-                Long Tua
+                Long Dtua
               </span>
             </div>
             <OrgSwitcher
@@ -51,7 +56,11 @@ export function TwoTierSidebar({ orgs, activeOrgId }: TwoTierSidebarProps) {
             />
           </div>
           <Separator />
-          <Tier2TextPanel category={activeCategory} pathname={pathname} />
+          <Tier2TextPanel
+            category={activeCategory}
+            pathname={pathname}
+            pinnedHrefs={pinnedHrefs}
+          />
           <Separator />
           <div className="space-y-3 p-3">
             <LocaleSwitcher />

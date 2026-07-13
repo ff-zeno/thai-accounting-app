@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Camera, Plus, Loader2, X, Check } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { uploadDocument } from "../documents/upload/actions";
@@ -65,7 +66,7 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 p-4">
-      <h1 className="text-center text-xl font-semibold">{t("title")}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
 
       {/* Direction */}
       <div className="flex gap-2">
@@ -108,13 +109,15 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
                 alt={`Page ${i + 1}`}
                 className="size-full object-cover"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => removeCapture(i)}
-                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white"
+                className="absolute right-1 top-1 rounded-full bg-black/50 text-white"
               >
                 <X className="size-3" />
-              </button>
+              </Button>
               <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">
                 {i + 1}
               </span>
@@ -161,10 +164,12 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
 
       {/* Submitted feedback */}
       {submitted && captures.length === 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-          <Check className="size-4 shrink-0" />
-          <span>Received, processing... Capture next document when ready.</span>
-        </div>
+        <Alert variant="success">
+          <Check />
+          <AlertDescription>
+            Received, processing... Capture next document when ready.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

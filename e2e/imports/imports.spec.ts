@@ -1,25 +1,78 @@
 import { test, expect } from "../fixtures/auth";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
 const E2E_ORG_ID = "95aead7c-9942-474f-b48e-2ec5b46f10c9";
+// One fixed account shared by every run — never create per-run accounts
+// (mirrors the golden-path find-or-create convention).
+const IMPORTS_ACCOUNT_NUMBER = "IMP-E2E-FIXED-0001";
 
-async function seedImportPaymentTransaction(reference: string) {
-  const [bankAccount] = await db
+async function findOrCreateImportsBankAccount() {
+  const [existing] = await db
+    .select({ id: schema.bankAccounts.id })
+    .from(schema.bankAccounts)
+    .where(
+      and(
+        eq(schema.bankAccounts.orgId, E2E_ORG_ID),
+        eq(schema.bankAccounts.accountNumber, IMPORTS_ACCOUNT_NUMBER)
+      )
+    )
+    .limit(1);
+  if (existing) return existing.id;
+  const [created] = await db
     .insert(schema.bankAccounts)
     .values({
       orgId: E2E_ORG_ID,
       bankCode: "KBANK",
-      accountNumber: `IMP-${reference.slice(-18)}`,
+      accountNumber: IMPORTS_ACCOUNT_NUMBER,
       accountName: "E2E Imports Bank",
       currency: "THB",
     })
-    .returning();
+    .returning({ id: schema.bankAccounts.id });
+  return created.id;
+}
+
+/**
+ * Remove transactions prior runs seeded on the fixed imports account, BEFORE
+ * this run — never after, so a failed run leaves its state for debugging.
+ * import_payments.bank_transaction_id is NOT NULL with a unique
+ * (org_id, bank_transaction_id) index, so each run seeds a fresh transaction
+ * and deletes the previous ones here (payment links first).
+ */
+async function cleanupPriorImportTransactions(bankAccountId: string) {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      DELETE FROM import_payments
+      WHERE org_id = ${E2E_ORG_ID}
+        AND bank_transaction_id IN (
+          SELECT id FROM transactions
+          WHERE org_id = ${E2E_ORG_ID} AND bank_account_id = ${bankAccountId}
+        )
+    `);
+    await tx.execute(sql`
+      DELETE FROM reconciliation_matches
+      WHERE org_id = ${E2E_ORG_ID}
+        AND transaction_id IN (
+          SELECT id FROM transactions
+          WHERE org_id = ${E2E_ORG_ID} AND bank_account_id = ${bankAccountId}
+        )
+    `);
+    await tx.execute(sql`
+      DELETE FROM transactions
+      WHERE org_id = ${E2E_ORG_ID} AND bank_account_id = ${bankAccountId}
+    `);
+  });
+}
+
+async function seedImportPaymentTransaction(reference: string) {
+  const bankAccountId = await findOrCreateImportsBankAccount();
+  await cleanupPriorImportTransactions(bankAccountId);
   const [transaction] = await db
     .insert(schema.transactions)
     .values({
       orgId: E2E_ORG_ID,
-      bankAccountId: bankAccount.id,
+      bankAccountId,
       date: "2026-05-05",
       description: `Import payment ${reference}`,
       amount: "-10700.00",

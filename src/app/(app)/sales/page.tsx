@@ -1,10 +1,17 @@
 import { AlertTriangle, Store } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getPosSalesWorkflowDashboard } from "@/lib/db/queries/pos-sales-ledger";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -41,13 +48,6 @@ async function submitProcessorSettlement(formData: FormData) {
   await recordProcessorSettlementAction(formData);
 }
 
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function bangkokDate(value: Date) {
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: "Asia/Bangkok",
@@ -71,94 +71,67 @@ export default async function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Sales Control Tower
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          POS gross sales, processor settlements, cash deposits, vouchers, and Section 87 source evidence.
-        </p>
-      </div>
+      <PageHeader
+        title="Sales Control Tower"
+        description="POS gross sales, processor settlements, cash deposits, vouchers, and Section 87 source evidence."
+      />
 
       {!orgId || !dashboard ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Store className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to view sales controls.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Store />}
+              title="Select an organization to view sales controls."
+            />
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card className="border-amber-200 bg-amber-50 text-amber-950">
-            <CardContent className="flex gap-3 py-4 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">Sales controls are manual/CSV v1.</p>
-                <p className="mt-1 text-amber-900">
-                  Manual sales, normalized POS CSV paste import, cash deposits, processor
-                  settlements, VAT output, and GL posting are testable. Processor matching,
-                  cash variance resolution, cash-slip OCR/bank matching, connector imports,
-                  and Excel/PDF statutory exports remain deferred.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>Sales controls are manual/CSV v1.</AlertTitle>
+            <AlertDescription>
+              Manual sales, normalized POS CSV paste import, cash deposits, processor
+              settlements, VAT output, and GL posting are testable. Processor matching,
+              cash variance resolution, cash-slip OCR/bank matching, connector imports,
+              and Excel/PDF statutory exports remain deferred.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Gross POS Sales</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.salesSummary.grossSales)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Output VAT {amount(dashboard.salesSummary.outputVat)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Money In Pipe</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.salesSummary.unsettledGross)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Pending POS sales before settlement.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Processor Net</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.settlementSummary.netPayout)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Fee VAT needing evidence {amount(dashboard.settlementSummary.feeVatPendingEvidence)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Cash Deposits</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">
-                  {amount(dashboard.cashSummary.depositedAmount)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Open variance {amount(dashboard.cashSummary.openVariance)}
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Gross POS Sales"
+              value={<Amount value={dashboard.salesSummary.grossSales} />}
+              hint={
+                <>
+                  Output VAT <Amount value={dashboard.salesSummary.outputVat} />
+                </>
+              }
+            />
+            <StatCard
+              label="Money In Pipe"
+              value={<Amount value={dashboard.salesSummary.unsettledGross} />}
+              hint="Pending POS sales before settlement."
+            />
+            <StatCard
+              label="Processor Net"
+              value={<Amount value={dashboard.settlementSummary.netPayout} />}
+              hint={
+                <>
+                  Fee VAT needing evidence{" "}
+                  <Amount value={dashboard.settlementSummary.feeVatPendingEvidence} />
+                </>
+              }
+            />
+            <StatCard
+              label="Cash Deposits"
+              value={<Amount value={dashboard.cashSummary.depositedAmount} />}
+              hint={
+                <>
+                  Open variance <Amount value={dashboard.cashSummary.openVariance} />
+                </>
+              }
+            />
           </div>
 
           <Card>
@@ -167,9 +140,7 @@ export default async function SalesPage() {
             </CardHeader>
             <CardContent>
               {dashboard.channelBalances.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No pending channel balances.
-                </p>
+                <EmptyState size="sm" title="No pending channel balances." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -192,8 +163,8 @@ export default async function SalesPage() {
                         <TableCell className="text-right">
                           {balance.saleCount}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(balance.pendingGross)}
+                        <TableCell className="text-right">
+                          <Amount value={balance.pendingGross} />
                         </TableCell>
                         <TableCell>
                           {dateOnly(balance.oldestSoldAt)}
@@ -221,11 +192,11 @@ export default async function SalesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="channel">Channel</Label>
-                  <select
+                  <NativeSelect
                     id="channel"
                     name="channel"
                     required
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="cash"
                   >
                     <option value="cash">Cash</option>
@@ -233,21 +204,21 @@ export default async function SalesPage() {
                     <option value="qr_promptpay">QR PromptPay</option>
                     <option value="marketplace_shopee">Shopee</option>
                     <option value="marketplace_lazada">Lazada</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taxInvoiceType">Tax invoice</Label>
-                  <select
+                  <NativeSelect
                     id="taxInvoiceType"
                     name="taxInvoiceType"
                     required
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="w-full"
                     defaultValue="abb"
                   >
                     <option value="abb">ABB</option>
                     <option value="full_ti">Full tax invoice</option>
                     <option value="e_tax_invoice">E-tax invoice</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taxInvoiceNumber">Invoice no.</Label>
@@ -391,9 +362,7 @@ export default async function SalesPage() {
             </CardHeader>
             <CardContent>
               {dashboard.recentSales.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No POS sales recorded yet.
-                </p>
+                <EmptyState size="sm" title="No POS sales recorded yet." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -416,13 +385,15 @@ export default async function SalesPage() {
                         <TableCell>
                           {sale.taxInvoiceType} {sale.taxInvoiceNumber}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(sale.amountIncludingVat)}
+                        <TableCell className="text-right">
+                          <Amount value={sale.amountIncludingVat} />
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {amount(sale.vatAmount)}
+                        <TableCell className="text-right">
+                          <Amount value={sale.vatAmount} />
                         </TableCell>
-                        <TableCell>{sale.settlementStatus}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={sale.settlementStatus} />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

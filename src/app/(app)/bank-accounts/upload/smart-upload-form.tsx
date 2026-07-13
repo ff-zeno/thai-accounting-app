@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import {
@@ -10,9 +11,12 @@ import {
   ArrowLeft,
   Landmark,
   AlertTriangle,
+  Loader2,
   Plus,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -37,7 +41,9 @@ import type { ColumnMapping, ParseResult } from "@/lib/parsers/csv-parser";
 import type { KBankPdfMeta } from "@/lib/parsers/kbank-pdf-parser";
 
 // ---------------------------------------------------------------------------
-// Bank metadata for display
+// Bank metadata for display.
+// Design-token exemption: real bank brand colors (data, not UI accent) —
+// SCB is purple, KBank is green. Do not tokenize.
 // ---------------------------------------------------------------------------
 
 const BANK_INFO: Record<string, { name: string; color: string }> = {
@@ -255,7 +261,7 @@ export function SmartUploadForm() {
     return (
       <Card>
         <CardContent className="flex items-center gap-3 p-8">
-          <div className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <Loader2 className="size-4 animate-spin" />
           <span className="text-sm text-muted-foreground">Parsing file...</span>
         </CardContent>
       </Card>
@@ -287,7 +293,7 @@ export function SmartUploadForm() {
     return (
       <Card>
         <CardContent className="flex items-start gap-3 p-6">
-          <CheckCircle className="mt-0.5 size-5 text-green-600" />
+          <CheckCircle className="mt-0.5 size-5 text-success" />
           <div>
             <p className="font-medium">Import complete</p>
             <p className="text-sm text-muted-foreground">
@@ -295,19 +301,23 @@ export function SmartUploadForm() {
               skipped
             </p>
             {state.balanceWarning && (
-              <p className="mt-1 flex items-center gap-1 text-sm text-amber-600">
+              <p className="mt-1 flex items-center gap-1 text-sm text-warning">
                 <AlertTriangle className="size-4" />
                 {state.balanceWarning}
               </p>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => setState({ step: "drop" })}
-            >
-              Upload another
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" render={<Link href="/reconciliation" />}>
+                View reconciliation
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setState({ step: "drop" })}
+              >
+                Upload another
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -557,16 +567,16 @@ function ReviewStep({
             <div className="mt-3 flex items-center gap-2">
               {matchedAccount ? (
                 <>
-                  <CheckCircle className="size-4 text-green-600" />
-                  <span className="text-sm text-green-700">
+                  <CheckCircle className="size-4 text-success" />
+                  <span className="text-sm text-success">
                     Matched to existing account: {matchedAccount.accountNumber}
                     {matchedAccount.accountName && ` (${matchedAccount.accountName})`}
                   </span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="size-4 text-amber-500" />
-                  <span className="text-sm text-amber-700">
+                  <AlertTriangle className="size-4 text-warning" />
+                  <span className="text-sm text-warning">
                     No matching account found — select or create one below
                   </span>
                 </>
@@ -583,14 +593,25 @@ function ReviewStep({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Stat label="Deposits" value={`${credits.length} txns`} sub={`฿${fmtNum(creditTotal)}`} />
-            <Stat label="Withdrawals" value={`${debits.length} txns`} sub={`฿${fmtNum(debitTotal)}`} />
-            <Stat label="Opening" value={result.openingBalance ? `฿${fmtNum(parseFloat(result.openingBalance))}` : "—"} />
-            <Stat label="Closing" value={result.closingBalance ? `฿${fmtNum(parseFloat(result.closingBalance))}` : "—"} />
-            <Stat
+            <StatCard label="Deposits" value={`${credits.length} txns`} hint={`฿${fmtNum(creditTotal)}`} />
+            <StatCard label="Withdrawals" value={`${debits.length} txns`} hint={`฿${fmtNum(debitTotal)}`} />
+            <StatCard label="Opening" value={result.openingBalance ? `฿${fmtNum(parseFloat(result.openingBalance))}` : "—"} />
+            <StatCard label="Closing" value={result.closingBalance ? `฿${fmtNum(parseFloat(result.closingBalance))}` : "—"} />
+            <StatCard
               label="Balance Check"
-              value={balanceOk === null ? "N/A" : balanceOk ? "PASS" : "FAIL"}
-              valueClass={balanceOk === true ? "text-green-600" : balanceOk === false ? "text-red-600" : ""}
+              value={
+                <span
+                  className={
+                    balanceOk === true
+                      ? "text-success"
+                      : balanceOk === false
+                        ? "text-destructive"
+                        : ""
+                  }
+                >
+                  {balanceOk === null ? "N/A" : balanceOk ? "PASS" : "FAIL"}
+                </span>
+              }
             />
           </div>
         </CardContent>
@@ -598,21 +619,17 @@ function ReviewStep({
 
       {/* Parse errors */}
       {result.errors.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base text-amber-600">
-              <AlertTriangle className="size-4" />
-              Parse Warnings ({result.errors.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1 text-sm text-amber-700">
+        <Alert variant="warning">
+          <AlertTriangle />
+          <AlertTitle>Parse Warnings ({result.errors.length})</AlertTitle>
+          <AlertDescription>
+            <ul className="space-y-1">
               {result.errors.map((e, i) => (
                 <li key={i}>• {e}</li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Transaction Table */}
@@ -654,21 +671,16 @@ function ReviewStep({
                       </td>
                       <td className="px-4 py-1.5">
                         <Badge
-                          variant={txn.type === "credit" ? "default" : "secondary"}
-                          className={
-                            txn.type === "credit"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }
+                          variant={txn.type === "credit" ? "success" : "destructive"}
                         >
                           {txn.type === "credit" ? "IN" : "OUT"}
                         </Badge>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-1.5 text-right font-mono text-xs">
+                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs tabular-nums">
                         {txn.type === "credit" ? "+" : "−"}
                         {fmtNum(parseFloat(txn.amount))}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-1.5 text-right font-mono text-xs text-muted-foreground">
+                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
                         {txn.runningBalance ? fmtNum(parseFloat(txn.runningBalance)) : "—"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-1.5 text-xs text-muted-foreground">
@@ -752,7 +764,7 @@ function AccountSelectStep({
                 <div
                   key={account.id}
                   className={`flex items-center justify-between rounded-md border p-3 ${
-                    isMismatch ? "border-amber-300 bg-amber-50" : ""
+                    isMismatch ? "border-warning/40 bg-warning/10" : ""
                   }`}
                 >
                   <div>
@@ -774,7 +786,7 @@ function AccountSelectStep({
                       </p>
                     )}
                     {isMismatch && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
+                      <p className="mt-1 flex items-center gap-1 text-xs text-warning">
                         <AlertTriangle className="size-3" />
                         Bank mismatch: statement is {meta?.bankCode}, account is{" "}
                         {account.bankCode}
@@ -797,7 +809,7 @@ function AccountSelectStep({
 
         {meta?.bankCode &&
           accounts.some((a) => a.bankCode !== meta.bankCode) && (
-            <label className="flex items-center gap-2 text-xs text-amber-700">
+            <label className="flex items-center gap-2 text-xs text-warning">
               <input
                 type="checkbox"
                 checked={mismatchAck}
@@ -1022,7 +1034,7 @@ function OverlapReviewStep({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <AlertTriangle className="size-4 text-amber-500" />
+          <AlertTriangle className="size-4 text-warning" />
           Overlapping Statement Detected
         </CardTitle>
       </CardHeader>
@@ -1033,28 +1045,37 @@ function OverlapReviewStep({
         </p>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Stat
+          <StatCard
             label="Already imported"
             value={`${overlap.matchedCount}`}
-            sub={`of ${totalIncoming} incoming`}
+            hint={`of ${totalIncoming} incoming`}
           />
-          <Stat
+          <StatCard
             label="Existing in range"
             value={`${overlap.existingTxnCount}`}
-            sub="in database"
+            hint="in database"
           />
-          <Stat
+          <StatCard
             label="New transactions"
-            value={`${overlap.newTxnCount}`}
-            valueClass={overlap.newTxnCount > 0 ? "text-green-600" : "text-muted-foreground"}
-            sub="to import"
+            value={
+              <span
+                className={
+                  overlap.newTxnCount > 0
+                    ? "text-success"
+                    : "text-muted-foreground"
+                }
+              >
+                {overlap.newTxnCount}
+              </span>
+            }
+            hint="to import"
           />
         </div>
 
         {allAlreadyImported && (
-          <div className="flex items-center gap-2 rounded-md bg-green-50 p-3">
-            <CheckCircle className="size-4 text-green-600" />
-            <p className="text-sm text-green-700">
+          <div className="flex items-center gap-2 rounded-md bg-success/10 p-3">
+            <CheckCircle className="size-4 text-success" />
+            <p className="text-sm text-success">
               All transactions in this file are already imported. Nothing new to add.
             </p>
           </div>
@@ -1111,26 +1132,6 @@ function MappingSelect({
           ))}
         </SelectContent>
       </Select>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  valueClass,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueClass?: string;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-sm font-semibold ${valueClass ?? ""}`}>{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }

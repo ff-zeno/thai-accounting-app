@@ -30,7 +30,9 @@ import {
 } from "@/lib/utils/validators";
 
 // ---------------------------------------------------------------------------
-// Bank catalog with colors for visual identification
+// Bank catalog with colors for visual identification.
+// Design-token exemption: these are the banks' real brand colors (data, not
+// UI accent) — SCB is purple, KBank is green. Do not tokenize.
 // ---------------------------------------------------------------------------
 
 const THAI_BANKS = [

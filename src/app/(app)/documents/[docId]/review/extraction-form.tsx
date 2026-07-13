@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Check, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
@@ -292,16 +296,16 @@ export function ExtractionForm({
           )}
         </div>
         {isLowConfidence && (
-          <div className="flex items-center gap-2 rounded-md bg-yellow-50 p-2 text-sm text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200">
+          <div className="flex items-center gap-2 rounded-md bg-warning/10 p-2 text-sm text-warning">
             <AlertTriangle className="size-4" />
             {tr("lowConfidence")}
           </div>
         )}
         {doc.reviewNotes && (
-          <div className="flex items-center gap-2 rounded-md bg-red-50 p-2 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
-            <AlertTriangle className="size-4" />
-            {doc.reviewNotes}
-          </div>
+          <Alert variant="destructive">
+            <AlertTriangle />
+            <AlertDescription>{doc.reviewNotes}</AlertDescription>
+          </Alert>
         )}
       </div>
 
@@ -329,9 +333,11 @@ export function ExtractionForm({
                 <Badge variant="secondary">
                   Foreign vendor {vendor.country ? `(${vendor.country})` : ""}
                 </Badge>
-                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-                  Review PP36 self-assessed VAT and foreign withholding treatment before confirming this document.
-                </div>
+                <Alert variant="warning">
+                  <AlertDescription className="text-xs">
+                    Review PP36 self-assessed VAT and foreign withholding treatment before confirming this document.
+                  </AlertDescription>
+                </Alert>
               </div>
             )}
           </div>
@@ -340,19 +346,19 @@ export function ExtractionForm({
         {/* Document type */}
         <div>
           <Label htmlFor="type">{t("type")}</Label>
-          <select
+          <NativeSelect
             name="type"
             id="type"
             defaultValue={doc.type}
             disabled={isConfirmed}
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            className="mt-1 w-full"
           >
             <option value="invoice">{t("invoice")}</option>
             <option value="receipt">{t("receipt")}</option>
             <option value="debit_note">{t("debitNote")}</option>
             <option value="credit_note">{t("creditNote")}</option>
             <option value="wht_certificate_received">50 Tawi received</option>
-          </select>
+          </NativeSelect>
         </div>
 
         {/* Document number + dates */}
@@ -397,7 +403,7 @@ export function ExtractionForm({
               id="subtotal"
               defaultValue={doc.subtotal ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
             />
           </div>
           <div>
@@ -407,7 +413,7 @@ export function ExtractionForm({
               id="vatAmount"
               defaultValue={doc.vatAmount ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
             />
           </div>
           <div>
@@ -417,7 +423,7 @@ export function ExtractionForm({
               id="totalAmount"
               defaultValue={doc.totalAmount ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
             />
           </div>
         </div>
@@ -441,7 +447,7 @@ export function ExtractionForm({
               id="exchangeRate"
               defaultValue={doc.exchangeRate ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
               placeholder="e.g. 36.250000"
             />
           </div>
@@ -452,7 +458,7 @@ export function ExtractionForm({
               id="totalAmountThb"
               defaultValue={doc.totalAmountThb ?? ""}
               disabled={isConfirmed}
-              className="font-mono"
+              className="tabular-nums"
               placeholder="Required for foreign PP36"
             />
           </div>
@@ -472,19 +478,19 @@ export function ExtractionForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="taxInvoiceSubtype">Tax invoice type</Label>
-            <select
+            <NativeSelect
               name="taxInvoiceSubtype"
               id="taxInvoiceSubtype"
               defaultValue={doc.taxInvoiceSubtype ?? ""}
               disabled={isConfirmed}
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              className="mt-1 w-full"
             >
               <option value="">Select type</option>
               <option value="full_ti">Full tax invoice</option>
               <option value="e_tax_invoice">E-tax invoice</option>
               <option value="abb">ABB / abbreviated</option>
               <option value="not_a_ti">Not a tax invoice</option>
-            </select>
+            </NativeSelect>
           </div>
           <div>
             <Label htmlFor="taxInvoiceSerialNumber">Tax invoice serial #</Label>
@@ -553,18 +559,14 @@ export function ExtractionForm({
         </div>
 
         {missingRecoverableInvoiceEvidence && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <div className="flex gap-2">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-medium">Ask supplier for a full tax invoice</p>
-                <p className="mt-1 text-xs">
-                  Recoverable input VAT needs full tax invoice wording, serial
-                  number, supplier tax ID and branch, and buyer tax ID and branch.
-                </p>
-              </div>
-            </div>
-          </div>
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertTitle>Ask supplier for a full tax invoice</AlertTitle>
+            <AlertDescription className="text-xs">
+              Recoverable input VAT needs full tax invoice wording, serial
+              number, supplier tax ID and branch, and buyer tax ID and branch.
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Line items */}
@@ -576,9 +578,7 @@ export function ExtractionForm({
                 <div key={item.id} className="rounded-md border p-2 text-sm">
                   <div className="flex justify-between">
                     <span>{item.description || `Item ${i + 1}`}</span>
-                    <span className="font-mono">
-                      {item.amount ? parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
-                    </span>
+                    <Amount value={item.amount} nullDash />
                   </div>
                   {(item.quantity || item.unitPrice) && (
                     <div className="mt-1 text-xs text-muted-foreground">
@@ -638,9 +638,31 @@ export function ExtractionForm({
       )}
 
       {isConfirmed && (
-        <div className="flex items-center gap-2 border-t p-4 text-green-600">
-          <Check className="size-4" />
-          <span className="text-sm font-medium">{t("confirmed")}</span>
+        <div className="flex items-center gap-2 border-t p-4">
+          <Check className="size-4 text-success" />
+          <span className="text-sm font-medium text-success">
+            {t("confirmed")}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
+                  href={
+                    doc.direction === "expense"
+                      ? "/documents/expenses"
+                      : "/documents/income"
+                  }
+                />
+              }
+            >
+              View documents
+            </Button>
+            <Button size="sm" render={<Link href="/reconciliation" />}>
+              Go to reconciliation
+            </Button>
+          </div>
         </div>
       )}
 
@@ -667,10 +689,10 @@ export function ExtractionForm({
             </div>
             <div>
               <Label htmlFor="assetCategory">Asset category</Label>
-              <select
+              <NativeSelect
                 id="assetCategory"
                 name="assetCategory"
-                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="mt-1 w-full"
                 defaultValue={defaultAssetCategory}
               >
                 <option value="equipment">Equipment</option>
@@ -681,7 +703,7 @@ export function ExtractionForm({
                 <option value="leasehold_improvement">Leasehold improvement</option>
                 <option value="building">Building</option>
                 <option value="land">Land</option>
-              </select>
+              </NativeSelect>
             </div>
             <div>
               <Label htmlFor="assetCost">Asset cost</Label>
@@ -737,10 +759,10 @@ export function ExtractionForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="inventorySkuId">SKU</Label>
-              <select
+              <NativeSelect
                 id="inventorySkuId"
                 name="inventorySkuId"
-                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="mt-1 w-full"
                 required
               >
                 <option value="">Select SKU</option>
@@ -749,7 +771,7 @@ export function ExtractionForm({
                     {sku.skuCode} {sku.nameEn ? `- ${sku.nameEn}` : ""}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div>
               <Label htmlFor="inventoryReceiptDate">Receipt date</Label>

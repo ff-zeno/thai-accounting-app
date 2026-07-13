@@ -77,14 +77,14 @@ export function DocumentReview({
   vendor,
 }: DocumentReviewProps) {
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-0 overflow-hidden rounded-lg border">
+    <div className="flex flex-col gap-0 overflow-hidden rounded-lg border lg:h-[calc(100vh-8rem)] lg:flex-row">
       {/* Left panel: Image viewer */}
-      <div className="w-1/2 border-r">
+      <div className="w-full border-r lg:w-1/2">
         <ImageViewer files={files} />
       </div>
 
       {/* Right panel: Extracted data */}
-      <div className="flex w-1/2 flex-col overflow-hidden">
+      <div className="flex w-full flex-col overflow-hidden lg:w-1/2">
         <ExtractionForm
           document={doc}
           vendor={vendor}

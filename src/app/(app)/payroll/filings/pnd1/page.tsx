@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, FileText } from "lucide-react";
 import {
   markPndFilingAcceptedAction,
   markPndFilingSubmittedAction,
@@ -8,9 +8,14 @@ import {
 } from "../../actions";
 import { getPayrollPndFilings } from "@/lib/db/queries/payroll";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -19,13 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function dateOnly(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : "-";
@@ -69,28 +67,27 @@ export default async function PayrollPnd1FilingsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">PND.1 Filings</h1>
-          <p className="text-sm text-muted-foreground">
-            Monthly payroll withholding drafts, remittance state, totals, and RD references.
-          </p>
-        </div>
+      <PageHeader
+        title="PND.1 Filings"
+        description="Monthly payroll withholding drafts, remittance state, totals, and RD references."
+      >
         <Button variant="outline" render={<Link href="/payroll" />}>
           <ArrowLeft className="mr-2 size-4" />
           Payroll
         </Button>
-      </div>
+      </PageHeader>
 
       {messages.error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {messages.error}
-        </div>
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{messages.error}</AlertDescription>
+        </Alert>
       ) : null}
       {messages.status ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-          {messages.status}
-        </div>
+        <Alert variant="success">
+          <CircleCheck />
+          <AlertDescription>{messages.status}</AlertDescription>
+        </Alert>
       ) : null}
 
       <Card>
@@ -99,12 +96,10 @@ export default async function PayrollPnd1FilingsPage({
         </CardHeader>
         <CardContent>
           {filings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <FileText className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                No PND.1 filings drafted yet.
-              </p>
-            </div>
+            <EmptyState
+              icon={<FileText />}
+              title="No PND.1 filings drafted yet."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -123,17 +118,19 @@ export default async function PayrollPnd1FilingsPage({
                 {filings.map((filing) => (
                   <TableRow key={filing.id}>
                     <TableCell className="font-medium">{filing.taxPeriod}</TableCell>
-                    <TableCell>{filing.filingStatus}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={filing.filingStatus} />
+                    </TableCell>
                     <TableCell>{dateOnly(filing.paidAt)}</TableCell>
                     <TableCell>{filing.rdReferenceNumber ?? "-"}</TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right tabular-nums">
                       {filing.totalPayees ?? 0}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {amount(filing.totalGrossAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={filing.totalGrossAmount} />
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {amount(filing.totalWhtAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={filing.totalWhtAmount} />
                     </TableCell>
                     <TableCell className="text-right">
                       {filing.filingStatus === "draft" ||

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getJournalEntryList } from "@/lib/db/queries/general-ledger";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,13 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default async function JournalPage() {
   const orgId = await getActiveOrgId();
@@ -54,8 +48,8 @@ export default async function JournalPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead>Debit</TableHead>
-                  <TableHead>Credit</TableHead>
+                  <TableHead className="text-right tabular-nums">Debit</TableHead>
+                  <TableHead className="text-right tabular-nums">Credit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -76,8 +70,12 @@ export default async function JournalPage() {
                         ? `${entry.sourceEntityType}:${entry.sourceEntityId ?? ""}`
                         : entry.postingKind ?? "manual"}
                     </TableCell>
-                    <TableCell>{amount(entry.totalDebit)}</TableCell>
-                    <TableCell>{amount(entry.totalCredit)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={entry.totalDebit} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <Amount value={entry.totalCredit} />
+                    </TableCell>
                   </TableRow>
                 ))}
                 {entries.length === 0 ? (

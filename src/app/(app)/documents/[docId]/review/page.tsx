@@ -42,7 +42,7 @@ export default async function DocumentReviewPage({
           <ArrowLeft className="mr-1 size-4" />
           Back
         </Button>
-        <h1 className="text-xl font-semibold">{t("title")}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         {doc.documentNumber && (
           <span className="text-muted-foreground">#{doc.documentNumber}</span>
         )}

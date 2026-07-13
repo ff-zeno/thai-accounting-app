@@ -5,7 +5,12 @@ import {
 } from "@/lib/analytics/segmented-profitability";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { ReportSwitcher } from "@/components/reports/report-switcher";
+import { Amount } from "@/components/ui/amount";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -14,13 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | number) {
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function pct(value: string | number | null) {
   if (value === null) return "n/a";
@@ -46,35 +44,25 @@ export default async function ProfitabilityPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profitability</h1>
-        <p className="text-sm text-muted-foreground">
-          GL revenue, COGS, expenses, margin, and operating profit from {periodStart} to {periodEnd}.
-        </p>
-      </div>
+      <PageHeader
+        title="Profitability"
+        description={`GL revenue, COGS, expenses, margin, and operating profit from ${periodStart} to ${periodEnd}.`}
+      >
+        <ReportSwitcher current="/analytics/profitability" />
+      </PageHeader>
 
       <form className="flex flex-wrap items-end gap-3" action="/analytics/profitability">
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">From</span>
-          <input
-            className="h-9 rounded-md border bg-background px-3 font-mono text-sm"
-            type="date"
-            name="from"
-            defaultValue={periodStart}
-          />
+          <Input type="date" name="from" defaultValue={periodStart} />
         </label>
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">To</span>
-          <input
-            className="h-9 rounded-md border bg-background px-3 font-mono text-sm"
-            type="date"
-            name="to"
-            defaultValue={periodEnd}
-          />
+          <Input type="date" name="to" defaultValue={periodEnd} />
         </label>
-        <button className="h-9 rounded-md border bg-background px-3 text-sm font-medium" type="submit">
+        <Button type="submit" variant="outline" size="sm">
           Apply
-        </button>
+        </Button>
       </form>
 
       {!orgId ? (
@@ -132,12 +120,22 @@ function ProfitabilityTable({
                     <div className="font-medium">{row.segmentCode}</div>
                     <div className="text-xs text-muted-foreground">{row.segmentName}</div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.revenue)}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.cogs)}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.grossMargin)}</TableCell>
-                  <TableCell className="text-right font-mono">{pct(row.grossMarginPct)}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.expenses)}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(row.operatingProfit)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.revenue} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.cogs} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.grossMargin} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{pct(row.grossMarginPct)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.expenses} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.operatingProfit} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

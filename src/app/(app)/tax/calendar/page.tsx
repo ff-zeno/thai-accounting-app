@@ -27,8 +27,10 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 type CalendarFormKey = "pp30" | "pp36" | FilingFormType;
 
@@ -36,50 +38,14 @@ const formColumns: Array<{
   key: CalendarFormKey;
   label: string;
   icon: typeof Landmark;
-  tone: string;
 }> = [
-  { key: "pp30", label: "PP 30", icon: Landmark, tone: "text-sky-700" },
-  { key: "pp36", label: "PP 36", icon: Globe2, tone: "text-violet-700" },
-  { key: "pnd2", label: "PND 2", icon: ReceiptText, tone: "text-slate-700" },
-  { key: "pnd3", label: "PND 3", icon: ReceiptText, tone: "text-slate-700" },
-  { key: "pnd53", label: "PND 53", icon: ReceiptText, tone: "text-slate-700" },
-  { key: "pnd54", label: "PND 54", icon: BadgePercent, tone: "text-amber-700" },
+  { key: "pp30", label: "PP 30", icon: Landmark },
+  { key: "pp36", label: "PP 36", icon: Globe2 },
+  { key: "pnd2", label: "PND 2", icon: ReceiptText },
+  { key: "pnd3", label: "PND 3", icon: ReceiptText },
+  { key: "pnd53", label: "PND 53", icon: ReceiptText },
+  { key: "pnd54", label: "PND 54", icon: BadgePercent },
 ];
-
-// ---------------------------------------------------------------------------
-// Status badge styling
-// ---------------------------------------------------------------------------
-
-function statusBadgeVariant(
-  status: FilingStatus
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (status) {
-    case "filed":
-    case "paid":
-      return "default";
-    case "due_soon":
-      return "destructive";
-    case "overdue":
-      return "destructive";
-    case "upcoming":
-      return "secondary";
-  }
-}
-
-function statusLabel(status: FilingStatus): string {
-  switch (status) {
-    case "filed":
-      return "Filed";
-    case "paid":
-      return "Paid";
-    case "due_soon":
-      return "Due Soon";
-    case "overdue":
-      return "Overdue";
-    case "upcoming":
-      return "Upcoming";
-  }
-}
 
 function vatStatusLabel(status: string | null, paymentStatus: string | null): FilingStatus {
   if (paymentStatus === "paid") return "paid";
@@ -218,63 +184,58 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         filingId: filing?.id ?? null,
         amountLabel: "WHT",
         amount: filing?.totalWhtAmount,
-        href: `/tax/monthly-filings?year=${selectedYear}&month=${month}`,
+        href: `/tax/withholding/filings?year=${selectedYear}&month=${month}`,
       };
     });
     return { month, cells };
   });
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Filing Calendar
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            VAT and WHT filing deadlines for {selectedYear} (B.E. {beYear})
-          </p>
-        </div>
-
+    <div className="space-y-6">
+      <PageHeader
+        title="Filing Calendar"
+        description={`VAT and WHT filing deadlines for ${selectedYear} (B.E. ${beYear})`}
+      >
         {/* Year navigation */}
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/tax/calendar?year=${selectedYear - 1}`}
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-          >
-            {selectedYear - 1}
-          </Link>
-          <span className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground">
-            {selectedYear}
-          </span>
-          <Link
-            href={`/tax/calendar?year=${selectedYear + 1}`}
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-          >
-            {selectedYear + 1}
-          </Link>
-        </div>
-      </div>
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link href={`/tax/calendar?year=${selectedYear - 1}`} />}
+        >
+          {selectedYear - 1}
+        </Button>
+        <Button
+          size="sm"
+          render={<Link href={`/tax/calendar?year=${selectedYear}`} />}
+        >
+          {selectedYear}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link href={`/tax/calendar?year=${selectedYear + 1}`} />}
+        >
+          {selectedYear + 1}
+        </Button>
+      </PageHeader>
 
       {/* Legend */}
-      <Card className="mb-6">
+      <Card>
         <CardContent className="flex flex-wrap gap-4 pt-4">
           <div className="flex items-center gap-1.5">
-            <Badge variant="secondary">Upcoming</Badge>
+            <StatusBadge status="upcoming" />
             <span className="text-xs text-muted-foreground">Not yet due</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Badge variant="destructive">Due Soon</Badge>
+            <StatusBadge status="due_soon" />
             <span className="text-xs text-muted-foreground">Within 7 days</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Badge variant="destructive" className="font-bold">
-              Overdue
-            </Badge>
+            <StatusBadge status="overdue" />
             <span className="text-xs text-muted-foreground">Past deadline</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Badge variant="default">Filed</Badge>
+            <StatusBadge status="filed" />
             <span className="text-xs text-muted-foreground">Submitted</span>
           </div>
         </CardContent>
@@ -295,7 +256,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
                   return (
                     <TableHead key={column.key}>
                       <span className="inline-flex items-center gap-1.5">
-                        <Icon className={`size-4 ${column.tone}`} />
+                        <Icon className="size-4 text-muted-foreground" />
                         {column.label}
                       </span>
                     </TableHead>
@@ -313,15 +274,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
                     <TableCell key={cell.formType}>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <Badge variant={statusBadgeVariant(cell.status)}>
-                            {cell.status === "overdue" ? (
-                              <span className="font-bold">
-                                {statusLabel(cell.status)}
-                              </span>
-                            ) : (
-                              statusLabel(cell.status)
-                            )}
-                          </Badge>
+                          <StatusBadge status={cell.status} />
                         </div>
                         <span className="text-xs text-muted-foreground">
                           {cell.deadline

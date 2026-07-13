@@ -27,9 +27,9 @@ import type { Statement } from "./types";
 function statusBadge(status: string | null) {
   switch (status) {
     case "completed":
-      return <Badge variant="default" className="bg-green-100 text-green-800 text-xs">Completed</Badge>;
+      return <Badge variant="success" className="text-xs">Completed</Badge>;
     case "completed_with_warning":
-      return <Badge variant="default" className="bg-amber-100 text-amber-800 text-xs">Warning</Badge>;
+      return <Badge variant="warning" className="text-xs">Warning</Badge>;
     case "processing":
       return <Badge variant="secondary" className="text-xs">Processing</Badge>;
     default:

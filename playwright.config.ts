@@ -11,7 +11,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  // The html reporter prints nothing while running, so a slow run and a hung
+  // run look identical in CI logs. "list" gives per-test progress.
+  reporter: process.env.CI
+    ? [["list"], ["html", { open: "never" }]]
+    : "html",
+  // A stalled run dies here instead of riding the job timeout with no output.
+  globalTimeout: process.env.CI ? 10 * 60_000 : undefined,
 
   use: {
     baseURL,

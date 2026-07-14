@@ -92,15 +92,23 @@ jobs:
     steps:
       - id: check
         env:
-          E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_E2E_PARENT_BRANCH: ${{ vars.NEON_E2E_PARENT_BRANCH }}
           E2E_CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
           E2E_BLOB_READ_WRITE_TOKEN: ${{ secrets.E2E_BLOB_READ_WRITE_TOKEN }}
         run: |
-          if [ -n "$E2E_DATABASE_URL" ] && [ -n "$E2E_CLERK_SECRET_KEY" ] && [ -n "$E2E_BLOB_READ_WRITE_TOKEN" ]; then
+          missing=""
+          [ -n "$NEON_API_KEY" ] || missing="$missing secrets.NEON_API_KEY"
+          [ -n "$NEON_PROJECT_ID" ] || missing="$missing vars.NEON_PROJECT_ID"
+          [ -n "$NEON_E2E_PARENT_BRANCH" ] || missing="$missing vars.NEON_E2E_PARENT_BRANCH"
+          [ -n "$E2E_CLERK_SECRET_KEY" ] || missing="$missing secrets.E2E_CLERK_SECRET_KEY"
+          [ -n "$E2E_BLOB_READ_WRITE_TOKEN" ] || missing="$missing secrets.E2E_BLOB_READ_WRITE_TOKEN"
+          if [ -z "$missing" ]; then
             echo "run-e2e=true" >> "$GITHUB_OUTPUT"
           else
             echo "run-e2e=false" >> "$GITHUB_OUTPUT"
-            echo "E2E secrets not configured — skipping e2e job." >> "$GITHUB_STEP_SUMMARY"
+            echo "Skipping e2e — not configured:$missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   e2e:
@@ -109,14 +117,7 @@ jobs:
     timeout-minutes: 15
     needs: e2e-gate
     if: needs.e2e-gate.outputs.run-e2e == 'true'
-    # The e2e org lives on a single shared Neon branch — never run two e2e
-    # jobs against it concurrently, and don't cancel a run mid-flight.
-    concurrency:
-      group: e2e-shared-neon-branch
-      cancel-in-progress: false
     env:
-      DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.E2E_DATABASE_URL_UNPOOLED }}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
       E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
@@ -125,13 +126,33 @@ jobs:
       E2E_REQUIRE_INNGEST: "1"
     steps:
       - uses: actions/checkout@v4
+      # Each run gets its own copy-on-write branch of the e2e data. The org,
+      # seed data and Clerk user come along for free, fixtures can't pollute
+      # the parent, and runs no longer serialize on one shared branch.
+      - name: Create Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          # No fallback on purpose: an unset parent would clone the project's
+          # default branch, i.e. production. The gate skips the job instead.
+          parent_branch: ${{ vars.NEON_E2E_PARENT_BRANCH }}
+          branch_name: ci-${{ github.run_id }}-${{ github.run_attempt }}
+          database: ${{ vars.NEON_DATABASE_NAME || 'neondb' }}
+          role: ${{ vars.NEON_ROLE || 'neondb_owner' }}
+          api_key: ${{ secrets.NEON_API_KEY }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The branch is a clone, so it is already migrated — this only applies
+      # migrations the PR itself adds.
       - run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL_UNPOOLED: ${{ steps.neon.outputs.db_url }}
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -165,7 +186,11 @@ jobs:
           exit 1
       # Golden path only. The other e2e specs are a local/manual suite — running
       # all 224 serially against the dev server takes >20 min and times the job out.
+      # Playwright's webServer inherits this env, so the app gets the branch URL.
       - run: pnpm test:e2e e2e/golden-path
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL_UNPOOLED: ${{ steps.neon.outputs.db_url }}
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -180,3 +205,11 @@ jobs:
           name: inngest-log
           path: inngest.log
           retention-days: 14
+      # always() — a failed or cancelled run must not leak its branch.
+      - name: Delete Neon branch
+        if: always() && steps.neon.outputs.branch_id != ''
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.neon.outputs.branch_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}

@@ -46,11 +46,15 @@ jobs:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: thai_accounting_test
+        # tmpfs for PGDATA, matching docker-compose.test.yml. The suite is
+        # write-heavy DDL and throwaway data — durability buys nothing here and
+        # fsyncing it to the runner's disk is the single biggest cost.
         options: >-
           --health-cmd "pg_isready -U test -d thai_accounting_test"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 10
+          --tmpfs /var/lib/postgresql/data:rw,size=1g
     env:
       # db-test-utils self-migrates from drizzle/*.sql — no db:migrate needed.
       TEST_DATABASE_URL: postgres://test:test@localhost:5433/thai_accounting_test

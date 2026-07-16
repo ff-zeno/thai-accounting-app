@@ -47,7 +47,7 @@ CI first because it makes every later task enforceable. Money math via a single 
 
 ## Execution residuals (2026-06-12)
 
-- **E2E secrets setup (user):** configure GitHub secrets `E2E_DATABASE_URL`, `E2E_DATABASE_URL_UNPOOLED` (dedicated Neon branch containing the e2e org + Clerk membership), `E2E_CLERK_PUBLISHABLE_KEY`, `E2E_CLERK_SECRET_KEY`, `E2E_CLERK_USER_EMAIL`, `E2E_BLOB_READ_WRITE_TOKEN` (dedicated test Blob store). The e2e CI job skips cleanly until then.
+- **E2E secrets setup (user):** the e2e CI job creates an ephemeral Neon branch per run (`neondatabase/create-branch-action`, deleted on teardown), so no static DB-URL secrets are needed. Configure GitHub **secrets** `NEON_API_KEY`, `E2E_CLERK_PUBLISHABLE_KEY`, `E2E_CLERK_SECRET_KEY`, `E2E_CLERK_USER_EMAIL`, `E2E_BLOB_READ_WRITE_TOKEN` (dedicated test Blob store), and **vars** `NEON_PROJECT_ID`, `NEON_E2E_PARENT_BRANCH` (plus optional `NEON_DATABASE_NAME`/`NEON_ROLE`). The e2e CI job skips cleanly until then. (The old `E2E_DATABASE_URL`/`E2E_DATABASE_URL_UNPOOLED` secrets are obsolete — remove them from GitHub.)
 - **CI dry run (user):** after pushing, verify the pipeline fails on a deliberately broken test.
 - **Parsers float math** (`src/lib/parsers/**`): pre-ledger floats, allowlisted; separate satang migration follow-up.
 - **Lint-guard scope:** currently `src/lib/**` only; extending to `src/app/**` is a follow-up (several display-layer parseFloat sites remain there).

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
@@ -51,12 +52,10 @@ export default async function AccountingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">General Ledger</h1>
-        <p className="text-sm text-muted-foreground">
-          Chart of accounts, opening balances, journal entries, and trial-balance spine.
-        </p>
-      </div>
+      <PageHeader
+        title="General Ledger"
+        description="Chart of accounts, opening balances, journal entries, and trial-balance spine."
+      />
 
       {!orgId || !dashboard ? (
         <Card>

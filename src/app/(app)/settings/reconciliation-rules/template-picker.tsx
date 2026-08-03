@@ -73,7 +73,7 @@ export function TemplatePicker({ existingRuleCounts = {} }: Props) {
               <CardContent className="pt-0">
                 <p className="text-xs text-muted-foreground">{tmpl.description}</p>
                 {existingCount > 0 && (
-                  <p className="mt-2 text-xs text-amber-600">
+                  <p className="mt-2 text-xs text-warning">
                     You already have {existingCount} rules from this template.
                   </p>
                 )}
@@ -91,7 +91,7 @@ export function TemplatePicker({ existingRuleCounts = {} }: Props) {
           {isPending ? "Applying..." : "Apply Template"}
         </Button>
         {result && (
-          <p className="text-sm text-green-600">
+          <p className="text-sm text-success">
             {result.created} rules created, {result.skipped} skipped
           </p>
         )}

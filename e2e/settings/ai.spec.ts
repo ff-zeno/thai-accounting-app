@@ -20,7 +20,12 @@ test.describe("Settings: AI", () => {
     await expect(page.getByLabel("Provider")).toBeVisible();
     await expect(page.getByRole("textbox", { name: /^Model$/ })).toBeVisible();
     await expect(page.getByLabel("API key secret reference")).toBeVisible();
-    await expect(page.getByLabel("Enable live model orchestration")).toBeVisible();
+    // Role query, not getByLabel: the wrapping <label> associates both the
+    // Base UI checkbox span and its hidden native input, so getByLabel is
+    // ambiguous under strict mode. The role query targets the a11y tree only.
+    await expect(
+      page.getByRole("checkbox", { name: "Enable live model orchestration" }),
+    ).toBeVisible();
   });
 
   test("rejects raw copilot provider keys", async ({ page }) => {

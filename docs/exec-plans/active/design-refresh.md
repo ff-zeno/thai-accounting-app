@@ -1,6 +1,8 @@
 # Plan: Design Refresh — Kit Selection
 
-**Status:** Queued (documented 2026-06-12). Starts after `ui-consistency.md` standardization lands — restyling 7 bespoke tables would multiply the work; restyling one shared kit is cheap.
+**Status:** Executed 2026-08-02 via the owner-mode UI reset implementation (single pass, merged with the standardization goals of `ui-consistency.md`); pending peer review + final `/design-review` audit.
+The 4–5-direction bake-off was superseded twice: first by the single Quicken Simplifi reference direction (Task 1), then by owner-approved Lavish mockups that locked "Quicken Soft" surfaces with an **Ink Neutral** accent — the warm golden-brown palette is retired.
+Evidence: `docs/reviews/owner-mode-ux-reset-approved-mockups-2026-08-01.html`; governing contract: `DESIGN.md`.
 **Owner direction:** The app should stop feeling like a default AI-generated shadcn app. Owner wants 4–5 distinct design directions mocked up as real prototypes and will pick one.
 
 ## Problem
@@ -21,18 +23,21 @@ Prototype in-app on a branch per direction, theming the real components from `ui
 
 ## Tasks
 
-- [ ] **1. Direction brief.** With owner: agree the 4–5 named directions, reference apps for each (Thai and international), and the 3 benchmark screens. Capture in this doc.
-- [ ] **2. Token infrastructure.** Ensure all themable values (fonts, palette, radius, spacing density, shadows) flow through Tailwind theme tokens / CSS variables, not hardcoded classes, on the 3 benchmark screens. (Largely delivered by `ui-consistency.md`; close gaps here.)
-- [ ] **3. Build prototypes.** One branch per direction: theme tokens + any direction-specific component variants for Home, Documents inbox, Tax VAT. Seeded demo data, Thai + EN.
-- [ ] **4. Comparison pack.** Screenshot each direction (desktop + mobile widths) and assemble `docs/reviews/design-directions-<date>.md` with annotated side-by-sides and per-direction notes (contrast check results, Thai rendering check).
-- [ ] **5. Owner selection session.** Owner picks direction or hybrid; record decision + rationale here.
-- [ ] **6. Codify.** Update DESIGN.md (fonts, palette, radius, density, component treatments, tone). Merge winning tokens to main; delete losing branches.
-- [ ] **7. Rollout pass.** Apply the chosen system across remaining owner-mode surfaces; `/design-review` audit to catch stragglers; fix flagged inconsistencies.
+- [x] **1. Direction brief.** Decided 2026-08-02 (Mobbin review with owner, supersedes the 4–5-direction bake-off): **Quicken Simplifi is the primary reference kit** for the general shell and global styles — buttons, menus, card anatomy (stat label + big number + tinted sub-panel), soft rounded surfaces, light-gray canvas.
+  Supporting references: Midday (evidence-inbox IA, review states), Mercury/Attio (dense tables + side drawers), Wise (mobile actions), Etsy/Stripe (settlement gross→fee→net), Mixpanel (accountant report boards only).
+  Structure and shapes only — palette stays DESIGN.md's warm golden-brown + neutrals (Quicken's violet is banned). Prototyping now targets this single direction on the 3 benchmark screens rather than 4–5 competing themes; the side-by-side comparison tasks below apply to this direction's desktop/mobile + Thai/EN states.
+- [x] **2. Token infrastructure.** Executed 2026-08-02 in the UI reset (Stage 1): all themable values flow through Tailwind v4 `@theme` tokens in `src/app/globals.css` app-wide, not just on 3 benchmark screens; dead dark-mode and sidebar tokens deleted.
+- [x] **3. Build prototypes.** Superseded: instead of per-direction branches, three Lavish mockup review rounds (`.lavish/shell-directions.html`, `.lavish/page-mockups.html`) prototyped the single approved direction across shell + representative pages, Thai + EN.
+- [x] **4. Comparison pack.** Superseded by the exported mockup evidence `docs/reviews/owner-mode-ux-reset-approved-mockups-2026-08-01.html` (side-by-side shell directions reviewed with the owner in-browser).
+- [x] **5. Owner selection session.** Done 2026-08-02: owner approved "Quicken Soft + Ink Neutral" ("Good, looks aligned now") plus four product decisions (POS placement, nav pins removal, top bar, brand "Long Tua").
+- [x] **6. Codify.** Done 2026-08-02: DESIGN.md fully rewritten as the governing contract (tokens, nav model, route tabs, status registry, money rules, anti-patterns, decisions log); tokens live in `globals.css` (working tree, uncommitted — no branches to delete since no per-direction branches were created).
+- [x] **7. Rollout pass.** Done 2026-08-02: all owner-mode surfaces swept in three batches (Home/Bank/Documents/Recon, Tax, More/Settings/Capture) — PageHeader everywhere, `Amount` as the only money path, status registry adoption, raw palette classes eliminated (documented exemptions in DESIGN.md); final `/design-review` audit is the remaining exit step.
 
 ## Verification
 
-- [ ] 4–5 prototypes exist and render the 3 benchmark screens with real components and demo data.
-- [ ] Comparison pack reviewed by owner; decision recorded in this doc.
-- [ ] DESIGN.md updated; Tailwind tokens merged; no hardcoded colors/fonts on owner-mode surfaces (grep + `/design-review` pass).
-- [ ] AA contrast verified on shipped palette; Thai text renders correctly in all chosen fonts (PDF surfaces unaffected or separately verified).
-- [ ] `pnpm build && pnpm lint` green; nav/tax Playwright smoke green after rollout.
+- [x] ~~4–5 prototypes exist~~ Superseded: single approved direction prototyped via Lavish mockups (see Task 3).
+- [x] Mockups reviewed by owner across three rounds; decision recorded here and in `owner-mode-ux-reset.md`.
+- [x] DESIGN.md updated; tokens landed in `globals.css`; raw-palette grep clean with documented exemptions (bank brand marks — see DESIGN.md Anti-Patterns).
+- [x] AA contrast checked on the Ink Neutral token pairs during Stage 1; Thai rendering verified on /tax with locale switched.
+- [x] `pnpm build && pnpm test && pnpm lint` green after every stage; nav/tax/smoke Playwright suites run locally per stage (pre-existing reds ledgered in the reset plan, none introduced by the rollout).
+- [ ] Final `/design-review` audit + GPT 5.6 Sol peer review reach zero P1 findings (last open step, tracked in `owner-mode-ux-reset.md`).

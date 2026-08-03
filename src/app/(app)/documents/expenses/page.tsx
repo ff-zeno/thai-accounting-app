@@ -5,6 +5,7 @@ import { searchDocuments, getFilterOptions } from "@/lib/db/queries/documents";
 import { getVatRate } from "@/lib/db/queries/tax-config";
 import { DocumentTable, type DocumentRow } from "../document-table";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Upload } from "lucide-react";
 
 export default async function ExpensesPage() {
@@ -21,17 +22,12 @@ export default async function ExpensesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {tNav("expenses")}
-          </h1>
-        </div>
+      <PageHeader className="mb-6" title={tNav("expenses")}>
         <Button render={<Link href="/documents/upload?direction=expense" />}>
           <Upload className="mr-2 size-4" />
           {t("uploadTitle")}
         </Button>
-      </div>
+      </PageHeader>
       <DocumentTable
         direction="expense"
         initialDocuments={docsResult.data as DocumentRow[]}

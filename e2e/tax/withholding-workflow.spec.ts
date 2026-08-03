@@ -144,17 +144,29 @@ test.describe("Withholding Tax Workflow", () => {
     await expect(
       page.getByRole("heading", { name: /Withholding Tax Dashboard/i }),
     ).toBeVisible();
+
+    // The section tab strip and the dashboard's workflow cards both link to
+    // the four WHT areas; scope to each surface to stay strict-mode safe.
+    const sectionNav = page.getByRole("navigation", {
+      name: "Section navigation",
+    });
+    for (const area of [
+      "Incoming WHT",
+      "Outgoing WHT",
+      "WHT Register",
+      "WHT Filings",
+    ]) {
+      await expect(
+        sectionNav.getByRole("link", { name: area, exact: true }),
+      ).toBeVisible();
+    }
+
+    // The workflow cards carry the explanations the tab strip cannot.
     await expect(
-      page.locator("main").getByRole("link", { name: /Incoming WHT/i }),
+      page.getByText(/Tax credits withheld by customers when they pay us/i),
     ).toBeVisible();
     await expect(
-      page.locator("main").getByRole("link", { name: /Outgoing WHT/i }),
-    ).toBeVisible();
-    await expect(
-      page.locator("main").getByRole("link", { name: /WHT Register/i }),
-    ).toBeVisible();
-    await expect(
-      page.locator("main").getByRole("link", { name: /WHT Filings/i }),
+      page.getByText(/Tax we withhold when paying vendors or contractors/i),
     ).toBeVisible();
     await expect(
       page.locator("main").getByText("Tax Workflow Exceptions", { exact: true }),

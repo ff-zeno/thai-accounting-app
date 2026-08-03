@@ -1,8 +1,10 @@
 # Plan: UI Kit & Consistency
 
-**Status:** Active. Documented 2026-06-12, execution not started.
+**Status:** Partially executed 2026-08-02 — the owner-mode UI reset merged this plan's standardization goals with `design-refresh.md` into one pass (kit built directly in the approved visual style).
+Delivered by the reset: status registry + shared StatusBadge (Task 5), DESIGN.md component rules (Task 3), and the page-header/empty-state/money-path portions of Task 8.
+Still open: shared data-table (Tasks 4, 6), react-hook-form adoption (Task 7), and the formal pattern-inventory docs (Tasks 1–2).
 **Source findings:** `docs/reviews/engineering-review-2026-06-12.md` (F10).
-**Sequencing:** Audit (Tasks 1–3) can start anytime. Standardization (Tasks 4–8) lands after `owner-mode-ux-reset.md` Slice 1, so we standardize the surviving owner surface first, not pages about to be demoted. Precedes `design-refresh.md` — pick a visual direction only after components are unified, or the redesign multiplies across 7 table implementations.
+**Sequencing (historical):** The original "standardize before restyling" ordering was consciously inverted — the reset restyled and standardized in the same sweep, so the remaining table/form tasks now execute under the shipped Ink Neutral kit.
 
 ## Problem
 
@@ -25,9 +27,9 @@ Audit before building: catalogue what exists, grade consistency per pattern, the
 
 - [ ] **1. Pattern inventory.** Audit all 78 pages; produce `docs/_ai_context/ui-pattern-inventory.md`: tables, forms, badges, empty/loading/error states, dialogs, toasts, filter bars, page headers — with per-pattern consistency grade and worst offenders. (Use `/design-review` tooling for screenshots where useful.)
 - [ ] **2. Status vocabulary map.** Enumerate every domain status enum rendered in UI (pipeline, reconciliation, VAT input/output lifecycle, WHT lifecycle, filing, payroll run) and current rendering. Output: proposed unified registry table (status → label EN/TH → tone → icon) appended to the inventory doc for owner sign-off.
-- [ ] **3. Update DESIGN.md** with the agreed component rules: when to use which table density, badge tones, empty-state copy pattern, confirm-dialog rules, toast rules. DESIGN.md remains the single authority per CLAUDE.md.
+- [x] **3. Update DESIGN.md** — done 2026-08-02 in the UI reset: DESIGN.md rewritten as the governing contract (badge tones via the status registry, empty-state pattern, money rules, anti-patterns with documented exemptions).
 - [ ] **4. Build `src/components/ui/data-table/`** (TanStack Table + shadcn table): column defs, sorting, filtering, row selection, bulk-action slot, pagination, empty + loading states. Unit tests for selection/bulk-action state.
-- [ ] **5. Build `src/components/ui/status-badge.tsx`** + `src/lib/ui/status-registry.ts` implementing the Task 2 registry. Replace `confidence-badge.tsx` consumers or wrap it.
+- [x] **5. Build `src/components/ui/status-badge.tsx`** + `src/lib/ui/status-registry.ts` — done 2026-08-02 in the UI reset: registry (STATUS_VARIANTS + statusVariant + humanizeStatus) adopted app-wide; ConfidenceBadge maps level→Badge variant; no page-local status→variant switches remain.
 - [ ] **6. Migrate owner-mode tables** to the shared data-table: `documents/document-table.tsx` (1,048 lines — also splits the embedded state machine), bank `transaction-table.tsx` (824), the VAT/WHT lifecycle tables from owner-mode Slice 5, `certificate-table.tsx`. One table per commit; screenshot before/after.
 - [ ] **7. Adopt react-hook-form + zod** for forms: add the dependency, write one exemplar migration (`vendor-edit-form.tsx`, smallest), document the pattern in `docs/_ai_context/code-quality-guidelines.md`. Remaining forms migrate when next touched; `smart-upload-form.tsx`/`extraction-form.tsx` get dedicated follow-up tasks here when scheduled.
 - [ ] **8. UX furniture pass on owner surfaces.** Apply standard empty states, loading skeletons, destructive-confirm dialogs, and filter bars across Home, Bank, Documents, Tax pages. Record deviations found-but-deferred as checklist items here.

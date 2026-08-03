@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, FileText, Receipt } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import type { TaxWorkflowException } from "@/lib/db/queries/tax-workflow-exceptions";
 
 const whtAreas = [
@@ -37,14 +38,10 @@ export function WithholdingDashboardPage({
 }) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Withholding Tax Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Manage withholding tax from both directions: tax customers withheld from us and tax we withheld from payees.
-        </p>
-      </div>
+      <PageHeader
+        title="Withholding Tax Dashboard"
+        description="Manage withholding tax from both directions: tax customers withheld from us and tax we withheld from payees."
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         {whtAreas.map((area) => (
@@ -98,67 +95,6 @@ export function WithholdingDashboardPage({
           )}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-export function WhtRegisterPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">WHT Register</h1>
-        <p className="text-sm text-muted-foreground">
-          Evidence lists for withholding tax credits received, certificates issued, and monthly filing status.
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/tax/withholding/incoming">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="size-4" />
-                Incoming WHT
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Credits and certificates received from customers.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/tax/withholding/outgoing">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="size-4" />
-                Outgoing WHT
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Certificates issued to payees for tax we withheld.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/tax/withholding/filings">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="size-4" />
-                WHT Filings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Monthly filing status and payment workflow.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
     </div>
   );
 }

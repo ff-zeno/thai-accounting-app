@@ -1,10 +1,10 @@
-import { SplitSquareVertical } from "lucide-react";
 import { getAllocationRules } from "@/lib/db/queries/allocation-rules";
 import { getCostCenters } from "@/lib/db/queries/cost-centers";
 import { getProjects } from "@/lib/db/queries/projects";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState, NoOrgState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -60,18 +60,15 @@ export default async function AllocationRulesPage({
         </div>
       ) : null}
       {messages.status ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+        <div className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm text-success">
           {messages.status}
         </div>
       ) : null}
 
       {!orgId ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <SplitSquareVertical className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select an organization to manage allocation rules.
-            </p>
+          <CardContent>
+            <NoOrgState>Select an organization to manage allocation rules.</NoOrgState>
           </CardContent>
         </Card>
       ) : (
@@ -149,9 +146,7 @@ export default async function AllocationRulesPage({
             </CardHeader>
             <CardContent>
               {rules.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No allocation rules yet.
-                </p>
+                <EmptyState size="sm" title="No allocation rules yet." />
               ) : (
                 <Table>
                   <TableHeader>

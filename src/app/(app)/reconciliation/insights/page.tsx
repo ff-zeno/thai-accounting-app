@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { getReconciliationStats } from "@/lib/db/queries/reconciliation";
 import {
@@ -79,26 +78,12 @@ export default async function InsightsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/reconciliation"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Reconciliation Insights
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Match quality metrics and learning feedback
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        title="Reconciliation Insights"
+        description="Match quality metrics and learning feedback"
+      >
         <ExportPdfButton />
-      </div>
+      </PageHeader>
 
       {/* Health summary banner */}
       <HealthSummary

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, Boxes, Download } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getInventoryDashboard } from "@/lib/db/queries/inventory";
+import { formatAmount } from "@/lib/utils/money";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -54,10 +55,11 @@ async function submitReconcileCount(formData: FormData) {
   await reconcileInventoryCountAction(formData);
 }
 
-function amount(value: string | null | undefined, digits = 2) {
+// 4-decimal inventory figures (quantities, unit costs) — not money amounts.
+function quantity(value: string | null | undefined) {
   return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
   });
 }
 
@@ -115,7 +117,7 @@ export default async function InventoryPage() {
             />
             <StatCard
               label="Units On Hand"
-              value={amount(dashboard.summary.totalQuantity, 4)}
+              value={quantity(dashboard.summary.totalQuantity)}
               hint="Org-wide quantity total."
             />
             <StatCard
@@ -342,7 +344,7 @@ export default async function InventoryPage() {
                         .filter((count) => count.status !== "reconciled")
                         .map((count) => (
                           <option key={count.id} value={count.id}>
-                            {count.countDate} / {count.itemCount} items / {amount(count.totalVarianceValueThb)}
+                            {count.countDate} / {count.itemCount} items / {formatAmount(count.totalVarianceValueThb)}
                           </option>
                         ))}
                     </NativeSelect>
@@ -397,10 +399,10 @@ export default async function InventoryPage() {
                         <TableCell>{sku.category ?? "-"}</TableCell>
                         <TableCell>{sku.branchNumber ?? "All"}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(sku.currentQuantity, 4)}
+                          {quantity(sku.currentQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(sku.reorderPointQuantity, 4)}
+                          {quantity(sku.reorderPointQuantity)}
                         </TableCell>
                         <TableCell>{dateOnly(sku.lastMovementAt)}</TableCell>
                       </TableRow>
@@ -443,8 +445,8 @@ export default async function InventoryPage() {
                         </TableCell>
                         <TableCell>{sku.nameEn ?? sku.nameTh ?? "-"}</TableCell>
                         <TableCell>{sku.category ?? "-"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{amount(sku.currentQuantity, 4)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{amount(sku.currentAvgCost, 4)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{quantity(sku.currentQuantity)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{quantity(sku.currentAvgCost)}</TableCell>
                         <TableCell className="text-right">
                           <Amount value={sku.currentValue} />
                         </TableCell>
@@ -533,19 +535,19 @@ export default async function InventoryPage() {
                       <TableRow key={row.skuId}>
                         <TableCell className="font-medium">{row.skuCode}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.openingQuantity, 4)}
+                          {quantity(row.openingQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.inboundQuantity, 4)}
+                          {quantity(row.inboundQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.outboundQuantity, 4)}
+                          {quantity(row.outboundQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.adjustmentQuantity, 4)}
+                          {quantity(row.adjustmentQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.closingQuantity, 4)}
+                          {quantity(row.closingQuantity)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Amount value={row.closingValue} />
@@ -586,7 +588,7 @@ export default async function InventoryPage() {
                       <TableRow key={row.skuId}>
                         <TableCell className="font-medium">{row.skuCode}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.currentQuantity, 4)}
+                          {quantity(row.currentQuantity)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Amount value={row.currentValue} />

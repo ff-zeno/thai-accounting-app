@@ -32,7 +32,7 @@ export interface HelpEntry {
 }
 
 export const DEFAULT_HELP_ENTRY: HelpEntry = {
-  title: { en: "How Long Dtua works", th: "ลงตัวทำงานอย่างไร" },
+  title: { en: "How Long Tua works", th: "ลงตัวทำงานอย่างไร" },
   sections: [
     {
       heading: { en: "The monthly loop", th: "วงจรงานรายเดือน" },

@@ -13,6 +13,7 @@ import {
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Select,
   SelectContent,
@@ -147,18 +148,6 @@ function getPeriodRange(key: PeriodKey): { start: string; end: string } | undefi
 }
 
 // ---------------------------------------------------------------------------
-// Formatting
-// ---------------------------------------------------------------------------
-
-function formatAmount(amount: string | null, currency?: string | null): string {
-  if (!amount) return "--";
-  return `${parseFloat(amount).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} ${currency || "THB"}`;
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -238,34 +227,28 @@ export function ReconciliationDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reconciliation</h1>
-          <p className="text-sm text-muted-foreground">
-            Match bank transactions to confirmed documents
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {isPending && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-          <Select value={period} onValueChange={handlePeriodChange}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="this-month">This Month</SelectItem>
-              <SelectItem value="last-month">Last Month</SelectItem>
-              <SelectItem value="this-quarter">This Quarter</SelectItem>
-              <SelectItem value="this-year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button render={<Link href="/reconciliation/review" />}>
-            Manual Match
-            <ArrowRight className="ml-1 size-4" />
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Reconciliation"
+        description="Match bank transactions to confirmed documents"
+      >
+        {isPending && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+        <Select value={period} onValueChange={handlePeriodChange}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Time</SelectItem>
+            <SelectItem value="this-month">This Month</SelectItem>
+            <SelectItem value="last-month">Last Month</SelectItem>
+            <SelectItem value="this-quarter">This Quarter</SelectItem>
+            <SelectItem value="this-year">This Year</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button render={<Link href="/reconciliation/review" />}>
+          Manual Match
+          <ArrowRight className="ml-1 size-4" />
+        </Button>
+      </PageHeader>
 
       {/* Quality Score + Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -332,7 +315,7 @@ export function ReconciliationDashboard({
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              {formatAmount(stats.unmatchedAmount)} total
+              <Amount value={stats.unmatchedAmount} /> THB total
             </p>
           </CardContent>
         </Card>
@@ -476,8 +459,8 @@ export function ReconciliationDashboard({
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="whitespace-nowrap font-mono text-sm">
-                        {formatAmount(doc.totalAmount, doc.currency)}
+                      <span className="whitespace-nowrap text-sm">
+                        <Amount value={doc.totalAmount} /> {doc.currency || "THB"}
                       </span>
                       <Button
                         variant="outline"
@@ -546,10 +529,8 @@ export function ReconciliationDashboard({
                       <p className="text-xs text-muted-foreground">{explanation}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap font-mono text-sm tabular-nums">
-                        {parseFloat(match.txnAmount).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                      <span className="whitespace-nowrap text-sm">
+                        <Amount value={match.txnAmount} />
                       </span>
                       {match.confidence && (
                         <ConfidenceBadge confidence={match.confidence} />

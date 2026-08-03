@@ -22,8 +22,10 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -338,18 +340,14 @@ export function TransactionTable({
       accessorKey: "amount",
       header: "Amount",
       cell: ({ row }) => {
-        const amount = parseFloat(row.getValue("amount"));
+        const amount = row.getValue("amount") as string;
         const type = row.original.type;
         return (
-          <span
-            className={`whitespace-nowrap text-sm font-mono ${type === "credit" ? "text-green-600" : "text-red-600"}`}
-          >
-            {type === "debit" ? "-" : "+"}
-            {amount.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
+          <Amount
+            signed
+            value={type === "debit" ? `-${amount}` : amount}
+            className="whitespace-nowrap text-sm"
+          />
         );
       },
     },
@@ -359,13 +357,7 @@ export function TransactionTable({
       cell: ({ row }) => {
         const bal = row.getValue("runningBalance") as string | null;
         if (!bal) return <span className="text-sm text-muted-foreground">--</span>;
-        return (
-          <span className="whitespace-nowrap font-mono text-sm">
-            {parseFloat(bal).toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </span>
-        );
+        return <Amount value={bal} className="whitespace-nowrap text-sm" />;
       },
     },
     {
@@ -384,17 +376,11 @@ export function TransactionTable({
               </Badge>
             )}
             {!isPetty && (
-              <>
-                {(!status || status === "unmatched") ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Unmatched
-                  </Badge>
-                ) : (
-                  <Badge className="text-xs">
-                    {status === "matched" ? "Matched" : "Partial"}
-                  </Badge>
-                )}
-              </>
+              <StatusBadge
+                status={status ?? "unmatched"}
+                className="text-xs"
+                label={status === "partially_matched" ? "Partial" : undefined}
+              />
             )}
           </div>
         );

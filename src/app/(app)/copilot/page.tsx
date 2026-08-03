@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -47,12 +48,10 @@ export default async function CopilotPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Accounting Copilot</h1>
-        <p className="text-sm text-muted-foreground">
-          Read-only tool runner for scoped accounting search and tax-position previews.
-        </p>
-      </div>
+      <PageHeader
+        title="Accounting Copilot"
+        description="Read-only tool runner for scoped accounting search and tax-position previews."
+      />
 
       <Alert variant="warning">
         <AlertTriangle />

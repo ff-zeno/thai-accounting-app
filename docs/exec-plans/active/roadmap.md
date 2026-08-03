@@ -1,7 +1,7 @@
 # Thai Accounting Platform — Roadmap and Exec-Plan Index
 
 **Status:** Active table of contents and remaining-work map.
-**Last updated:** 2026-06-12 (added engineering hardening, UI consistency, and design refresh plans from `docs/reviews/engineering-review-2026-06-12.md`).
+**Last updated:** 2026-08-02 (design gate exited; the owner-mode shell/kit implementation is executed in the working tree, pending peer review; `design-refresh.md` and the visual half of `ui-consistency.md` were merged into that pass).
 **Current baseline:** PR #1 merged to `main` at `f89b7f420f4daeb80e89d631e1336be5644512d8`; Vercel Production deploy succeeded; post-merge `pnpm db:migrate`, `pnpm tsc --noEmit`, and 65-route smoke passed.
 
 This file is the first place to read before planning more work. It separates:
@@ -16,10 +16,10 @@ Only keep documents here when they drive current or next work.
 
 | Document | Role | Done condition |
 |---|---|---|
-| `owner-mode-ux-reset.md` | Current selected implementation slice: reset the product around owner workflow, bank-first reconciliation, documents, VAT, and WHT. **Note 2026-06-12:** Slice 1 (nav demotion) is still open — commit `2e967a3` reset the dashboard only; `src/lib/nav/structure.ts` is unchanged | Owner-mode nav and core workflows are simplified; advanced/accountant areas are demoted; VAT lines show source-to-filing lifecycle status |
+| `owner-mode-ux-reset.md` | **Authoritative active plan, design gate exited 2026-08-02:** reset the owner foreground around truth documents and reconciliation. The shell/kit implementation (Ink Neutral tokens, 5-item nav, route tabs, page sweeps, legacy rip-out) is executed in the working tree and awaits peer review; the documents-first workflow stages and VAT read-model gate remain. | Peer review + `/design-review` reach zero P1; then the dual-source intake, evidence-provenance reconciliation, VAT truth contract, and progressive disclosure are implemented and accepted. |
 | `engineering-hardening.md` | Reliability backbone: CI, golden-path E2E, money-math hardening, effective-dated tax config, 2027 holidays, payroll test coverage, in-flight VAT commit, external-validation kickoff | CI gates every PR, golden-path E2E green, no float money math, tax config centralized and date-safe, dirty tree cleared |
-| `ui-consistency.md` | UI kit and consistency: pattern inventory, shared data-table, unified status-badge registry, one form approach, standard UX furniture | Owner-mode surfaces use the shared kit; status registry signed off; DESIGN.md updated |
-| `design-refresh.md` | Queued visual identity pass: 4–5 themed working prototypes of 3 benchmark screens; owner picks a direction; tokens codified in DESIGN.md | Direction chosen, tokens merged, owner-mode surfaces restyled, AA contrast and Thai rendering verified |
+| `ui-consistency.md` | Partially executed 2026-08-02 (status registry, DESIGN.md rules, and header/empty-state/money furniture landed via the UI reset); remaining scope is the shared data-table, table migrations, and react-hook-form adoption | Owner-mode tables use the shared data-table; one form approach documented and exemplified |
+| `design-refresh.md` | Executed 2026-08-02 via the owner-mode UI reset (single approved direction "Quicken Soft + Ink Neutral" replaced the 4–5-direction bake-off); kept as evidence until the review loop closes | Final `/design-review` + peer review reach zero P1, then move to `completed/` |
 | `completion-control.md` | Live checklist for holistic app completion after PR #1 merge, now oriented around the owner-mode reset | Owner-mode reset shipped, external blockers closed or explicitly deferred, and remaining product gaps either shipped or accepted as post-v1 |
 | `dbd-tfrs-research-spike.md` | CPA/DBD Builder validation blocker for fileable DBD/TFRS output | CPA-reviewed schema/notes taxonomy and authenticated Builder validation available |
 | `phase-12b-tfrs-dbd-audit-pack.md` | Remaining DBD/TFRS/audit-pack implementation plan | Fileable financial statements, notes, Builder packet, and auditor ZIP implemented and Builder-validated |
@@ -40,14 +40,15 @@ Completed plans live in `docs/exec-plans/completed/`. They are historical eviden
 
 The app is now a broad non-production baseline, but the primary UX is too complex for the intended user. The merged stack includes VAT operations ledger, WHT/foreign-vendor tax, tax workflow surfaces, GL/accounting, POS/sales, imports, inventory, payroll, fixed assets, analytics/FX/cost centers, CIT/year-end readiness, navigation shell, and Copilot preview/settings.
 
-This is not production/fileable complete. The immediate gap is no longer "add more accounting features." The immediate gap is a product reset around the owner workflow: Home, Bank, Documents, Tax, and More, with advanced accounting/audit modules hidden or demoted.
+This is not production/fileable complete. The immediate gap is no longer "add more accounting features." The immediate gap is a product-design-approved documents-first reset around Home, Bank, Documents, Tax, and More, with advanced accounting/audit modules hidden or demoted.
 
-The active product model is:
+The proposed documents-first product model is:
 
-- Bank is the source of truth.
-- Documents, POS exports, payroll, imports, and optional feeds explain bank movement.
-- Reconciliation confirms every bank line has source evidence or an explicit explanation.
-- Tax consumes reconciled and classified lines for monthly VAT and WHT compliance.
+- Bank statements and transactions are money/cash truth.
+- POS sales data is customer-transaction truth for gross/net sales, VAT, SKU effects, and settlement/cash-deposit provenance.
+- Expense receipts and supplier tax invoices are VAT-bearing evidence reconciled against bank outflows.
+- Reconciliation confirms each bank movement has source evidence, a POS settlement/cash explanation, or an explicit exception.
+- Tax consumes authoritative VAT/WHT lifecycle records after their source-of-truth contract is resolved.
 
 ## Remaining Work
 
@@ -60,19 +61,19 @@ The active product model is:
 - Uncommitted branch-scoped VAT PP30 work (13 files, migrations 0072/0073) needs gates + commit.
 - Payroll and reconciliation-rule test coverage gaps; no Inngest failed-run audit trail.
 
-### UI consistency and design (see `ui-consistency.md`, then `design-refresh.md`)
+### UI consistency and design (see `ui-consistency.md`)
 
-- 7 bespoke table implementations, 9 ad-hoc forms, fragmented status-badge vocabulary; standardize before visual redesign.
-- Visual identity is default-shadcn; owner will choose from 4–5 prototyped design directions after the kit is unified.
+- Done 2026-08-02 via the UI reset: visual identity ("Quicken Soft + Ink Neutral"), status-badge registry, PageHeader/EmptyState/Amount standardization, raw-palette elimination.
+- Still open: shared data-table over the bespoke table implementations, and one form approach (react-hook-form + zod) for the 9 ad-hoc forms.
 
-### UX reset
+### Documents-first UX reset — design gate exited 2026-08-02, shell implemented
 
-- Ship `owner-mode-ux-reset.md` before scheduling additional feature expansion.
+- The shell/nav/visual-kit half is executed (working tree, pending peer review); the workflow stages (dual-source intake, evidence-provenance reconciliation, Tax lifecycle) remain per `owner-mode-ux-reset.md`.
 - Default navigation to owner mode: Home, Bank, Documents, Tax, More.
 - Demote GL/accounting internals, analytics, CIT/year-end, fixed assets, imports control, advanced settings, admin, and Copilot tool runner.
 - Rework Home into "what needs attention" and "this month's filings."
-- Rework Bank and Documents around upload, AI extraction/coding, matching, and exception review.
-- Rework Tax around monthly VAT/WHT readiness and line-level lifecycle status.
+- Rework Bank and Documents around the two starting truth inputs, AI extraction/coding, matching, money location, sales provenance, and exception review.
+- Resolve the VAT read-model/source-of-truth contract before Tax lifecycle tables or diagrams; then rework Tax around monthly readiness and line-level lifecycle status.
 
 ### External validation
 
@@ -85,7 +86,7 @@ The active product model is:
 
 ### Product gaps to schedule after QA
 
-- Owner-mode UX: bank-first reconciliation, unified document inbox, monthly VAT/WHT checklist, VAT line lifecycle, WHT line lifecycle.
+- Owner-mode UX: approved documents-first Bank/POS/expense-evidence intake, reconciliation, monthly VAT/WHT checklist, VAT line lifecycle, WHT line lifecycle.
 - Imports: direct-clear customs, backfill/reversal depth, richer document/payment picker UX, richer charge classifier UX.
 - Inventory: FIFO/specific-ID/statutory true-up, richer count edit/approval, line-level SKU assignment, demand/reorder automation.
 - Sales/POS: connectors, richer settlement matching, cash slip OCR, bank matching, branch/establishment propagation, Excel/PDF section 87 exports.

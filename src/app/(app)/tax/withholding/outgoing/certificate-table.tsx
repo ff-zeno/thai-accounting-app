@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { AlertTriangle, Download, FileText, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Dialog,
   DialogClose,
@@ -70,16 +71,6 @@ const FORM_TYPE_LABELS: Record<string, string> = {
   pnd53: "PND 53",
   pnd54: "PND 54",
 };
-
-function formatAmount(value: string | null): string {
-  if (!value) return "-";
-  const num = parseFloat(value);
-  if (isNaN(num)) return "-";
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function formatCertNoDisplay(certNo: string): string {
   const parts = certNo.split("/");
@@ -223,11 +214,11 @@ export function CertificateTable({
                     ? formatThaiDateShort(cert.paymentDate)
                     : "-"}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatAmount(cert.totalBaseAmount)}
+                <TableCell className="text-right">
+                  <Amount value={cert.totalBaseAmount} nullDash />
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatAmount(cert.totalWht)}
+                <TableCell className="text-right">
+                  <Amount value={cert.totalWht} nullDash />
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={cert.status} />

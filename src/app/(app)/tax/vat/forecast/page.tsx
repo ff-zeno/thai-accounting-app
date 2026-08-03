@@ -1,5 +1,8 @@
+import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -13,18 +16,6 @@ import {
   getVatForecastByPeriodRange,
 } from "@/lib/db/queries/vat-operations-ledger";
 import { getActiveOrgId } from "@/lib/utils/org-context";
-
-function formatAmount(value: string | null): string {
-  if (!value) return "0.00";
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatStatus(value: string): string {
-  return value.replaceAll("_", " ");
-}
 
 function formatPeriod(year: number | null, month: number | null): string {
   if (!year || !month) return "-";
@@ -53,12 +44,10 @@ export default async function VatForecastPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">VAT Forecast</h1>
-        <p className="text-sm text-muted-foreground">
-          Six-month advisory projection for PP 30, PP 36, expiring input VAT, and reclaim queues.
-        </p>
-      </div>
+      <PageHeader
+        title="VAT Forecast"
+        description="Six-month advisory projection for PP 30, PP 36, expiring input VAT, and reclaim queues."
+      />
 
       <Card>
         <CardHeader>
@@ -83,19 +72,19 @@ export default async function VatForecastPage() {
                     {String(row.period.month).padStart(2, "0")}/{row.period.year}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{formatStatus(row.pp30.status)}</Badge>
+                    <StatusBadge status={row.pp30.status} />
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{formatStatus(row.pp36.status)}</Badge>
+                    <StatusBadge status={row.pp36.status} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {row.expiringInputVat.count} / {formatAmount(row.expiringInputVat.vatAmount)}
+                    {row.expiringInputVat.count} / <Amount value={row.expiringInputVat.vatAmount} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {row.pp36Reclaimable.count} / {formatAmount(row.pp36Reclaimable.vatAmount)}
+                    {row.pp36Reclaimable.count} / <Amount value={row.pp36Reclaimable.vatAmount} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.pp30.netPayable)}
+                  <TableCell className="text-right">
+                    <Amount value={row.pp30.netPayable} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -145,7 +134,7 @@ export default async function VatForecastPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                      <StatusBadge status={row.status} />
                     </TableCell>
                     <TableCell>{formatDate(row.pp36PaidAt)}</TableCell>
                     <TableCell>
@@ -169,8 +158,8 @@ export default async function VatForecastPage() {
                         <Badge variant="outline">Pending</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatAmount(row.vatAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={row.vatAmount} />
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/native-select";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
@@ -31,6 +32,7 @@ import {
   markAsFiledAction,
   voidFilingAction,
 } from "./actions";
+import { fromSatang, toSatangOrZero } from "@/lib/utils/money";
 import {
   RefreshCw,
   Lock,
@@ -73,8 +75,8 @@ interface VendorGroup {
   vendorNameTh: string | null;
   vendorTaxId: string | null;
   certificates: CertificateRow[];
-  totalBase: number;
-  totalWht: number;
+  totalBaseSatang: number;
+  totalWhtSatang: number;
 }
 
 const FORM_TYPE_LABELS: Record<FormType, string> = {
@@ -96,14 +98,6 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function formatAmount(value: string | null): string {
-  if (!value) return "0.00";
-  return parseFloat(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function groupByVendor(certificates: CertificateRow[]): VendorGroup[] {
   const map = new Map<string, VendorGroup>();
 
@@ -111,8 +105,8 @@ function groupByVendor(certificates: CertificateRow[]): VendorGroup[] {
     const existing = map.get(cert.vendorId);
     if (existing) {
       existing.certificates.push(cert);
-      existing.totalBase += parseFloat(cert.totalBaseAmount ?? "0");
-      existing.totalWht += parseFloat(cert.totalWht ?? "0");
+      existing.totalBaseSatang += toSatangOrZero(cert.totalBaseAmount);
+      existing.totalWhtSatang += toSatangOrZero(cert.totalWht);
     } else {
       map.set(cert.vendorId, {
         vendorId: cert.vendorId,
@@ -120,8 +114,8 @@ function groupByVendor(certificates: CertificateRow[]): VendorGroup[] {
         vendorNameTh: cert.vendorNameTh,
         vendorTaxId: cert.vendorTaxId,
         certificates: [cert],
-        totalBase: parseFloat(cert.totalBaseAmount ?? "0"),
-        totalWht: parseFloat(cert.totalWht ?? "0"),
+        totalBaseSatang: toSatangOrZero(cert.totalBaseAmount),
+        totalWhtSatang: toSatangOrZero(cert.totalWht),
       });
     }
   }
@@ -405,11 +399,11 @@ function FilingTabContent({
                     {group.vendorTaxId ?? "-"}
                   </TableCell>
                   <TableCell>{group.certificates.length}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatAmount(group.totalBase.toFixed(2))}
+                  <TableCell className="text-right">
+                    <Amount value={fromSatang(group.totalBaseSatang)} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatAmount(group.totalWht.toFixed(2))}
+                  <TableCell className="text-right">
+                    <Amount value={fromSatang(group.totalWhtSatang)} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -420,11 +414,11 @@ function FilingTabContent({
                   Total
                 </TableCell>
                 <TableCell className="font-medium">{certCount}</TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
-                  {formatAmount(filing?.totalBaseAmount ?? "0.00")}
+                <TableCell className="text-right font-medium">
+                  <Amount value={filing?.totalBaseAmount} />
                 </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
-                  {formatAmount(filing?.totalWhtAmount ?? "0.00")}
+                <TableCell className="text-right font-medium">
+                  <Amount value={filing?.totalWhtAmount} />
                 </TableCell>
               </TableRow>
             </TableFooter>

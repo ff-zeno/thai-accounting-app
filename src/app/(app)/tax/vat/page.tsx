@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/ui/page-header";
 import { VatView } from "./vat-view";
 
 function parseYearParam(value: string | undefined): number | undefined {
@@ -20,14 +21,11 @@ export default async function VatPage({ searchParams }: VatPageProps) {
   const params = await searchParams;
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          VAT Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          VAT status, period summary, filing actions, and ledger drilldowns.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-6"
+        title="VAT Dashboard"
+        description="VAT status, period summary, filing actions, and ledger drilldowns."
+      />
       <VatView
         initialYear={parseYearParam(params.year)}
         initialMonth={parseMonthParam(params.month)}

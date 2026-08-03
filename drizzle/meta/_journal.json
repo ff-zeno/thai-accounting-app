@@ -15,6 +15,13 @@
       "when": 1784137431179,
       "tag": "0001_seed_reference_data",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785668561349,
+      "tag": "0002_bitter_sasquatch",
+      "breakpoints": true
     }
   ]
 }

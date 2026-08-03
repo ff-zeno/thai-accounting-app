@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getDocumentSummary, getVendorNamesForSummary } from "@/lib/db/queries/dashboard";
 import { getVendorsByOrg } from "@/lib/db/queries/vendors";
+import { PageHeader } from "@/components/ui/page-header";
 import { SummaryView } from "./summary-view";
 import { ExportSection } from "./export-section";
 
@@ -39,7 +40,7 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+      <PageHeader title={t("title")} />
       <SummaryView
         initialExpenseRows={expenseRows}
         initialIncomeRows={incomeRows}

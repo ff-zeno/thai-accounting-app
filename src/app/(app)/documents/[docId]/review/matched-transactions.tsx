@@ -73,9 +73,7 @@ export function MatchedTransactions({ matches }: { matches: MatchRow[] }) {
           </Badge>
         </CardTitle>
         <CardDescription>
-          Total matched: {totalMatched.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-          })} THB
+          Total matched: <Amount value={totalMatched} /> THB
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

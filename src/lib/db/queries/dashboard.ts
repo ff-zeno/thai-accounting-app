@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../index";
 import {
@@ -250,9 +251,11 @@ export interface AttentionCounts {
   pendingAiSuggestions: number;
 }
 
-export async function getAttentionCounts(
+// cache(): the shell's nav badges and the Home cockpit both read these counts
+// in the same request — dedupe so a dashboard render costs one round trip.
+export const getAttentionCounts = cache(async (
   orgId: string
-): Promise<AttentionCounts> {
+): Promise<AttentionCounts> => {
   const [docsRow, unmatchedRow, suggestionCounts] = await Promise.all([
     db
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -279,7 +282,7 @@ export async function getAttentionCounts(
     unmatchedTransactions: unmatchedRow[0]?.count ?? 0,
     pendingAiSuggestions: suggestionCounts.pending,
   };
-}
+});
 
 async function getOpenExceptions(orgId: string): Promise<ReviewException[]> {
   return db

@@ -4,6 +4,7 @@ import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getJournalEntryList } from "@/lib/db/queries/general-ledger";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Table,
   TableBody,
@@ -19,12 +20,10 @@ export default async function JournalPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Journal Entries</h1>
-        <p className="text-sm text-muted-foreground">
-          Drill through posted entries, source references, reversals, and line totals.
-        </p>
-      </div>
+      <PageHeader
+        title="Journal Entries"
+        description="Drill through posted entries, source references, reversals, and line totals."
+      />
 
       {!orgId ? (
         <Card>

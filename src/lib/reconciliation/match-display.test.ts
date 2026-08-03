@@ -3,7 +3,6 @@ import {
   getSimplifiedExplanation,
   getLayerLabel,
   getConfidenceLevel,
-  getConfidenceColor,
   getWeightedContribution,
 } from "./match-display";
 import type { MatchMetadata } from "./matcher";
@@ -128,20 +127,6 @@ describe("getConfidenceLevel", () => {
     expect(getConfidenceLevel(0.69)).toBe("low");
     expect(getConfidenceLevel(0.3)).toBe("low");
     expect(getConfidenceLevel("0.50")).toBe("low");
-  });
-});
-
-describe("getConfidenceColor", () => {
-  it("returns success token classes for high", () => {
-    expect(getConfidenceColor("high")).toContain("success");
-  });
-
-  it("returns warning token classes for medium", () => {
-    expect(getConfidenceColor("medium")).toContain("warning");
-  });
-
-  it("returns destructive token classes for low", () => {
-    expect(getConfidenceColor("low")).toContain("destructive");
   });
 });
 

@@ -1,11 +1,12 @@
 import { desc, eq, sql } from "drizzle-orm";
-import { FileText } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState, NoOrgState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -24,14 +25,6 @@ import {
 import { getVatFilingDrilldown } from "@/lib/db/queries/vat-operations-ledger";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 
-function formatAmount(value: string | null): string {
-  if (!value) return "0.00";
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function formatPeriod(year: number | null, month: number | null): string {
   if (!year || !month) return "-";
   return `${String(month).padStart(2, "0")}/${year}`;
@@ -41,28 +34,9 @@ function formatStatus(status: string): string {
   return status.replaceAll("_", " ");
 }
 
-function NoOrgState({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
-      <FileText className="size-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
-        Select an organization to view {label}.
-      </p>
-    </div>
-  );
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <p className="py-8 text-center text-sm text-muted-foreground">
-      No {label} recorded yet.
-    </p>
-  );
-}
-
 async function VatInputLedgerSection() {
   const orgId = await getActiveOrgId();
-  if (!orgId) return <NoOrgState label="input VAT" />;
+  if (!orgId) return <NoOrgState>Select an organization to view input VAT.</NoOrgState>;
 
   const rows = await db
     .select({
@@ -93,7 +67,7 @@ async function VatInputLedgerSection() {
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <EmptyState label="input VAT items" />
+          <EmptyState size="sm" title="No input VAT items recorded yet." />
         ) : (
           <Table>
             <TableHeader>
@@ -124,13 +98,13 @@ async function VatInputLedgerSection() {
                     {formatPeriod(row.claimPeriodYear, row.claimPeriodMonth)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                    <StatusBadge status={row.status} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.baseAmount)}
+                    <Amount value={row.baseAmount} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.vatAmount)}
+                    <Amount value={row.vatAmount} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -156,7 +130,7 @@ export async function VatInputLedgerPage() {
 
 async function VatOutputLedgerSection() {
   const orgId = await getActiveOrgId();
-  if (!orgId) return <NoOrgState label="output VAT" />;
+  if (!orgId) return <NoOrgState>Select an organization to view output VAT.</NoOrgState>;
 
   const rows = await db
     .select({
@@ -186,7 +160,7 @@ async function VatOutputLedgerSection() {
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <EmptyState label="output VAT items" />
+          <EmptyState size="sm" title="No output VAT items recorded yet." />
         ) : (
           <Table>
             <TableHeader>
@@ -215,13 +189,13 @@ async function VatOutputLedgerSection() {
                     {formatPeriod(row.outputPeriodYear, row.outputPeriodMonth)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                    <StatusBadge status={row.status} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.baseAmount)}
+                    <Amount value={row.baseAmount} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.vatAmount)}
+                    <Amount value={row.vatAmount} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -247,7 +221,7 @@ export async function VatOutputLedgerPage() {
 
 async function VatFilingsLedgerSection() {
   const orgId = await getActiveOrgId();
-  if (!orgId) return <NoOrgState label="VAT filings" />;
+  if (!orgId) return <NoOrgState>Select an organization to view VAT filings.</NoOrgState>;
 
   const rows = await db
     .select({
@@ -279,7 +253,7 @@ async function VatFilingsLedgerSection() {
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <EmptyState label="VAT filings" />
+          <EmptyState size="sm" title="No VAT filings recorded yet." />
         ) : (
           <Table>
             <TableHeader>
@@ -306,20 +280,20 @@ async function VatFilingsLedgerSection() {
                   </TableCell>
                   <TableCell>{formatPeriod(row.periodYear, row.periodMonth)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{formatStatus(row.status)}</Badge>
+                    <StatusBadge status={row.status} />
                   </TableCell>
-                  <TableCell>{formatStatus(row.paymentStatus)}</TableCell>
+                  <TableCell><StatusBadge status={row.paymentStatus} /></TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.outputVatTotal)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.inputVatTotal)}
+                    <Amount value={row.outputVatTotal} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.pp36VatTotal ?? row.pp36ReclaimTotal)}
+                    <Amount value={row.inputVatTotal} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(row.netPayable)}
+                    <Amount value={row.pp36VatTotal ?? row.pp36ReclaimTotal} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Amount value={row.netPayable} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -377,7 +351,7 @@ export async function VatRegisterLedgerPage() {
 
 export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: string }) {
   const orgId = await getActiveOrgId();
-  if (!orgId) return <NoOrgState label="VAT filing drilldown" />;
+  if (!orgId) return <NoOrgState>Select an organization to view VAT filing drilldown.</NoOrgState>;
 
   const drilldown = await getVatFilingDrilldown({ orgId, filingId });
   const groups = Object.entries(drilldown.grouped);
@@ -401,18 +375,18 @@ export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: str
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <StatCard label="Status" value={formatStatus(drilldown.filing.status)} />
-            <StatCard label="Payment" value={formatStatus(drilldown.filing.paymentStatus)} />
-            <StatCard label="Output" value={formatAmount(drilldown.filing.outputVatTotal)} />
-            <StatCard label="Input" value={formatAmount(drilldown.filing.inputVatTotal)} />
-            <StatCard label="PP36" value={formatAmount(drilldown.filing.pp36VatTotal)} />
-            <StatCard label="Net" value={formatAmount(drilldown.filing.netPayable)} />
+            <StatCard label="Status" value={<StatusBadge status={drilldown.filing.status} />} />
+            <StatCard label="Payment" value={<StatusBadge status={drilldown.filing.paymentStatus} />} />
+            <StatCard label="Output" value={<Amount value={drilldown.filing.outputVatTotal} />} />
+            <StatCard label="Input" value={<Amount value={drilldown.filing.inputVatTotal} />} />
+            <StatCard label="PP36" value={<Amount value={drilldown.filing.pp36VatTotal} />} />
+            <StatCard label="Net" value={<Amount value={drilldown.filing.netPayable} />} />
           </div>
         </CardContent>
       </Card>
 
       {groups.length === 0 ? (
-        <EmptyState label="filing lines" />
+        <EmptyState size="sm" title="No filing lines recorded yet." />
       ) : (
         groups.map(([lineType, lines]) => (
           <Card key={lineType}>
@@ -439,10 +413,10 @@ export async function VatFilingDrilldownLedgerPage({ filingId }: { filingId: str
                         {line.frozenSnapshotHash.slice(0, 16)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatAmount(line.amount)}
+                        <Amount value={line.amount} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatAmount(line.vatAmount)}
+                        <Amount value={line.vatAmount} />
                       </TableCell>
                     </TableRow>
                   ))}

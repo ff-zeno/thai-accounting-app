@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Camera, Plus, Loader2, X, Check } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
 import { uploadDocument } from "../documents/upload/actions";
 
@@ -66,7 +67,7 @@ export function CaptureForm({ initialDirection = "expense" }: CaptureFormProps) 
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 p-4">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+      <PageHeader title={t("title")} />
 
       {/* Direction */}
       <div className="flex gap-2">

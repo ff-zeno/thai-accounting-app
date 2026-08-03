@@ -27,10 +27,11 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type CalendarFormKey = "pp30" | "pp36" | FilingFormType;
 
@@ -193,7 +194,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Filing Calendar"
+        title="Compliance Calendar"
         description={`VAT and WHT filing deadlines for ${selectedYear} (B.E. ${beYear})`}
       >
         {/* Year navigation */}
@@ -283,7 +284,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
                         </span>
                         {cell.amount && parseFloat(cell.amount) > 0 && (
                           <span className="text-xs">
-                            {cell.amountLabel}: {parseFloat(cell.amount).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                            {cell.amountLabel}: <Amount value={cell.amount} />
                           </span>
                         )}
                         <Link

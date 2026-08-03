@@ -17,7 +17,6 @@ vi.mock("@/lib/db/queries/vat-operations-ledger", () => ({
   buildPp36VatFilingDraft: vi.fn(),
   getVatBranchReadiness: vi.fn(),
   getVatFilingDrilldown: vi.fn(),
-  getVatForecastByPeriodRange: vi.fn(),
   getVatLedgerPeriodDashboard: vi.fn(),
   getVatLedgerRegister: vi.fn(),
   markVatFilingDraftFiled: vi.fn(),
@@ -32,7 +31,6 @@ const {
   buildPp36VatFilingDraft,
   getVatBranchReadiness,
   getVatFilingDrilldown,
-  getVatForecastByPeriodRange,
   getVatLedgerPeriodDashboard,
   getVatLedgerRegister,
   markVatFilingDraftFiled,
@@ -46,7 +44,6 @@ const {
   fileVatLedgerDraftAction,
   loadVatDataAction,
   loadVatFilingDrilldownAction,
-  loadVatForecastAction,
   loadVatRegisterAction,
   recordPp36VatLedgerPaymentAction,
 } = await import("./actions");
@@ -124,7 +121,7 @@ describe("VAT actions", () => {
     });
   });
 
-  it("loads ledger register, drilldown, and forecast read models", async () => {
+  it("loads ledger register and drilldown read models", async () => {
     vi.mocked(getVerifiedOrgId).mockResolvedValue(
       "95aead7c-9942-474f-b48e-2ec5b46f10c9"
     );
@@ -147,7 +144,6 @@ describe("VAT actions", () => {
         carryforward: true,
       },
     } as unknown as Awaited<ReturnType<typeof getVatFilingDrilldown>>);
-    vi.mocked(getVatForecastByPeriodRange).mockResolvedValue([]);
 
     await expect(loadVatRegisterAction(2026, 3)).resolves.toEqual({
       success: true,
@@ -161,10 +157,6 @@ describe("VAT actions", () => {
     await expect(
       loadVatFilingDrilldownAction("11111111-1111-4111-8111-111111111111")
     ).resolves.toMatchObject({ success: true });
-    await expect(loadVatForecastAction(2026, 3)).resolves.toEqual({
-      success: true,
-      forecast: [],
-    });
   });
 
   it("builds a scoped PP30 VAT ledger draft for authorized org admins", async () => {

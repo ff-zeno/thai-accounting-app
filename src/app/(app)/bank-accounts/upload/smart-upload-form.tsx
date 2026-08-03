@@ -15,6 +15,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -593,10 +594,10 @@ function ReviewStep({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard label="Deposits" value={`${credits.length} txns`} hint={`฿${fmtNum(creditTotal)}`} />
-            <StatCard label="Withdrawals" value={`${debits.length} txns`} hint={`฿${fmtNum(debitTotal)}`} />
-            <StatCard label="Opening" value={result.openingBalance ? `฿${fmtNum(parseFloat(result.openingBalance))}` : "—"} />
-            <StatCard label="Closing" value={result.closingBalance ? `฿${fmtNum(parseFloat(result.closingBalance))}` : "—"} />
+            <StatCard label="Deposits" value={`${credits.length} txns`} hint={<Amount value={creditTotal} />} />
+            <StatCard label="Withdrawals" value={`${debits.length} txns`} hint={<Amount value={debitTotal} />} />
+            <StatCard label="Opening" value={result.openingBalance ? <Amount value={result.openingBalance} /> : "—"} />
+            <StatCard label="Closing" value={result.closingBalance ? <Amount value={result.closingBalance} /> : "—"} />
             <StatCard
               label="Balance Check"
               value={
@@ -658,7 +659,7 @@ function ReviewStep({
                   const thai = thaiDescriptions?.[txn.externalRef];
                   return (
                     <tr key={i} className="hover:bg-muted/40">
-                      <td className="whitespace-nowrap px-4 py-1.5 font-mono text-xs">
+                      <td className="whitespace-nowrap px-4 py-1.5 text-xs tabular-nums">
                         {txn.date}
                       </td>
                       {thaiDescriptions && (
@@ -676,12 +677,14 @@ function ReviewStep({
                           {txn.type === "credit" ? "IN" : "OUT"}
                         </Badge>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs tabular-nums">
-                        {txn.type === "credit" ? "+" : "−"}
-                        {fmtNum(parseFloat(txn.amount))}
+                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs">
+                        <Amount
+                          signed
+                          value={txn.type === "credit" ? txn.amount : `-${txn.amount}`}
+                        />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
-                        {txn.runningBalance ? fmtNum(parseFloat(txn.runningBalance)) : "—"}
+                      <td className="whitespace-nowrap px-4 py-1.5 text-right text-xs text-muted-foreground">
+                        <Amount value={txn.runningBalance} nullDash />
                       </td>
                       <td className="whitespace-nowrap px-4 py-1.5 text-xs text-muted-foreground">
                         {txn.channel ?? "—"}
@@ -1136,6 +1139,3 @@ function MappingSelect({
   );
 }
 
-function fmtNum(n: number): string {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}

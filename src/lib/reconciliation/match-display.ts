@@ -76,17 +76,6 @@ export function getConfidenceLevel(confidence: number | string): ConfidenceLevel
   return "low";
 }
 
-export function getConfidenceColor(level: ConfidenceLevel): string {
-  switch (level) {
-    case "high":
-      return "text-success bg-success/10 border-success/30";
-    case "medium":
-      return "text-warning bg-warning/10 border-warning/40";
-    case "low":
-      return "text-destructive bg-destructive/10 border-destructive/30";
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Signal-to-weight key mapping (for admin debug mode)
 // ---------------------------------------------------------------------------

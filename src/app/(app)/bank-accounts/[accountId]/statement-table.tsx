@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Trash2, Loader2, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -25,16 +27,14 @@ import { useRouter } from "next/navigation";
 import type { Statement } from "./types";
 
 function statusBadge(status: string | null) {
-  switch (status) {
-    case "completed":
-      return <Badge variant="success" className="text-xs">Completed</Badge>;
-    case "completed_with_warning":
-      return <Badge variant="warning" className="text-xs">Warning</Badge>;
-    case "processing":
-      return <Badge variant="secondary" className="text-xs">Processing</Badge>;
-    default:
-      return <Badge variant="secondary" className="text-xs">{status ?? "—"}</Badge>;
-  }
+  if (!status) return <Badge variant="secondary" className="text-xs">—</Badge>;
+  return (
+    <StatusBadge
+      status={status}
+      className="text-xs"
+      label={status === "completed_with_warning" ? "Warning" : undefined}
+    />
+  );
 }
 
 export function StatementTable({
@@ -48,13 +48,12 @@ export function StatementTable({
 
   if (statements.length === 0) {
     return (
-      <div className="flex flex-col items-center py-8 text-center text-sm text-muted-foreground">
-        <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10">
-          <FileText className="size-6 text-primary" />
-        </div>
-        <p className="font-medium text-foreground">No statements yet</p>
-        <p className="mt-1">Upload a bank statement above to get started.</p>
-      </div>
+      <EmptyState
+        size="sm"
+        icon={<FileText />}
+        title="No statements yet"
+        description="Upload a bank statement above to get started."
+      />
     );
   }
 
@@ -100,7 +99,7 @@ export function StatementTable({
                   {stmt.parserUsed ?? "—"}
                 </TableCell>
                 <TableCell>{statusBadge(stmt.importStatus)}</TableCell>
-                <TableCell className="text-right text-sm font-mono">
+                <TableCell className="text-right text-sm tabular-nums">
                   {stmt.txnCount}
                 </TableCell>
                 <TableCell>

@@ -10,7 +10,9 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
+import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -169,12 +171,8 @@ function ReconMatchRow({
           {match.transactionDate} &mdash;{" "}
           {match.transactionDescription || "Transaction"}
         </span>
-        <span className="text-xs tabular-nums">
-          {match.matchedAmount
-            ? parseFloat(match.matchedAmount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })
-            : "—"}
+        <span className="text-xs">
+          <Amount value={match.matchedAmount} nullDash />
         </span>
       </button>
       {expanded && (
@@ -187,13 +185,9 @@ function ReconMatchRow({
           </div>
           <div className="flex justify-between">
             <span>Amount</span>
-            <span className="tabular-nums">
-              {match.transactionAmount
-                ? parseFloat(match.transactionAmount).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })
-                : "—"}{" "}
-              ({match.transactionType})
+            <span>
+              <Amount value={match.transactionAmount} nullDash /> (
+              {match.transactionType})
             </span>
           </div>
           <div className="flex justify-between">
@@ -377,10 +371,10 @@ export function DocumentDetailSidebar({
                     <span
                       className={
                         parseFloat(doc.aiConfidence) >= 0.9
-                          ? "text-green-600"
+                          ? "text-success"
                           : parseFloat(doc.aiConfidence) >= 0.7
-                            ? "text-yellow-600"
-                            : "text-red-600"
+                            ? "text-warning"
+                            : "text-destructive"
                       }
                     >
                       {Math.round(parseFloat(doc.aiConfidence) * 100)}%
@@ -683,7 +677,7 @@ export function DocumentDetailSidebar({
                               <Paperclip className="size-14 text-muted-foreground/70" />
                             )}
                           </div>
-                          <div className="flex items-baseline justify-between gap-2 border-t bg-background px-2 py-1.5">
+                          <div className="flex items-baseline justify-between gap-2 border-t bg-card px-2 py-1.5">
                             <p className="truncate text-xs font-medium">
                               {file.originalFilename || "File"}
                             </p>
@@ -706,12 +700,11 @@ export function DocumentDetailSidebar({
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-medium">
                   {t("reconMatches")}
                   {reconCount > 0 && (
-                    <Badge
-                      variant={isFullMatch ? "default" : "outline"}
+                    <StatusBadge
+                      status={isFullMatch ? "matched" : "partially_matched"}
                       className="text-xs"
-                    >
-                      {isFullMatch ? t("matched") : t("partial")}
-                    </Badge>
+                      label={isFullMatch ? t("matched") : t("partial")}
+                    />
                   )}
                 </h3>
                 {reconCount === 0 ? (
@@ -746,8 +739,8 @@ export function DocumentDetailSidebar({
                       onClick={() => setExplicitVerdict("accurate")}
                       className={`flex h-14 items-center justify-center gap-2 rounded-md border-2 text-sm font-medium transition-colors ${
                         extractionVerdict === "accurate"
-                          ? "border-green-500 bg-green-500/10 text-green-700 dark:text-green-400"
-                          : "border-border bg-background text-muted-foreground hover:border-green-500/40 hover:bg-green-500/5"
+                          ? "border-success bg-success/10 text-success"
+                          : "border-border bg-card text-muted-foreground hover:border-success/40 hover:bg-success/5"
                       } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
                       <CheckCircle2 className="size-5" />
@@ -758,8 +751,8 @@ export function DocumentDetailSidebar({
                       onClick={() => setExplicitVerdict("needs_fixes")}
                       className={`flex h-14 items-center justify-center gap-2 rounded-md border-2 text-sm font-medium transition-colors ${
                         extractionVerdict === "needs_fixes"
-                          ? "border-red-500 bg-red-500/10 text-red-700 dark:text-red-400"
-                          : "border-border bg-background text-muted-foreground hover:border-red-500/40 hover:bg-red-500/5"
+                          ? "border-destructive bg-destructive/10 text-destructive"
+                          : "border-border bg-card text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5"
                       }`}
                     >
                       <XCircle className="size-5" />

@@ -127,7 +127,7 @@ export function BankAccountDetail({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div>
-            <h1 className="text-2xl font-semibold">{bankName}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{bankName}</h1>
             <div className="flex items-center gap-2 text-muted-foreground">
               <span>{accountNumber}</span>
               <InlineRename bankAccountId={bankAccountId} accountName={accountName} />

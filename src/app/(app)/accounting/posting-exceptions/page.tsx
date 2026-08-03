@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getPostingOutboxDashboard } from "@/lib/db/queries/posting-outbox";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
@@ -66,10 +67,10 @@ export default async function PostingExceptionsPage({
         <Link href="/accounting" className="text-sm text-muted-foreground hover:underline">
           Back to accounting
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Posting Queue</h1>
-        <p className="text-sm text-muted-foreground">
-          Inspect GL posting outbox rows before closing a period.
-        </p>
+        <PageHeader
+          title="Posting Queue"
+          description="Inspect GL posting outbox rows before closing a period."
+        />
       </div>
 
       {!orgId || !dashboard ? (

@@ -1942,7 +1942,7 @@ export async function getVatLedgerRegister(
         eq(vatOutputItems.outputPeriodYear, data.periodYear),
         eq(vatOutputItems.outputPeriodMonth, data.periodMonth),
         sql`${vatOutputItems.deletedAt} IS NULL`,
-        sql`${vatOutputItems.status} IN ('reportable', 'allocated_to_draft', 'filed', 'amended')`
+        sql`${vatOutputItems.status} IN ('reportable', 'allocated_to_draft', 'filed')`
       )
     )
     .orderBy(vatOutputItems.taxPointDate, vatOutputItems.createdAt);

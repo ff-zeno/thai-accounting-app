@@ -5062,28 +5062,3 @@ export const globalExemplarPoolRelations = relations(
   })
 );
 
-// ---------------------------------------------------------------------------
-// User navigation pins (Home dashboard favorites) — per user, per org
-// ---------------------------------------------------------------------------
-
-export const userNavPins = pgTable(
-  "user_nav_pins",
-  {
-    id,
-    orgId: uuid("org_id")
-      .notNull()
-      .references(() => organizations.id),
-    userId: text("user_id").notNull(),
-    href: text("href").notNull(),
-    position: integer("position").notNull().default(0),
-    createdAt,
-  },
-  (t) => [
-    uniqueIndex("user_nav_pins_org_user_href_uniq").on(
-      t.orgId,
-      t.userId,
-      t.href
-    ),
-    index("user_nav_pins_org_user_idx").on(t.orgId, t.userId),
-  ]
-);

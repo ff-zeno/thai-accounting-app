@@ -13,6 +13,7 @@ import {
   AlertCircle,
   RotateCcw,
 } from "lucide-react";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -176,7 +177,7 @@ export function IndividualPaymentForm() {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-8">
-          <CheckCircle2 className="size-12 text-green-500" />
+          <CheckCircle2 className="size-12 text-success" />
           <div className="text-center">
             <p className="text-lg font-medium">Document Created</p>
             <p className="text-sm text-muted-foreground">
@@ -415,10 +416,7 @@ export function IndividualPaymentForm() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Gross amount</span>
                 <span className="font-medium">
-                  {amountNum.toLocaleString("th-TH", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  <Amount value={amountNum} />
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -426,12 +424,8 @@ export function IndividualPaymentForm() {
                   WHT: {(whtRate * 100).toFixed(0)}% (
                   {selectedCategory.section})
                 </span>
-                <span className="font-medium text-orange-600">
-                  -
-                  {whtAmount.toLocaleString("th-TH", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                <span className="font-medium text-warning">
+                  -<Amount value={whtAmount} />
                 </span>
               </div>
               <div className="border-t pt-2">
@@ -439,10 +433,7 @@ export function IndividualPaymentForm() {
                   <span className="font-medium">Net payment</span>
                   <span className="font-semibold">
                     {"\u0E3F"}
-                    {netPayment.toLocaleString("th-TH", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    <Amount value={netPayment} />
                   </span>
                 </div>
               </div>

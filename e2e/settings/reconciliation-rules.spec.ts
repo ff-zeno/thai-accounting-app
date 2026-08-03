@@ -15,11 +15,16 @@ test.describe("Settings: Reconciliation Rules", () => {
   });
 
   test("template picker or rules list visible", async ({ page }) => {
-    const templateSection = page.getByText(/Set up your business type/i);
-    const rulesList = page.getByText("Reconciliation Rules").nth(1);
-    const hasTemplate = await templateSection.isVisible().catch(() => false);
-    const hasRules = await rulesList.isVisible().catch(() => false);
-    expect(hasTemplate || hasRules).toBe(true);
+    // Either the empty-state template picker or the rules-list heading, both
+    // scoped inside main (the settings tab strip also says "Reconciliation
+    // Rules").
+    const templateSection = page
+      .locator("main")
+      .getByText(/Set up your business type/i);
+    const rulesHeading = page
+      .locator("main")
+      .getByRole("heading", { name: "Reconciliation Rules" });
+    await expect(templateSection.or(rulesHeading).first()).toBeVisible();
   });
 
   test("create rule button visible", async ({ page }) => {

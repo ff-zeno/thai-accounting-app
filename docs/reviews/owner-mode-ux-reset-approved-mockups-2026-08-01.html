@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Long Dtua — Key Pages in the New Style</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: oklch(0.145 0 0);
+    --mut: oklch(0.556 0 0);
+    --line: oklch(0.922 0 0);
+    --paper: oklch(1 0 0);
+    --success: oklch(0.52 0.14 150);
+    --warning: oklch(0.55 0.14 60);
+    --danger: oklch(0.577 0.245 27.325);
+  }
+  /* palette applied on body */
+  body.p-teal{ --brand:oklch(0.50 0.10 195); --brand-soft:oklch(0.955 0.025 195); --brand-dark:oklch(0.32 0.07 195); --ch:195 }
+  body.p-green{ --brand:oklch(0.50 0.12 160); --brand-soft:oklch(0.96 0.03 160); --brand-dark:oklch(0.32 0.08 160); --ch:160 }
+  body.p-blue{ --brand:oklch(0.48 0.13 255); --brand-soft:oklch(0.955 0.02 255); --brand-dark:oklch(0.32 0.09 255); --ch:255 }
+  body.p-violet{ --brand:oklch(0.48 0.17 295); --brand-soft:oklch(0.955 0.025 295); --brand-dark:oklch(0.33 0.11 295); --ch:295 }
+  body.p-ink{ --brand:oklch(0.22 0.01 260); --brand-soft:oklch(0.945 0.012 260); --brand-dark:oklch(0.22 0.02 260); --ch:260 }
+
+  *{box-sizing:border-box;min-width:0}
+  body{margin:0;font-family:Geist,'Noto Sans Thai',system-ui,sans-serif;background:oklch(0.985 0 0);color:var(--ink);line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 24px 96px}
+  h1{font-size:26px;font-weight:700;letter-spacing:-0.01em;margin:0 0 6px}
+  .lede{color:var(--mut);font-size:14px;max-width:800px;margin:0 0 18px}
+
+  /* palette switcher */
+  .switch{position:sticky;top:0;z-index:50;background:oklch(0.985 0 0/.92);backdrop-filter:blur(6px);padding:10px 0;margin:0 0 26px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .switch span{font-size:12px;color:var(--mut);margin-right:4px}
+  .sw{font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--paper);cursor:pointer;display:flex;gap:6px;align-items:center}
+  .sw i{width:10px;height:10px;border-radius:99px;display:inline-block}
+  .sw.on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+
+  /* page sections */
+  .pg{margin:0 0 54px;background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .pg-head{padding:16px 22px 13px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+  .pg-head h2{margin:0;font-size:18px;font-weight:650}
+  .pg-head .tag{font-size:12px;color:var(--mut)}
+  .pg-body{padding:22px;background:oklch(0.972 0.003 var(--ch,195));display:flex;flex-direction:column;gap:16px}
+  .pg-note{padding:12px 22px;font-size:13px;color:var(--mut);border-top:1px dashed var(--line)}
+
+  /* mock atoms — Quicken Soft */
+  .card{background:var(--paper);border:1px solid oklch(0.94 0 0);border-radius:14px;box-shadow:0 1px 2px oklch(0 0 0/.05)}
+  .cards3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .cards4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media(max-width:800px){.cards3,.cards4{grid-template-columns:1fr 1fr}}
+  .stat{padding:12px 14px}
+  .stat .lbl{font-size:10.5px;letter-spacing:.05em;color:var(--mut);text-transform:uppercase}
+  .stat .num{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;margin:2px 0}
+  .stat .sub{margin-top:8px;padding:7px 9px;font-size:11px;display:flex;justify-content:space-between;gap:8px;background:var(--brand-soft);border-radius:9px;color:var(--brand-dark)}
+  .stat .sub.warn{background:oklch(0.55 0.14 60/.12);color:var(--warning)}
+  .ttl{font-size:13px;font-weight:600;padding:12px 14px 0}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .bar h3{margin:0;font-size:16px;font-weight:650}
+  .bar .crumbs{font-size:11px;color:var(--mut)}
+  .btn{font-size:12px;font-weight:600;padding:8px 14px;border-radius:10px;border:1px solid transparent;background:var(--brand);color:#fff;white-space:nowrap}
+  .btn.sec{background:var(--paper);border-color:var(--line);color:var(--ink)}
+  .btn.soft{background:var(--brand-soft);color:var(--brand-dark)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;font-weight:600;padding:9px 14px;border-bottom:1px solid var(--line)}
+  td{padding:9px 14px;border-bottom:1px solid oklch(0.955 0 0)}
+  tr:last-child td{border-bottom:0}
+  td.r,th.r{text-align:right}
+  .amt{font-variant-numeric:tabular-nums;font-weight:600}
+  .neg{color:var(--danger)}
+  .pos{color:var(--success)}
+  .badge{font-size:10px;padding:2px 9px;font-weight:600;border-radius:99px;white-space:nowrap}
+  .b-ok{background:oklch(0.52 0.14 150/.12);color:var(--success)}
+  .b-warn{background:oklch(0.55 0.14 60/.14);color:var(--warning)}
+  .b-ai{background:var(--brand-soft);color:var(--brand-dark)}
+  .b-err{background:oklch(0.577 0.245 27.325/.1);color:var(--danger)}
+  .split{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start}
+  @media(max-width:860px){.split{grid-template-columns:1fr}}
+  .drawer{border-radius:14px;overflow:hidden}
+  .drawer .dh{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .drawer .dh b{font-size:13px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12px;padding:12px 14px}
+  .kv span{color:var(--mut)}
+  .conf{display:flex;align-items:center;gap:8px;font-size:11px;padding:0 14px 6px;color:var(--mut)}
+  .meter{flex:1;height:6px;border-radius:99px;background:oklch(0.94 0 0);overflow:hidden}
+  .meter i{display:block;height:100%;background:var(--brand);border-radius:99px}
+  .drawer .da{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+  .drop{border:1.5px dashed var(--brand);border-radius:14px;background:var(--brand-soft);padding:26px;text-align:center;font-size:13px;color:var(--brand-dark)}
+  .drop b{display:block;font-size:14px}
+  .steps{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--mut);flex-wrap:wrap}
+  .steps b{color:var(--brand-dark);background:var(--brand-soft);border-radius:99px;padding:3px 10px;font-weight:600}
+  .flow{display:flex;gap:0;align-items:stretch;text-align:center}
+  .flow>div{flex:1;padding:12px 8px}
+  .flow>div+div{border-left:1px solid var(--line)}
+  .flow .fl{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+  .flow .fv{font-size:16px;font-weight:650;font-variant-numeric:tabular-nums}
+  .cal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media(max-width:800px){.cal{grid-template-columns:1fr}}
+  .due{padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+  .due .d1{font-size:11px;color:var(--mut)}
+  .due .d2{font-weight:650;font-size:14px}
+  .due .d3{font-size:11px}
+  .prog{height:7px;border-radius:99px;background:oklch(0.94 0 0);overflow:hidden;margin-top:8px}
+  .prog i{display:block;height:100%;background:var(--success)}
+
+  /* ===== full shell preview ===== */
+  .shell{display:grid;grid-template-columns:216px minmax(0,1fr);border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 4px 16px oklch(0 0 0/.06);min-width:0}
+  .sh-side{background:var(--paper);border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+  .sh-top{grid-column:2;display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--paper);border-bottom:1px solid var(--line)}
+  .sh-search{flex:1;max-width:340px;font-size:12px;color:var(--mut);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:7px 12px}
+  .sh-month{font-size:12px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 12px;white-space:nowrap}
+  .sh-av{width:28px;height:28px;border-radius:99px;background:var(--brand-soft);color:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+  .sh-main{grid-column:2;padding:18px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+  .shell{grid-template-rows:auto minmax(0,1fr)}
+  .sh-side{grid-row:1/3}
+  @media(max-width:860px){.shell{grid-template-columns:1fr}.sh-side{display:none}.sh-top,.sh-main{grid-column:1}}
+
+  .pick{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:8px}
+  .pick h3{margin:0 0 4px;font-size:16px}
+  .pick p{margin:0 0 14px;color:var(--mut);font-size:13px}
+  .pick textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-size:13px;min-height:76px}
+  .pick .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .pick label{display:flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;cursor:pointer}
+  .pick label:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+  .pick button{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer}
+
+  /* ===== navigation mocks ===== */
+  .nav-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;align-items:start}
+  .nv{padding:14px;display:flex;flex-direction:column;gap:10px}
+  .nv-cap{font-size:12.5px;font-weight:650;display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .nv-side{border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:10px 8px;font-size:12px;display:flex;flex-direction:column;gap:2px;min-height:330px}
+  .nv-org{font-weight:650;font-size:12px;padding:6px 10px 10px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line);margin-bottom:6px}
+  .nv-org span{color:var(--mut)}
+  .nv-i{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:9px;cursor:default}
+  .nv-i i{font-style:normal;width:16px;text-align:center;flex:none}
+  .nv-i.on{background:var(--brand-soft);color:var(--brand-dark);font-weight:650}
+  .nv-i.sm{padding:5px 10px;font-size:11.5px}
+  .nv-i.xs{padding:3px 10px 3px 34px;font-size:11px;color:var(--mut)}
+  .nv-i.xs.on{color:var(--brand-dark);font-weight:600;background:none}
+  .nv-b{margin-left:auto;font-size:9.5px;background:var(--brand-soft);color:var(--brand-dark);border-radius:99px;padding:1px 7px;font-weight:650}
+  .nv-b.warn{background:oklch(0.55 0.14 60/.14);color:var(--warning)}
+  .nv-grp{border-top:1px solid var(--line);margin-top:4px;padding-top:6px}
+  .nv-h{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);padding:6px 10px 2px}
+  .nv-sub{padding:2px 0}
+  .nv-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:8px}
+  .nv-page{border:1px solid oklch(0.94 0 0);border-radius:12px;background:var(--bg);padding:14px;min-width:0}
+  .nv-pg-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .nv-pg-body{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .tabbar{display:flex;gap:2px;border-bottom:1px solid oklch(0.92 0 0);margin-bottom:12px;flex-wrap:wrap}
+  .tb{padding:8px 14px;font-size:12px;font-weight:600;color:var(--mut);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;cursor:default;white-space:nowrap}
+  .tb.on{color:var(--brand-dark);border-bottom-color:var(--brand)}
+  .nv-note{font-size:11.5px;color:var(--mut);line-height:1.5}
+  .nv-phone{border:1px solid var(--line);border-radius:20px;padding:8px;display:flex;flex-direction:column;min-height:330px;background:oklch(0.972 0.003 var(--ch,195))}
+  .nv-ph-top{display:flex;justify-content:space-between;align-items:center;font-weight:650;font-size:12px;padding:8px 10px}
+  .nv-ph-body{display:flex;flex-direction:column;gap:8px;padding:0 6px}
+  .nv-ph-card{background:var(--paper);border:1px solid oklch(0.94 0 0);border-radius:12px;padding:10px;font-size:11px}
+  .nv-tabs{margin-top:auto;display:flex;justify-content:space-around;align-items:flex-end;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:8px 6px 6px}
+  .nv-tabs>div{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px;color:var(--mut);min-width:44px}
+  .nv-tabs>div span{font-size:8.5px}
+  .nv-tabs>div.on{color:var(--brand-dark);font-weight:650}
+  .nv-fab{background:var(--brand);color:#fff;border-radius:99px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-top:-22px;box-shadow:0 4px 10px oklch(0 0 0/.18)}
+  .nv-tabs>div.nv-fab{color:#fff}
+
+  /* ===== n8n-style node canvas ===== */
+  .canvas-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--line)}
+  .canvas{position:relative;background:var(--paper);background-image:radial-gradient(oklch(0.90 0 0) 1px, transparent 1px);background-size:18px 18px}
+  .canvas svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .node{position:absolute;width:160px;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 1px 3px oklch(0 0 0/.07);padding:9px 11px;cursor:pointer;font-size:11px;transition:box-shadow .15s,border-color .15s}
+  .node:hover{box-shadow:0 4px 12px oklch(0 0 0/.12)}
+  .node.sel{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  .node .n-top{display:flex;align-items:center;gap:7px;font-weight:650;font-size:11.5px}
+  .node .n-ic{width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;background:var(--brand-soft);color:var(--brand-dark)}
+  .node.k-src .n-ic{background:oklch(0.95 0 0);color:var(--ink)}
+  .node.k-ok{border-color:oklch(0.52 0.14 150/.5)} .node.k-ok .n-ic{background:oklch(0.52 0.14 150/.12);color:var(--success)}
+  .node.k-warn .n-ic{background:oklch(0.55 0.14 60/.14);color:var(--warning)}
+  .node.k-err{border-style:dashed} .node.k-err .n-ic{background:oklch(0.577 0.245 27.325/.1);color:var(--danger)}
+  .node .n-sub{color:var(--mut);margin-top:3px;line-height:1.35}
+  .edge{stroke:oklch(0.78 0 0);stroke-width:1.5;fill:none}
+  .edge.dash{stroke-dasharray:5 4}
+  .edge-lbl{font-size:9.5px;fill:oklch(0.5 0 0);font-family:inherit}
+  .edge-lbl-bg{fill:var(--paper)}
+
+  /* explainer sidebar */
+  .explainer{position:fixed;top:0;right:-360px;width:340px;height:100vh;background:var(--paper);border-left:1px solid var(--line);box-shadow:-8px 0 24px oklch(0 0 0/.08);z-index:100;transition:right .22s ease-out;display:flex;flex-direction:column}
+  .explainer.open{right:0}
+  .ex-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line);font-size:15px}
+  .ex-head button{border:0;background:oklch(0.965 0 0);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:12px}
+  .ex-body{padding:16px 18px;font-size:13px;line-height:1.6;overflow-y:auto}
+  .ex-body p{margin:0 0 10px}
+  .ex-body .ex-tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--brand-soft);color:var(--brand-dark);margin-bottom:10px}
+</style>
+</head>
+<body class="p-ink">
+<div class="wrap">
+  <h1>Key pages restyled — Quicken Soft</h1>
+  <p class="lede">Each of the app's core pages (real routes, real section structure) re-imagined in the locked shell direction: gray canvas, soft white cards, tinted sub-panels, rounded controls, Geist + Noto Sans Thai, tabular numbers. Use the palette switcher to preview any accent live — it restyles every mockup at once. Annotate anything; confirm alignment at the bottom.</p>
+
+  <div class="switch">
+    <span>Accent preview:</span>
+    <button class="sw" data-p="p-teal"><i style="background:oklch(0.50 0.10 195)"></i>Deep Teal</button>
+    <button class="sw" data-p="p-green"><i style="background:oklch(0.50 0.12 160)"></i>Emerald</button>
+    <button class="sw" data-p="p-blue"><i style="background:oklch(0.48 0.13 255)"></i>Trust Blue</button>
+    <button class="sw" data-p="p-violet"><i style="background:oklch(0.48 0.17 295)"></i>Quicken Violet</button>
+    <button class="sw on" data-p="p-ink"><i style="background:oklch(0.22 0.01 260)"></i>Ink Neutral <span style="font-weight:400;color:var(--mut)">(owner pick)</span></button>
+  </div>
+
+  <!-- ============ 1. DASHBOARD ============ -->
+  <section class="pg" id="pg-dashboard">
+    <div class="pg-head"><h2>1 · Dashboard <span style="font-weight:400;color:var(--mut)">/dashboard</span></h2><span class="tag">ReadinessSummary cards + WorkQueue — the owner's "For you today"</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>สวัสดีตอนเช้า คุณสมชาย</h3><button class="btn">+ เพิ่มเอกสาร</button></div>
+      <div class="cards3">
+        <div class="card stat"><div class="lbl">เงินในบัญชี · Cash</div><div class="num">฿418,240.55</div><div class="sub"><span>KBank ฿291,050</span><span>SCB ฿112,190</span><span>สด ฿15,000</span></div></div>
+        <div class="card stat"><div class="lbl">รอตรวจ · To review</div><div class="num">7 รายการ</div><div class="sub warn"><span>ใบกำกับภาษี 4</span><span>จับคู่แนะนำ 3</span></div></div>
+        <div class="card stat"><div class="lbl">ภ.พ.30 ก.ค. · VAT readiness</div><div class="num">พร้อม 82%</div><div class="sub"><span>ยืนยันแล้ว 41/50</span><span>ครบกำหนด 15 ส.ค.</span></div></div>
+      </div>
+      <div class="card">
+        <div class="ttl">งานที่ต้องทำวันนี้ · Work queue</div>
+        <table>
+          <tr><td><span class="badge b-warn">ขาดไฟล์</span></td><td>สเตทเมนต์ KBank เดือน ก.ค. ยังไม่ได้อัปโหลด</td><td class="r"><button class="btn soft">อัปโหลด</button></td></tr>
+          <tr><td><span class="badge b-ai">AI แนะนำ</span></td><td>ใบกำกับภาษี 4 ใบ สกัดข้อมูลแล้ว รอยืนยัน — มั่นใจเฉลี่ย 92%</td><td class="r"><button class="btn soft">ตรวจทั้งหมด</button></td></tr>
+          <tr><td><span class="badge b-ok">สำเร็จ</span></td><td>ยอดขาย POS วันที่ 30 ก.ค. จับคู่เงินเข้าแล้ว <span class="amt">฿52,400.00</span></td><td class="r" style="color:var(--mut)">ดู</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="pg-note">Quicken card anatomy: label → big tabular number → tinted sub-panel with the breakdown. The queue is a table, not cards — actions stay on the right edge.</div>
+  </section>
+
+  <!-- ============ 2. BANK ============ -->
+  <section class="pg" id="pg-bank">
+    <div class="pg-head"><h2>2 · Bank <span style="font-weight:400;color:var(--mut)">/bank-accounts · /bank-accounts/[id] · /upload</span></h2><span class="tag">Accounts overview, statement timeline table, statement upload</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>ธนาคาร · Bank</h3><div style="display:flex;gap:8px"><button class="btn sec">+ เพิ่มบัญชี</button><button class="btn">อัปโหลดสเตทเมนต์</button></div></div>
+      <div class="cards3">
+        <div class="card stat"><div class="lbl">KBank ···4102</div><div class="num">฿291,050.30</div><div class="sub"><span>สเตทเมนต์ล่าสุด: มิ.ย.</span><span class="badge b-warn" style="padding:1px 8px">ก.ค. ขาด</span></div></div>
+        <div class="card stat"><div class="lbl">SCB ···8871</div><div class="num">฿112,190.25</div><div class="sub"><span>สเตทเมนต์ล่าสุด: ก.ค.</span><span class="badge b-ok" style="padding:1px 8px">ครบ</span></div></div>
+        <div class="card stat"><div class="lbl">เงินสด · Petty cash</div><div class="num">฿15,000.00</div><div class="sub"><span>อัปเดต 28 ก.ค.</span></div></div>
+      </div>
+      <div class="card">
+        <div class="ttl">รายการเดินบัญชี KBank ···4102 — ก.ค. 2569</div>
+        <table>
+          <tr><th>วันที่</th><th>รายการ</th><th>สถานะจับคู่</th><th class="r">เงินออก</th><th class="r">เงินเข้า</th><th class="r">คงเหลือ</th></tr>
+          <tr><td>30 ก.ค.</td><td>POS SETTLE KBANK SHOP</td><td><span class="badge b-ok">จับคู่แล้ว · POS 30 ก.ค.</span></td><td class="r"></td><td class="r amt pos">+52,400.00</td><td class="r amt">291,050.30</td></tr>
+          <tr><td>29 ก.ค.</td><td>TRF บจก.สยามซัพพลาย</td><td><span class="badge b-ai">AI แนะนำ · INV-2569/078</span></td><td class="r amt neg">−18,190.00</td><td class="r"></td><td class="r amt">238,650.30</td></tr>
+          <tr><td>28 ก.ค.</td><td>PROMPTPAY 082-xxx-1187</td><td><span class="badge b-warn">ยังไม่จับคู่</span></td><td class="r amt neg">−3,500.00</td><td class="r"></td><td class="r amt">256,840.30</td></tr>
+        </table>
+      </div>
+      <div class="drop"><b>ลากไฟล์สเตทเมนต์มาวางที่นี่</b>รองรับ KBank CSV/PDF · SCB CSV · ไฟล์ CSV ทั่วไป — ระบบตรวจยอดยกมา/ยกไปให้อัตโนมัติ</div>
+    </div>
+    <div class="pg-note">Statement rows carry their reconciliation state inline — the owner sees "จับคู่แล้ว / AI แนะนำ / ยังไม่จับคู่" without leaving the bank page. Missing-month is a first-class warning on the account card.</div>
+  </section>
+
+  <!-- ============ 3. POS / SALES ============ -->
+  <section class="pg" id="pg-pos">
+    <div class="pg-head"><h2>3 · POS &amp; Sales <span style="font-weight:400;color:var(--mut)">/sales · /imports</span></h2><span class="tag">Import summary, settlement gross→fee→net, daily sales vs bank</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>ยอดขาย · Sales</h3><button class="btn">นำเข้าไฟล์ POS</button></div>
+      <div class="steps"><b>1 อัปโหลด</b>→<span>2 ตรวจคอลัมน์</span>→<span>3 ยืนยันยอดรวม</span>→<span>4 จับคู่เงินเข้า</span></div>
+      <div class="card">
+        <div class="ttl">ยอดโอนเข้าบัญชี 30 ก.ค. · Settlement</div>
+        <div class="flow">
+          <div><div class="fl">ยอดขาย · Gross</div><div class="fv amt">฿55,020.00</div></div>
+          <div><div class="fl">ส่วนลด · Discounts</div><div class="fv amt neg">−฿1,000.00</div></div>
+          <div><div class="fl">VAT ขาย (รวมในยอด)</div><div class="fv amt">฿3,534.21</div></div>
+          <div><div class="fl">ค่าธรรมเนียม · Fees</div><div class="fv amt neg">−฿1,620.00</div></div>
+          <div><div class="fl">เข้าบัญชี · Net to bank</div><div class="fv amt pos">฿52,400.00</div></div>
+        </div>
+        <div style="padding:0 14px 12px;font-size:11px;color:var(--mut)">Net to bank คือยอดที่ใช้จับคู่กับเงินเข้าในสเตทเมนต์ · ส่วนลดหักจาก Gross ก่อนเสมอ (อาจเป็น 0) · VAT คำนวณจากยอดหลังหักส่วนลด</div>
+      </div>
+      <div class="card">
+        <div class="ttl">ยอดขายรายวัน — ก.ค. 2569</div>
+        <table>
+          <tr><th>วันที่</th><th>ช่องทาง</th><th class="r">บิล</th><th class="r">ยอดขาย</th><th class="r">VAT ขาย</th><th>จับคู่เงินเข้า</th></tr>
+          <tr><td>30 ก.ค.</td><td>หน้าร้าน (POS)</td><td class="r">143</td><td class="r amt">54,020.00</td><td class="r amt">3,534.21</td><td><span class="badge b-ok">ครบ</span></td></tr>
+          <tr><td>29 ก.ค.</td><td>หน้าร้าน (POS)</td><td class="r">128</td><td class="r amt">48,760.00</td><td class="r amt">3,190.09</td><td><span class="badge b-ok">ครบ</span></td></tr>
+          <tr><td>28 ก.ค.</td><td>หน้าร้าน (POS)</td><td class="r">117</td><td class="r amt">45,010.00</td><td class="r amt">2,944.77</td><td><span class="badge b-warn">รอเงินเข้า T+1</span></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="pg-note">Settlement math is always Gross − Discounts (may be 0) → VAT shown inside the discounted total → − Fees → <b>Net to bank</b>, and Net is the number reconciliation matches against statement deposits. The daily table still shows the "did the money arrive" state per day.</div>
+  </section>
+
+  <!-- ============ 4. DOCUMENTS ============ -->
+  <section class="pg" id="pg-docs">
+    <div class="pg-head"><h2>4 · Documents <span style="font-weight:400;color:var(--mut)">/documents/expenses · /documents/[id]/review</span></h2><span class="tag">Evidence inbox (EvidenceTable) + AI review drawer (ReviewDrawer)</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>เอกสาร · Documents</h3><button class="btn">+ อัปโหลด / ถ่ายรูป</button></div>
+      <div class="split">
+        <div class="card">
+          <div class="ttl">กล่องเอกสารรายจ่าย — รอตรวจ 4</div>
+          <table>
+            <tr><th>เอกสาร</th><th>ผู้ขาย</th><th class="r">ยอดรวม</th><th>สถานะ</th></tr>
+            <tr style="background:var(--brand-soft)"><td>ใบกำกับภาษี INV-2569/078</td><td>บจก.สยามซัพพลาย</td><td class="r amt">18,190.00</td><td><span class="badge b-ai">AI สกัดแล้ว 96%</span></td></tr>
+            <tr><td>ใบเสร็จ ค่าไฟฟ้า ก.ค.</td><td>การไฟฟ้านครหลวง</td><td class="r amt">4,821.36</td><td><span class="badge b-ai">AI สกัดแล้ว 91%</span></td></tr>
+            <tr><td>ใบกำกับภาษี อย่างย่อ</td><td>แม็คโคร สาขาบางนา</td><td class="r amt">2,140.75</td><td><span class="badge b-warn">รูปไม่ชัด — ตรวจเอง</span></td></tr>
+            <tr><td>สแกน 2026-07-28-002.jpg</td><td>—</td><td class="r">—</td><td><span class="badge b-err">อ่านไม่ได้</span></td></tr>
+          </table>
+        </div>
+        <div class="card drawer">
+          <div class="dh"><b>ตรวจข้อมูลที่ AI อ่านได้</b><span class="badge b-ai">มั่นใจ 96%</span></div>
+          <div class="conf"><span>ความมั่นใจ</span><span class="meter"><i style="width:96%"></i></span><span>96%</span></div>
+          <div class="kv">
+            <span>ผู้ขาย</span><b>บจก.สยามซัพพลาย (0105561023874)</b>
+            <span>เลขที่</span><b>INV-2569/078 · 29 ก.ค. 2569</b>
+            <span>ก่อน VAT</span><b class="amt">17,000.00</b>
+            <span>VAT 7%</span><b class="amt">1,190.00</b>
+            <span>ยอดรวม</span><b class="amt">18,190.00</b>
+            <span>หัก ณ ที่จ่าย</span><b>ค่าบริการ 3% → ภ.ง.ด.53</b>
+          </div>
+          <div class="da"><button class="btn" style="flex:1">ยืนยัน · ถูกต้อง</button><button class="btn sec" style="flex:1">แก้ไขข้อมูล</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="pg-note">"AI proposes; a person confirms" — the drawer always shows the confidence meter and every extracted field before anything is committed. Unreadable/blurry docs are explicit states, not silent failures.</div>
+  </section>
+
+  <!-- ============ 5. RECONCILIATION ============ -->
+  <section class="pg" id="pg-recon">
+    <div class="pg-head"><h2>5 · Reconciliation <span style="font-weight:400;color:var(--mut)">/reconciliation · /ai-review · /insights</span></h2><span class="tag">Match queue with 7-layer cascade explanations + AI review + month proof header</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>จับคู่รายการ · Reconciliation</h3><span class="crumbs">ก.ค. 2569 — จับคู่แล้ว 47 จาก 50 รายการ</span></div>
+      <div class="card" style="padding:12px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <b style="font-size:13px">ความคืบหน้าเดือนนี้</b>
+        <span class="meter" style="max-width:340px"><i style="width:94%"></i></span>
+        <span style="font-size:12px;color:var(--mut)">94% · เหลือ 3 รายการ</span>
+        <span class="badge b-ai">AI จับคู่ให้ 31</span><span class="badge b-ok">กฎอัตโนมัติ 12</span><span class="badge b-warn">ทำเอง 4</span>
+      </div>
+      <div class="card">
+        <div class="ttl">รอยืนยันจาก AI — 3 รายการ</div>
+        <table>
+          <tr><th>เงินออก/เข้า</th><th>เอกสารที่แนะนำ</th><th>เหตุผล</th><th class="r">ความมั่นใจ</th><th class="r"></th></tr>
+          <tr>
+            <td><span class="amt neg">−18,190.00</span><br><small style="color:var(--mut)">29 ก.ค. · TRF บจก.สยามซัพพลาย</small></td>
+            <td>INV-2569/078<br><small style="color:var(--mut)">บจก.สยามซัพพลาย · 18,190.00</small></td>
+            <td><small>ยอดตรง + ชื่อผู้ขายตรงกับนามแฝงที่เรียนรู้ไว้</small></td>
+            <td class="r"><span class="badge b-ai">92%</span></td>
+            <td class="r"><button class="btn" style="padding:6px 12px">ยืนยัน</button> <button class="btn sec" style="padding:6px 12px">ไม่ใช่</button></td>
+          </tr>
+          <tr>
+            <td><span class="amt neg">−3,500.00</span><br><small style="color:var(--mut)">28 ก.ค. · PROMPTPAY 082-xxx</small></td>
+            <td>ใบเสร็จค่าขนส่ง 2 ใบ (1,500 + 2,000)<br><small style="color:var(--mut)">จับคู่แบบแยกยอด · Split</small></td>
+            <td><small>ผลรวม 2 เอกสารเท่ายอดโอน วันเดียวกัน</small></td>
+            <td class="r"><span class="badge b-warn">76%</span></td>
+            <td class="r"><button class="btn" style="padding:6px 12px">ยืนยัน</button> <button class="btn sec" style="padding:6px 12px">ไม่ใช่</button></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <div class="pg-note">Every AI match shows its <i>reason</i> in plain Thai (which cascade layer fired) plus confidence — approve/reject is one tap. The month-proof header ("จับคู่แล้ว 47/50") is the Wave-style trust anchor.</div>
+  </section>
+
+  <!-- ============ 6. TAX ============ -->
+  <section class="pg" id="pg-tax">
+    <div class="pg-head"><h2>6 · Tax — Compliance Calendar <span style="font-weight:400;color:var(--mut)">/tax/calendar</span></h2><span class="tag">Central awareness hub: every obligation (VAT, WHT, payroll, SSO) with deadline + readiness — details live in their own sections below</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>ปฏิทินภาษี · Compliance calendar</h3><span class="crumbs">รอบเดือน ก.ค. 2569 — ยื่นภายใน ส.ค.</span></div>
+      <div class="cal">
+        <div class="card due"><span class="d1">ภ.พ.30 · VAT — ครบกำหนด 15 ส.ค.</span><span class="d2">ต้องชำระ <b class="amt">฿37,976.35</b></span><span class="prog"><i style="width:82%"></i></span><span class="d1">หลักฐานครบ 82% · ติดค้าง 3 → <b>ไปที่ส่วน VAT</b></span></div>
+        <div class="card due"><span class="d1">ภ.ง.ด.53 · WHT — ครบกำหนด 7 ส.ค.</span><span class="d2">นำส่ง <b class="amt">฿4,320.00</b></span><span class="prog"><i style="width:100%"></i></span><span class="d1">พร้อมยื่น → <b>ไปที่ส่วน WHT</b></span></div>
+        <div class="card due"><span class="d1">ภ.ง.ด.1 · เงินเดือน — ครบกำหนด 7 ส.ค.</span><span class="d2">นำส่ง <b class="amt">฿2,140.00</b></span><span class="prog"><i style="width:100%"></i></span><span class="d1">พร้อมยื่น → Payroll</span></div>
+        <div class="card due"><span class="d1">ประกันสังคม — ครบกำหนด 15 ส.ค.</span><span class="d2">นำส่ง <b class="amt">฿3,000.00</b></span><span class="prog"><i style="width:100%"></i></span><span class="d1">พร้อมยื่น → Payroll</span></div>
+        <div class="card due"><span class="d1">ภ.พ.36 · บริการต่างประเทศ — 7 ส.ค.</span><span class="d2">นำส่ง <b class="amt">฿1,050.00</b></span><span class="prog"><i style="width:100%"></i></span><span class="d1">แยกจาก ภ.พ.30 เสมอ</span></div>
+        <div class="card due" style="border-style:dashed"><span class="d1">ภ.ง.ด.50 · CIT ประจำปี</span><span class="d2" style="color:var(--mut)">ยังไม่ถึงกำหนด</span><span class="d1">พ.ค. 2570</span></div>
+      </div>
+    </div>
+    <div class="pg-note">The calendar is reminders + readiness only — one card per obligation across all tax branches. Each card links into its dedicated compliance section; nothing is filed from here.</div>
+  </section>
+
+  <!-- ============ 6a. VAT ============ -->
+  <section class="pg" id="pg-vat">
+    <div class="pg-head"><h2>6a · VAT (ภ.พ.30) <span style="font-weight:400;color:var(--mut)">/tax/vat · /input · /output · /register · /filings</span></h2><span class="tag">Dedicated section: output VAT, input VAT evidence, net position, filing</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>ภาษีมูลค่าเพิ่ม · VAT</h3><span class="crumbs">ก.ค. 2569 · ครบกำหนด 15 ส.ค.</span></div>
+      <div class="card">
+        <div class="ttl">สรุป ภ.พ.30 เดือนนี้</div>
+        <div class="flow">
+          <div><div class="fl">ภาษีขาย · Output VAT</div><div class="fv amt">฿99,180.55</div></div>
+          <div><div class="fl">ภาษีซื้อ · Input VAT</div><div class="fv amt neg">−฿61,204.20</div></div>
+          <div><div class="fl">ต้องชำระ · Net payable</div><div class="fv amt">฿37,976.35</div></div>
+        </div>
+        <div style="padding:0 14px 12px;font-size:11px;color:var(--mut)">ภ.พ.36 (บริการต่างประเทศ) แยกยื่นต่างหาก — ไม่รวมในภาษีซื้อของ ภ.พ.30 จนกว่าจะชำระแล้วเดือนถัดไป</div>
+      </div>
+      <div class="cards3">
+        <div class="card stat"><div class="lbl">ภาษีขาย · จากยอดขาย</div><div class="num">50 รายการ</div><div class="sub"><span>POS 42 วัน</span><span>ใบกำกับขาย 8</span></div></div>
+        <div class="card stat"><div class="lbl">ภาษีซื้อ · หลักฐาน</div><div class="num">41 / 44 ใบ</div><div class="sub warn"><span>ใบกำกับไม่ชัด 2</span><span>รอผู้ขายส่งใหม่ 1</span></div></div>
+        <div class="card stat"><div class="lbl">พร้อมยื่น</div><div class="num">82%</div><div class="sub"><span>ปิดได้เมื่อหลักฐานครบ</span></div></div>
+      </div>
+      <div class="card">
+        <div class="ttl">รายการภาษีซื้อที่ติดค้าง — 3</div>
+        <table>
+          <tr><th>เอกสาร</th><th>ผู้ขาย</th><th class="r">VAT</th><th>ปัญหา</th><th class="r"></th></tr>
+          <tr><td>ใบกำกับ อย่างย่อ 28 ก.ค.</td><td>แม็คโคร บางนา</td><td class="r amt">140.05</td><td><span class="badge b-warn">ใบกำกับอย่างย่อ — เคลม VAT ไม่ได้</span></td><td class="r"><button class="btn sec" style="padding:6px 12px">ตัดออกจากภาษีซื้อ</button></td></tr>
+          <tr><td>INV-7741 · 25 ก.ค.</td><td>บจก.ขนส่งด่วน</td><td class="r amt">210.00</td><td><span class="badge b-err">เลขภาษีผู้ขายไม่ตรง</span></td><td class="r"><button class="btn sec" style="padding:6px 12px">ขอใบใหม่</button></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="pg-note">VAT gets its own room: the PP30 math strip, evidence readiness per side (ขาย/ซื้อ), and a blocking-items queue with the RD-rule explanation in plain Thai (e.g. อย่างย่อ can't claim input VAT). PP36 is fenced off from PP30 math.</div>
+  </section>
+
+  <!-- ============ 6b. WHT ============ -->
+  <section class="pg" id="pg-wht">
+    <div class="pg-head"><h2>6b · WHT (หัก ณ ที่จ่าย) <span style="font-weight:400;color:var(--mut)">/tax/withholding · /tax/wht-certificates</span></h2><span class="tag">Dedicated section: certificates issued, PND filing readiness, credits received</span></div>
+    <div class="pg-body">
+      <div class="bar"><h3>หัก ณ ที่จ่าย · WHT</h3><span class="crumbs">ก.ค. 2569 · ภ.ง.ด.53 ครบกำหนด 7 ส.ค.</span></div>
+      <div class="cards3">
+        <div class="card stat"><div class="lbl">ภ.ง.ด.53 · นิติบุคคล</div><div class="num">฿4,320.00</div><div class="sub"><span>หนังสือรับรอง 6 ฉบับ</span><span class="badge b-ok" style="padding:1px 8px">พร้อมยื่น</span></div></div>
+        <div class="card stat"><div class="lbl">ภ.ง.ด.3 · บุคคลธรรมดา</div><div class="num">฿750.00</div><div class="sub warn"><span>1 ฉบับยังเป็นร่าง</span></div></div>
+        <div class="card stat"><div class="lbl">เครดิตที่ถูกหักไว้ · รับ</div><div class="num">฿2,180.00</div><div class="sub"><span>50 ทวิ ที่ได้รับ 3 ฉบับ</span></div></div>
+      </div>
+      <div class="card">
+        <div class="ttl">หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) — ก.ค.</div>
+        <table>
+          <tr><th>เลขที่</th><th>ผู้รับเงิน</th><th>ประเภท</th><th class="r">ยอดจ่าย</th><th class="r">ภาษีหัก</th><th>สถานะ</th></tr>
+          <tr><td>WHT-2569/041</td><td>บจก.สยามซัพพลาย</td><td>ค่าบริการ 3%</td><td class="r amt">17,000.00</td><td class="r amt">510.00</td><td><span class="badge b-ok">ออกแล้ว · PDF</span></td></tr>
+          <tr><td>WHT-2569/042</td><td>นายวิชัย รับเหมา</td><td>ค่าจ้างทำของ 3%</td><td class="r amt">25,000.00</td><td class="r amt">750.00</td><td><span class="badge b-warn">ร่าง — รอยืนยัน</span></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="pg-note">WHT gets its own room too: outgoing certificates (by PND form), incoming credits, and export-to-RD readiness — separated from VAT entirely.</div>
+  </section>
+
+  <!-- ============ 7. WORKFLOW DIAGRAMS ============ -->
+  <section class="pg" id="pg-diagrams">
+    <div class="pg-head"><h2>7 · Workflow diagrams <span style="font-weight:400;color:var(--mut)">in-app explainer graphs</span></h2><span class="tag">Clean n8n-style node graphs — click any node to open the explainer sidebar</span></div>
+    <div class="pg-body">
+      <div class="card" style="padding:14px">
+        <div class="ttl" style="padding:0 0 8px">How reconciliation works — the 7-layer match cascade</div>
+        <div class="canvas-wrap"><div class="canvas" id="cv-recon" style="width:1150px;height:430px"></div></div>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="ttl" style="padding:0 0 8px">Where the PP30 (monthly VAT return) numbers come from</div>
+        <div class="canvas-wrap"><div class="canvas" id="cv-pp30" style="width:1000px;height:500px"></div></div>
+      </div>
+    </div>
+    <div class="pg-note">These graphs double as the product's mental model and the coding spec — the cascade mirrors matcher.ts layers 1–7, and the PP30 graph encodes the "abbreviated invoice can't claim / PP36 never mixes into PP30" rules. Click a node for the full explanation.</div>
+  </section>
+
+  <!-- ============ 8. NAVIGATION ============ -->
+  <section class="pg" id="pg-nav">
+    <div class="pg-head"><h2>8 · Navigation structure <span style="font-weight:400;color:var(--mut)">app shell</span></h2><span class="tag">Owner-first five-choice nav + progressive disclosure of the deep accountant tree</span></div>
+    <div class="pg-body">
+      <div class="nav-grid">
+
+        <div class="card nv">
+          <div class="nv-cap">Sidebar — default <span class="badge b-ai">minimal, one nav for everyone</span></div>
+          <div class="nv-side">
+            <div class="nv-org">🏪 ร้านสมชายค้าขาย <span>▾</span></div>
+            <div class="nv-i on"><i>⌂</i>Home</div>
+            <div class="nv-i"><i>🏦</i>Bank <b class="nv-b">1</b></div>
+            <div class="nv-i"><i>📄</i>Documents <b class="nv-b">4</b></div>
+            <div class="nv-i"><i>🧾</i>Tax <b class="nv-b warn">15 ส.ค.</b></div>
+            <div class="nv-i"><i>⋯</i>More</div>
+            <div class="nv-foot">
+              <div class="nv-i sm"><i>⚙</i>Settings</div>
+            </div>
+          </div>
+          <div class="nv-note">No modes, no toggle — one nav. Top-level stays this small because each parent page carries its own inner navigation. Badges carry the "why go here": waiting counts or the next deadline.</div>
+        </div>
+
+        <div class="card nv">
+          <div class="nv-cap">Sidebar — expanded as needed <span class="badge b-warn">expand in place</span></div>
+          <div class="nv-side">
+            <div class="nv-org">🏪 ร้านสมชายค้าขาย <span>▾</span></div>
+            <div class="nv-i"><i>⌂</i>Home</div>
+            <div class="nv-i"><i>🏦</i>Bank</div>
+            <div class="nv-i"><i>📄</i>Documents</div>
+            <div class="nv-i on"><i>🧾</i>Tax <span style="margin-left:auto;color:var(--mut)">▾</span></div>
+            <div class="nv-sub">
+              <div class="nv-i xs on">VAT (ภ.พ.30)</div>
+              <div class="nv-i xs">Withholding (WHT)</div>
+              <div class="nv-i xs">Calendar</div>
+            </div>
+            <div class="nv-i"><i>⋯</i>More <span style="margin-left:auto;color:var(--mut)">▾</span></div>
+            <div class="nv-sub">
+              <div class="nv-i xs">Vendors</div>
+              <div class="nv-i xs">Reports</div>
+              <div class="nv-i xs">Payroll</div>
+              <div class="nv-i xs">Accounting</div>
+              <div class="nv-i xs">Analytics</div>
+            </div>
+          </div>
+          <div class="nv-note">Parents expand in place (active section auto-opens, like today's accordions). Children stop at one level — anything deeper becomes tabs inside the page, never a third nav tier.</div>
+        </div>
+
+        <div class="card nv" style="grid-column:1/-1;min-width:0">
+          <div class="nv-cap">Inside a page — Tax → VAT <span class="badge b-ok">inner tabs carry the depth</span></div>
+          <div class="nv-page">
+            <div class="nv-pg-head">
+              <div><b style="font-size:14px">ภาษีมูลค่าเพิ่ม · VAT</b> <span style="color:var(--mut);font-size:11px">Tax / VAT · ก.ค. 2569</span></div>
+              <button class="btn" style="padding:6px 12px;font-size:11px">ยื่น ภ.พ.30</button>
+            </div>
+            <div class="tabbar">
+              <div class="tb on">Overview</div>
+              <div class="tb">Output VAT <b class="nv-b">50</b></div>
+              <div class="tb">Input VAT <b class="nv-b warn">3</b></div>
+              <div class="tb">Documents</div>
+              <div class="tb">Filings</div>
+            </div>
+            <div class="nv-pg-body">
+              <div class="flow" style="background:var(--paper);border:1px solid oklch(0.94 0 0);border-radius:12px">
+                <div><div class="fl">Output VAT</div><div class="fv amt">฿99,180.55</div></div>
+                <div><div class="fl">Input VAT</div><div class="fv amt neg">−฿61,204.20</div></div>
+                <div><div class="fl">Net payable</div><div class="fv amt">฿37,976.35</div></div>
+                <div><div class="fl">Readiness</div><div class="fv" style="font-size:13px"><span class="badge b-warn">82% · 3 blocked</span></div></div>
+              </div>
+              <div style="display:flex;gap:8px;font-size:11px;color:var(--mut);align-items:center">Blocked items live in the <b>Input VAT</b> tab · filing history in <b>Filings</b> — the sidebar never gets deeper than "VAT".</div>
+            </div>
+          </div>
+          <div class="nv-note">The pattern everywhere: parent nav (sidebar) → page container with inner tabs. Tab badges surface the work (Input VAT: 3 blocked). Same pattern for Bank (Accounts / Statements / Upload), Documents (Expenses / Income / Review), Reconciliation (Queue / AI review / Rules / Insights).</div>
+        </div>
+
+        <div class="card nv">
+          <div class="nv-cap">Mobile — bottom tabs <span class="badge b-ai">same five</span></div>
+          <div class="nv-phone">
+            <div class="nv-ph-top"><span>ลงตัว</span><span style="color:var(--mut);font-size:10px">ก.ค. 69 ▾</span></div>
+            <div class="nv-ph-body">
+              <div class="nv-ph-card">เงินในบัญชี<br><b class="amt" style="font-size:14px">฿418,240.55</b></div>
+              <div class="nv-ph-card" style="background:var(--brand-soft);border:0;color:var(--brand-dark)">งานที่รอ: 7 รายการ →</div>
+            </div>
+            <div class="nv-tabs">
+              <div class="on">⌂<span>Home</span></div>
+              <div>🏦<span>Bank</span></div>
+              <div class="nv-fab">＋</div>
+              <div>🧾<span>Tax</span></div>
+              <div>⋯<span>More</span></div>
+            </div>
+          </div>
+          <div class="nv-note">Same five; inner tabs become swipeable segments at the top of each page. Center FAB = capture (photo receipt / upload statement). Documents lives under More on mobile since capture is the FAB.</div>
+        </div>
+
+        <div class="card nv">
+          <div class="nv-cap">Depth budget <span class="badge b-ok">the rule</span></div>
+          <div class="nv-note" style="font-size:12.5px;line-height:1.7">
+            <b style="color:var(--ink)">Max 2 levels of nav, ever:</b><br>
+            1 · Sidebar parent (Home, Bank, Documents, Tax, More…)<br>
+            2 · Either a sidebar child (Tax → VAT) <i>or</i> an in-page tab (VAT → Input VAT)<br><br>
+            Anything deeper is a drawer, dialog, or drill-down row — not navigation. Rarely-used areas (Accounting, Analytics, Payroll) start folded under More and never crowd the top level.
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="pg-note">Single nav for everyone — no Owner/Pro modes. Minimal top level, expand-in-place children, and complexity folded into in-page tab containers (Tax → VAT → Input/Output/Documents/Filings tabs).</div>
+  </section>
+
+  <form class="pick" data-lavish-question="nav-structure" onsubmit="event.preventDefault();
+      const f=new FormData(event.currentTarget);
+      const c=f.get('nav'); const notes=(f.get('notes')||'').toString().trim();
+      if(!c) return;
+      window.lavish.queuePrompt('Navigation round-2: '+c+(notes?(' — notes: '+notes):''),
+        {tag:'choice', text:'Nav: '+c, element:event.currentTarget, data:{question:'nav-structure', answer:c, notes}});">
+    <h3>Navigation — confirm the model</h3>
+    <p>Reworked per your note: no Owner/Pro toggle, one minimal nav, expand-as-needed, depth folded into in-page tabs.</p>
+    <label><input type="radio" name="nav" value="Confirmed — single nav + in-page tabs, lock it"> <span><b>Confirmed</b> · lock this model and codify it in DESIGN.md</span></label>
+    <label><input type="radio" name="nav" value="Close — apply my notes"> <span><b>Close</b> · right direction, apply my notes below</span></label>
+    <textarea name="notes" placeholder="Notes — e.g. which items sit top-level vs under More, mobile tab lineup, tab sets per page…"></textarea>
+    <br><button type="submit">Queue this answer</button>
+  </form>
+
+  <!-- explainer sidebar -->
+  <aside id="explainer" class="explainer">
+    <div class="ex-head"><b id="ex-title">—</b><button id="ex-close" aria-label="Close">✕</button></div>
+    <div class="ex-body" id="ex-body"></div>
+  </aside>
+
+  <!-- ============ 9 · FULL SHELL PREVIEW ============ -->
+  <section class="pg" id="shell-preview">
+    <div class="pg-head"><h2>9 · Full UI shell — everything combined</h2><span class="tag">Quicken Soft · Ink Neutral · single nav · in-page tabs</span></div>
+    <div class="pg-body">
+
+      <div>
+        <div class="bar" style="margin-bottom:10px"><h3 style="font-size:14px">Frame A — landing on Home</h3><span class="crumbs">default state: nav collapsed, badges carry the day's signal</span></div>
+        <div class="shell">
+          <aside class="sh-side">
+            <div class="nv-org">🏪 ร้านสมชายค้าขาย <span>▾</span></div>
+            <div class="nv-i on"><i>⌂</i>Home</div>
+            <div class="nv-i"><i>🏦</i>Bank <b class="nv-b">1</b></div>
+            <div class="nv-i"><i>📄</i>Documents <b class="nv-b">4</b></div>
+            <div class="nv-i"><i>🧾</i>Tax <b class="nv-b warn">15 ส.ค.</b></div>
+            <div class="nv-i"><i>⋯</i>More</div>
+            <div class="nv-foot"><div class="nv-i sm"><i>⚙</i>Settings</div></div>
+          </aside>
+          <div class="sh-top">
+            <div class="sh-search">🔍 ค้นหาเอกสาร ผู้ขาย รายการ…</div>
+            <div class="sh-month">ก.ค. 2569 ▾</div>
+            <button class="btn">＋ เพิ่มเอกสาร</button>
+            <div class="sh-av">ส</div>
+          </div>
+          <div class="sh-main">
+            <div class="bar"><h3>สวัสดีตอนเช้า คุณสมชาย ☀️</h3><span class="crumbs">อัปเดตล่าสุด 5 นาทีที่แล้ว</span></div>
+            <div class="cards3">
+              <div class="card stat"><div class="lbl">เงินในบัญชี (2 บัญชี)</div><div class="num amt">฿418,240.55</div><div class="sub">KBank ···4821 · SCB ···0937 <span>→</span></div></div>
+              <div class="card stat"><div class="lbl">งานที่รอคุณ</div><div class="num">7 รายการ</div><div class="sub warn">4 เอกสาร · 3 รายการจับคู่ <span>→</span></div></div>
+              <div class="card stat"><div class="lbl">กำหนดยื่นถัดไป</div><div class="num">ภ.พ.30 · 15 ส.ค.</div><div class="sub">พร้อมยื่น 82% · ขาดเอกสาร 3 ใบ <span>→</span></div></div>
+            </div>
+            <div class="card">
+              <div class="ttl">งานที่รอ — ทำทีละรายการ</div>
+              <table>
+                <tr><td>🧾 ใบกำกับภาษี บจ.สยามซัพพลาย</td><td><span class="badge b-ai">AI อ่านแล้ว 96%</span></td><td class="r amt">฿12,840.00</td><td class="r"><button class="btn soft" style="padding:5px 12px;font-size:11px">ตรวจ</button></td></tr>
+                <tr><td>🔗 ยอดเข้าบัญชี 30 ก.ค. ยังไม่จับคู่</td><td><span class="badge b-warn">รอจับคู่</span></td><td class="r amt">฿52,400.00</td><td class="r"><button class="btn soft" style="padding:5px 12px;font-size:11px">จับคู่</button></td></tr>
+                <tr><td>🏦 สเตทเมนต์ SCB เดือน ก.ค. ยังไม่อัปโหลด</td><td><span class="badge b-err">ขาดไฟล์</span></td><td class="r amt">—</td><td class="r"><button class="btn soft" style="padding:5px 12px;font-size:11px">อัปโหลด</button></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="bar" style="margin:14px 0 10px"><h3 style="font-size:14px">Frame B — Tax → VAT (nav expanded + in-page tabs)</h3><span class="crumbs">the depth pattern in the real shell</span></div>
+        <div class="shell">
+          <aside class="sh-side">
+            <div class="nv-org">🏪 ร้านสมชายค้าขาย <span>▾</span></div>
+            <div class="nv-i"><i>⌂</i>Home</div>
+            <div class="nv-i"><i>🏦</i>Bank <b class="nv-b">1</b></div>
+            <div class="nv-i"><i>📄</i>Documents <b class="nv-b">4</b></div>
+            <div class="nv-i on"><i>🧾</i>Tax <span style="margin-left:auto;color:var(--mut)">▾</span></div>
+            <div class="nv-sub">
+              <div class="nv-i xs on">VAT (ภ.พ.30)</div>
+              <div class="nv-i xs">Withholding (WHT)</div>
+              <div class="nv-i xs">Calendar</div>
+            </div>
+            <div class="nv-i"><i>⋯</i>More</div>
+            <div class="nv-foot"><div class="nv-i sm"><i>⚙</i>Settings</div></div>
+          </aside>
+          <div class="sh-top">
+            <div class="sh-search">🔍 ค้นหาเอกสาร ผู้ขาย รายการ…</div>
+            <div class="sh-month">ก.ค. 2569 ▾</div>
+            <button class="btn">＋ เพิ่มเอกสาร</button>
+            <div class="sh-av">ส</div>
+          </div>
+          <div class="sh-main">
+            <div class="bar"><h3>ภาษีมูลค่าเพิ่ม · VAT</h3><button class="btn">ยื่น ภ.พ.30</button></div>
+            <div class="tabbar">
+              <div class="tb on">Overview</div>
+              <div class="tb">Output VAT <b class="nv-b">50</b></div>
+              <div class="tb">Input VAT <b class="nv-b warn">3</b></div>
+              <div class="tb">Documents</div>
+              <div class="tb">Filings</div>
+            </div>
+            <div class="card flow">
+              <div><div class="fl">Output VAT</div><div class="fv amt">฿99,180.55</div></div>
+              <div><div class="fl">Input VAT</div><div class="fv amt neg">−฿61,204.20</div></div>
+              <div><div class="fl">Net payable</div><div class="fv amt">฿37,976.35</div></div>
+              <div><div class="fl">Readiness</div><div class="fv" style="font-size:13px"><span class="badge b-warn">82% · 3 blocked</span></div></div>
+            </div>
+            <div class="card">
+              <div class="ttl">ติดอยู่ 3 รายการ — เคลียร์ก่อนยื่น</div>
+              <table>
+                <tr><td>ใบเสร็จ อย่างย่อ — เคลม input VAT ไม่ได้</td><td><span class="badge b-err">ต้องขอใบเต็ม</span></td><td class="r amt">฿1,177.57</td></tr>
+                <tr><td>ใบกำกับภาษีเลขผู้เสียภาษีไม่ตรง</td><td><span class="badge b-warn">ตรวจกับผู้ขาย</span></td><td class="r amt">฿3,290.00</td></tr>
+                <tr><td>ค่าบริการต่างประเทศ — เข้า ภ.พ.36 ไม่รวมใน ภ.พ.30</td><td><span class="badge b-ai">แยกให้แล้ว</span></td><td class="r amt">฿8,560.00</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="pg-note">One shell, every decision applied: Quicken Soft surfaces, Ink Neutral accent, five-item nav that expands in place, badges as "why go here", capture as the primary top-bar action, and in-page tabs carrying the depth. Frame B shows the exact Tax → VAT example from your note.</div>
+  </section>
+
+  <form class="pick" data-lavish-question="page-mockup-alignment" onsubmit="event.preventDefault();
+      const f=new FormData(event.currentTarget);
+      const pal=document.body.className.replace('p-','');
+      const notes=(f.get('notes')||'').toString().trim();
+      const verdict=f.get('verdict')||'(no verdict)';
+      window.lavish.queuePrompt('Page-mockup alignment: '+verdict+' — accent previewed: '+pal+(notes?(' — notes: '+notes):''),
+        {tag:'choice', text:'Alignment: '+verdict+' · accent '+pal, element:event.currentTarget, data:{question:'page-mockup-alignment', verdict, accent:pal, notes}});">
+    <h3>Round 2 — are we aligned now?</h3>
+    <p>Applied from your last review: Ink Neutral is the default accent, the settlement strip is now Gross − Discounts → VAT → Fees → Net-to-bank, tax is split into Calendar / VAT / WHT sections, and section 7 adds the reconciliation + PP30 workflow graphs (click to edit as whiteboards). Your currently selected accent is included with the answer.</p>
+    <div class="row">
+      <label><input type="radio" name="verdict" value="Aligned — proceed to full benchmark mockups"> Aligned — proceed</label>
+      <label><input type="radio" name="verdict" value="Mostly aligned — apply my notes first"> Mostly — apply notes first</label>
+      <label><input type="radio" name="verdict" value="Not aligned — rework per notes"> Not aligned — rework</label>
+    </div>
+    <textarea name="notes" placeholder="Per-page comments (e.g. 'Bank: statement table too dense', 'Tax: FilingCards great')…"></textarea>
+    <br><br><button type="submit">Queue this answer</button>
+  </form>
+</div>
+<script>
+  document.querySelectorAll('.sw').forEach(b=>b.addEventListener('click',()=>{
+    document.body.className=b.dataset.p;
+    document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on',x===b));
+  }));
+</script>
+<script>
+(function(){
+  const NW=160, NH=52; // node box size used for edge anchors
+
+  const RECON_NODES=[
+    {id:'src', x:20, y:40, k:'k-src', ic:'🏦', t:'Bank line', s:'One money-in/out row from the statement',
+      info:'Every imported statement row (money in or out) enters the cascade one at a time. The goal: attach the evidence document(s) that explain it.'},
+    {id:'l1', x:230, y:40, ic:'1', t:'Reference match', s:'Invoice no. in transfer memo',
+      info:'Layer 1 — if the bank memo contains a document reference (e.g. INV-2569/078), the match is certain and applied automatically.'},
+    {id:'l2', x:430, y:40, ic:'2', t:'Vendor alias', s:'Learned bank-name aliases',
+      info:'Layer 2 — bank statements abbreviate vendor names ("SIAM SUP CO"). The app learns these aliases from your past manual matches; after 3 confirmations an alias is trusted automatically.'},
+    {id:'l3', x:630, y:40, ic:'3', t:'Exact match', s:'Amount + date align',
+      info:'Layer 3 — a single unmatched document with the exact same amount within the date window is matched directly.'},
+    {id:'l4', x:830, y:40, ic:'4', t:'Custom rules', s:'Your if-this-then-that rules',
+      info:'Layer 4 — rules you (or suggested templates) set up, e.g. "MEA debit every month ≈ ฿4,800 → electricity expense". Managed in Settings → Reconciliation rules.'},
+    {id:'l5', x:830, y:170, ic:'5', t:'Multi-signal AI', s:'Amount ≈ + name ≈ + timing',
+      info:'Layer 5 — no single signal is decisive, but several weak ones agree (close amount, similar name, plausible timing). The AI combines them into a scored suggestion. It never auto-commits.'},
+    {id:'l6', x:830, y:300, ic:'6', t:'Split / combine', s:'Many docs ↔ one transfer',
+      info:'Layer 6 — one transfer paying several invoices (or one invoice paid in parts). The AI proposes the set of documents whose sum equals the transfer.'},
+    {id:'ai', x:520, y:235, k:'k-warn', ic:'✦', t:'AI suggestion', s:'Waits for human confirm',
+      info:'Layers 5–6 output suggestions with a confidence score and a plain-language reason. Nothing is booked until a person taps Confirm — "AI proposes; a person confirms".'},
+    {id:'ok', x:230, y:170, k:'k-ok', ic:'✓', t:'Matched', s:'Layers 1–4 auto, 5–6 confirmed',
+      info:'The transaction is now explained by evidence. Matched pairs feed VAT readiness and the month-proof header (e.g. "matched 47 of 50").'},
+    {id:'man', x:230, y:300, k:'k-err', ic:'⚠', t:'Manual queue', s:'Nothing fit — owner decides',
+      info:'The remainder lands in a short manual queue. Your manual choice here is training data: it creates aliases and rule suggestions for next month.'},
+    {id:'learn', x:20, y:235, ic:'↻', t:'Learning loop', s:'Aliases + rule suggestions',
+      info:'Every confirmed match teaches the system: vendor aliases are learned (auto-trusted at 3 occurrences) and recurring patterns become suggested rules — so next month more lands in layers 1–4.'},
+  ];
+  const RECON_EDGES=[
+    ['src','l1'],['l1','l2','no match'],['l2','l3','no'],['l3','l4','no'],
+    ['l4','l5','no'],['l5','l6','low confidence'],
+    ['l1','ok','hit',1],['l2','ok','hit',1],['l3','ok','hit',1],['l4','ok','hit',1],
+    ['l5','ai','suggest'],['l6','ai','suggest'],
+    ['ai','ok','confirmed'],['ai','man','rejected'],
+    ['l6','man','no fit',1],
+    ['ok','learn','teaches'],['man','learn','teaches',1],
+  ];
+
+  const PP30_NODES=[
+    {id:'pos', x:20, y:30, k:'k-src', ic:'🧾', t:'POS daily sales', s:'Sales totals per day',
+      info:'Daily POS z-totals are the sales truth source. Their VAT portion (7/107 of the discounted gross) accumulates into Output VAT for the month.'},
+    {id:'sinv', x:20, y:140, k:'k-src', ic:'📄', t:'Sales tax invoices', s:'Invoices you issued',
+      info:'Full tax invoices issued to customers (B2B). Their VAT adds to Output VAT alongside POS sales.'},
+    {id:'pinv', x:20, y:260, k:'k-src', ic:'📥', t:'Purchase tax invoices', s:'FULL form only',
+      info:'Only full-form tax invoices (ใบกำกับภาษีเต็มรูป) with your company name and tax ID are claimable as Input VAT. This is why the Documents inbox pushes so hard for readable, full invoices.'},
+    {id:'abb', x:20, y:370, k:'k-src', ic:'🧾', t:'Abbreviated receipts', s:'ใบกำกับอย่างย่อ',
+      info:'Abbreviated tax invoices (common from supermarkets) are valid expenses but their VAT can NOT be claimed as Input VAT. The app flags them and excludes them from PP30 automatically.'},
+    {id:'pp36', x:20, y:440, k:'k-src', ic:'🌐', t:'Foreign services (PP36)', s:'e.g. Meta/Google ads',
+      info:'VAT on services bought from abroad is self-assessed on form PP36, filed separately by the 7th. Only AFTER it is paid can it become claimable input VAT the following month. It never mixes into the current PP30 math.'},
+    {id:'out', x:330, y:85, ic:'∑', t:'Output VAT', s:'VAT you collected · ฿99,180.55',
+      info:'Output VAT = all VAT collected on sales this month (POS + invoices). In the mock month: ฿99,180.55.'},
+    {id:'in', x:330, y:260, ic:'∑', t:'Input VAT', s:'VAT you paid · ฿61,204.20',
+      info:'Input VAT = claimable VAT on full-form purchase invoices with evidence on file. Blocked items (blurry, wrong tax ID, abbreviated) stay out until fixed. Mock month: ฿61,204.20.'},
+    {id:'x', x:330, y:405, k:'k-err', ic:'✕', t:'Excluded', s:'Not in PP30',
+      info:'Abbreviated-invoice VAT and unpaid PP36 amounts are tracked (for expenses / later months) but excluded from this PP30. The exclusion is shown, never silent.'},
+    {id:'net', x:620, y:170, ic:'=', t:'PP30 net', s:'Output − Input = ฿37,976.35',
+      info:'The monthly VAT return: Output VAT minus Input VAT. Positive → you pay the difference. Negative → carry the credit forward (or request refund).'},
+    {id:'pay', x:830, y:85, k:'k-ok', ic:'฿', t:'Pay + file by the 15th', s:'If positive',
+      info:'If net is positive you file PP30 and pay by the 15th of the following month (extended for e-filing). The FilingCard tracks readiness and deadline.'},
+    {id:'cr', x:830, y:260, ic:'→', t:'Credit carried forward', s:'If negative',
+      info:'If input exceeds output, the excess becomes a credit carried to next month (or a refund claim — rarely chosen because it invites an audit).'},
+  ];
+  const PP30_EDGES=[
+    ['pos','out','7/107 of net sales'],['sinv','out'],
+    ['pinv','in','evidence OK'],
+    ['abb','x','cannot claim',1],['pp36','x','separate filing',1],
+    ['out','net'],['in','net'],
+    ['net','pay','positive'],['net','cr','negative'],
+  ];
+
+  const INFO={}; // id -> {t, info}
+  function draw(canvasId, nodes, edges){
+    const cv=document.getElementById(canvasId);
+    const ns=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    ns.innerHTML='<defs><marker id="arr-'+canvasId+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="oklch(0.7 0 0)" stroke-width="1.5"/></marker></defs>';
+    cv.appendChild(ns);
+    const byId={}; nodes.forEach(n=>byId[n.id]=n);
+    edges.forEach(([f,t,lbl,dash])=>{
+      const a=byId[f], b=byId[t];
+      let x1,y1,x2,y2;
+      if(Math.abs(a.y-b.y)<30){ // horizontal
+        if(a.x<b.x){x1=a.x+NW;y1=a.y+NH/2;x2=b.x;y2=b.y+NH/2}else{x1=a.x;y1=a.y+NH/2;x2=b.x+NW;y2=b.y+NH/2}
+      } else if(Math.abs(a.x-b.x)<40){ // vertical
+        if(a.y<b.y){x1=a.x+NW/2;y1=a.y+NH;x2=b.x+NW/2;y2=b.y}else{x1=a.x+NW/2;y1=a.y;x2=b.x+NW/2;y2=b.y+NH}
+      } else { // diagonal: leave from side toward target
+        if(a.x<b.x){x1=a.x+NW;y1=a.y+NH/2;x2=b.x;y2=b.y+NH/2}else{x1=a.x;y1=a.y+NH/2;x2=b.x+NW;y2=b.y+NH/2}
+      }
+      const dx=Math.max(36,Math.abs(x2-x1)/2);
+      const vert=Math.abs(a.x-b.x)<40&&Math.abs(a.y-b.y)>=30;
+      const d=vert
+        ? `M ${x1} ${y1} C ${x1} ${y1+(y2>y1?30:-30)}, ${x2} ${y2+(y2>y1?-30:30)}, ${x2} ${y2}`
+        : `M ${x1} ${y1} C ${x1+(x2>x1?dx:-dx)} ${y1}, ${x2+(x2>x1?-dx:dx)} ${y2}, ${x2} ${y2}`;
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',d); p.setAttribute('class','edge'+(dash?' dash':''));
+      p.setAttribute('marker-end','url(#arr-'+canvasId+')');
+      ns.appendChild(p);
+      if(lbl){
+        const mx=(x1+x2)/2, my=(y1+y2)/2-4;
+        const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+        tx.setAttribute('x',mx); tx.setAttribute('y',my); tx.setAttribute('text-anchor','middle'); tx.setAttribute('class','edge-lbl');
+        tx.textContent=lbl;
+        ns.appendChild(tx);
+        const bb=tx.getBBox?null:null;
+        bg.setAttribute('x',mx-lbl.length*2.9); bg.setAttribute('y',my-9); bg.setAttribute('width',lbl.length*5.8); bg.setAttribute('height',12); bg.setAttribute('class','edge-lbl-bg');
+        ns.insertBefore(bg,tx);
+      }
+    });
+    nodes.forEach(n=>{
+      INFO[canvasId+':'+n.id]={t:n.t,info:n.info};
+      const el=document.createElement('div');
+      el.className='node '+(n.k||'');
+      el.style.left=n.x+'px'; el.style.top=n.y+'px';
+      el.dataset.key=canvasId+':'+n.id;
+      el.innerHTML='<div class="n-top"><span class="n-ic">'+n.ic+'</span><span>'+n.t+'</span></div><div class="n-sub">'+n.s+'</div>';
+      el.addEventListener('click',()=>{
+        document.querySelectorAll('.node.sel').forEach(x=>x.classList.remove('sel'));
+        el.classList.add('sel');
+        const d=INFO[el.dataset.key];
+        document.getElementById('ex-title').textContent=d.t;
+        document.getElementById('ex-body').innerHTML='<span class="ex-tag">What is this?</span><p>'+d.info+'</p>';
+        document.getElementById('explainer').classList.add('open');
+      });
+      cv.appendChild(el);
+    });
+  }
+  draw('cv-recon',RECON_NODES,RECON_EDGES);
+  draw('cv-pp30',PP30_NODES,PP30_EDGES);
+  document.getElementById('ex-close').addEventListener('click',()=>{
+    document.getElementById('explainer').classList.remove('open');
+    document.querySelectorAll('.node.sel').forEach(x=>x.classList.remove('sel'));
+  });
+})();
+</script>
+</body>
+</html>

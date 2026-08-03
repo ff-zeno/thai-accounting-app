@@ -5,7 +5,9 @@ import {
   getWhtCreditsReceived,
   getWhtCreditsReceivedTotal,
 } from "@/lib/db/queries/wht-credits-received";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Table,
   TableBody,
@@ -15,14 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { WhtCreditReceivedForm } from "./credit-form";
-
-function formatAmount(value: string | null): string {
-  if (!value) return "0.00";
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default async function WhtCreditsReceivedPage() {
   const orgId = await getActiveOrgId();
@@ -47,14 +41,10 @@ export default async function WhtCreditsReceivedPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Incoming WHT
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Withholding tax credits customers deducted from payments to us, backed by certificates we receive.
-        </p>
-      </div>
+      <PageHeader
+        title="Incoming WHT"
+        description="Withholding tax credits customers deducted from payments to us, backed by certificates we receive."
+      />
 
       <Card>
         <CardHeader>
@@ -68,7 +58,7 @@ export default async function WhtCreditsReceivedPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {currentYear} Incoming WHT Total: {formatAmount(total)} THB
+            {currentYear} Incoming WHT Total: <Amount value={total} /> THB
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -99,11 +89,11 @@ export default async function WhtCreditsReceivedPage() {
                     </TableCell>
                     <TableCell>{credit.certificateNo ?? "-"}</TableCell>
                     <TableCell>{credit.formType}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatAmount(credit.grossAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={credit.grossAmount} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatAmount(credit.whtAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={credit.whtAmount} />
                     </TableCell>
                   </TableRow>
                 ))}

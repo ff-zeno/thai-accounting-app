@@ -25,10 +25,11 @@ type InventorySkuPageProps = {
   params: Promise<{ id: string }>;
 };
 
-function amount(value: string | null | undefined, digits = 2) {
+// 4-decimal inventory figures (quantities, unit costs) — not money amounts.
+function quantity(value: string | null | undefined) {
   return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
   });
 }
 
@@ -152,12 +153,12 @@ export default async function InventorySkuPage({ params }: InventorySkuPageProps
           <div className="grid gap-4 md:grid-cols-4">
             <StatCard
               label="Quantity"
-              value={amount(detail.sku.currentQuantity, 4)}
+              value={quantity(detail.sku.currentQuantity)}
               hint={detail.sku.unitOfMeasure}
             />
             <StatCard
               label="Average Cost"
-              value={amount(detail.sku.currentAvgCost, 4)}
+              value={quantity(detail.sku.currentAvgCost)}
               hint={detail.sku.valuationMethod}
             />
             <StatCard
@@ -191,11 +192,11 @@ export default async function InventorySkuPage({ params }: InventorySkuPageProps
               </div>
               <div>
                 <p className="text-muted-foreground">Reorder point</p>
-                <p className="font-medium">{amount(detail.sku.reorderPointQuantity, 4)}</p>
+                <p className="font-medium">{quantity(detail.sku.reorderPointQuantity)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Standard cost</p>
-                <p className="font-medium">{amount(detail.sku.standardCost, 4)}</p>
+                <p className="font-medium">{quantity(detail.sku.standardCost)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Last movement</p>
@@ -289,16 +290,16 @@ export default async function InventorySkuPage({ params }: InventorySkuPageProps
                           {shortId(movement.journalEntryId)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(movement.quantity, 4)}
+                          {quantity(movement.quantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(movement.unitCost, 4)}
+                          {quantity(movement.unitCost)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Amount value={movement.totalCost} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(movement.runningQuantityAfter, 4)}
+                          {quantity(movement.runningQuantityAfter)}
                         </TableCell>
                         <TableCell>{movement.notes ?? "-"}</TableCell>
                       </TableRow>

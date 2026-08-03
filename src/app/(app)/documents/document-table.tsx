@@ -27,7 +27,9 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -138,9 +140,7 @@ function ReconBadge({
 
   if (matchCount === 0) {
     return (
-      <Badge variant="secondary" className="text-xs">
-        {t("unmatched")}
-      </Badge>
+      <StatusBadge status="unmatched" className="text-xs" label={t("unmatched")} />
     );
   }
 
@@ -148,10 +148,14 @@ function ReconBadge({
   const total = parseFloat(totalAmount || "0");
   const isFullMatch = total > 0 && Math.abs(matched - total) < 0.01;
 
-  return (
-    <Badge variant={isFullMatch ? "default" : "outline"} className="text-xs">
-      {isFullMatch ? t("matched") : t("partial")}
-    </Badge>
+  return isFullMatch ? (
+    <StatusBadge status="matched" className="text-xs" label={t("matched")} />
+  ) : (
+    <StatusBadge
+      status="partially_matched"
+      className="text-xs"
+      label={t("partial")}
+    />
   );
 }
 
@@ -163,18 +167,26 @@ function PipelineBadge({ status }: { status: string | null }) {
 
   if (isProcessing) {
     return (
-      <Badge variant="secondary" className="gap-1 text-xs">
-        <Loader2 className="size-3 animate-spin" />
-        {status === "uploaded" ? "Queued" : status === "extracting" ? "Extracting" : status === "validating" ? "Validating" : "Validated"}
-      </Badge>
+      <StatusBadge
+        status={status}
+        className="gap-1 text-xs"
+        label={
+          <>
+            <Loader2 className="size-3 animate-spin" />
+            {status === "uploaded" ? "Queued" : status === "extracting" ? "Extracting" : status === "validating" ? "Validating" : "Validated"}
+          </>
+        }
+      />
     );
   }
 
   if (isFailed) {
     return (
-      <Badge variant="destructive" className="text-xs">
-        {status === "failed_extraction" ? "Extraction Failed" : "Validation Failed"}
-      </Badge>
+      <StatusBadge
+        status={status}
+        className="text-xs"
+        label={status === "failed_extraction" ? "Extraction Failed" : "Validation Failed"}
+      />
     );
   }
 
@@ -704,12 +716,15 @@ export function DocumentTable({
         <span className="whitespace-nowrap text-xs">{t("totalAmount")}</span>
       ),
       cell: ({ row }) => (
-        <span className="whitespace-nowrap text-right text-sm tabular-nums">
-          {row.original.totalAmount
-            ? `${parseFloat(row.original.totalAmount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })} ${row.original.currency || "THB"}`
-            : "—"}
+        <span className="whitespace-nowrap text-right text-sm">
+          {row.original.totalAmount ? (
+            <>
+              <Amount value={row.original.totalAmount} />{" "}
+              {row.original.currency || "THB"}
+            </>
+          ) : (
+            "—"
+          )}
         </span>
       ),
     },
@@ -719,12 +734,8 @@ export function DocumentTable({
         <span className="whitespace-nowrap text-xs">{t("vatAmount")}</span>
       ),
       cell: ({ row }) => (
-        <span className="whitespace-nowrap text-right text-sm tabular-nums">
-          {row.original.vatAmount
-            ? parseFloat(row.original.vatAmount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })
-            : "—"}
+        <span className="whitespace-nowrap text-right text-sm">
+          <Amount value={row.original.vatAmount} nullDash />
         </span>
       ),
     },

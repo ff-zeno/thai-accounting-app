@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Brain, Check, X } from "lucide-react";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,7 +94,7 @@ export function AiSuggestionList({ suggestions }: Props) {
             Approve All High-Confidence ({highConfCount})
           </Button>
           {bulkResult && (
-            <p className="text-sm text-green-600">{bulkResult}</p>
+            <p className="text-sm text-success">{bulkResult}</p>
           )}
         </div>
       )}
@@ -121,11 +122,8 @@ export function AiSuggestionList({ suggestions }: Props) {
                 </p>
                 <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
                   <span>{s.txnDate}</span>
-                  <span className="tabular-nums font-medium">
-                    {parseFloat(s.txnAmount).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}{" "}
-                    THB
+                  <span className="font-medium">
+                    <Amount value={s.txnAmount} /> THB
                   </span>
                 </div>
               </div>
@@ -142,11 +140,8 @@ export function AiSuggestionList({ suggestions }: Props) {
                   )}
                 </p>
                 {s.docAmount && (
-                  <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                    {parseFloat(s.docAmount).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}{" "}
-                    THB
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <Amount value={s.docAmount} /> THB
                   </p>
                 )}
               </div>

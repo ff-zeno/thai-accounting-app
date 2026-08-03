@@ -1,111 +1,147 @@
-# Design System — Long Dtua (ลงตัว)
+# Design System — Long Tua (ลงตัว)
+
+This document governs all visual and UI decisions.
+It reflects the owner-approved 2026-08 UX reset ("Quicken Soft" surfaces + Ink Neutral accent, single 5-item nav).
+Approval evidence: `docs/reviews/owner-mode-ux-reset-approved-mockups-2026-08-01.html` (Lavish review rounds, owner sign-off "Good, looks aligned now").
+Do not deviate without explicit owner approval.
+In QA mode, flag any code that does not match this document.
 
 ## Product Context
 - **What this is:** AI-powered Thai accounting platform — document management, bank reconciliation, WHT/VAT filing, Revenue Department compliance
-- **Who it's for:** Thai business owners and accountants managing multi-company financials
+- **Who it's for:** Thai business owners first (owner mode is the default experience), accountants second
 - **Space/industry:** Thai accounting SaaS (peers: FlowAccount, Peak, Xero)
 - **Project type:** Web app / dashboard with data-dense views
+- **Brand:** "Long Tua" (ลงตัว — "everything falls into place"). The romanization is exactly `Long Tua` everywhere it renders.
 
-## Aesthetic Direction
-- **Direction:** Industrial/Utilitarian — function-first, data-dense where needed, generous whitespace where it aids comprehension
-- **Decoration level:** Minimal — typography and spacing do all the work. The warm accent (oklch hue 80) is the only decorative element and it marks actionable things
-- **Mood:** Trustworthy, precise, calm. The app should feel like a reliable instrument, not a lifestyle brand. Financial data is serious; the UI respects that seriousness without being cold
+## Aesthetic Direction — "Quicken Soft" + Ink Neutral
+- **Direction:** Calm instrument. Soft gray canvas, white rounded cards, one near-black ink accent. Typography and spacing do the work; color is rare and always means something.
+- **Reference kit (owner-approved):** Quicken Simplifi for the general shell and global styles — app frame, buttons, menus, card anatomy (stat label + big number + tinted sub-panel for detail).
+  Supporting references: Midday (evidence-inbox workflow IA, review states), Mercury/Attio (dense tables + side drawers), Wise (mobile action patterns), Etsy/Stripe (settlement gross→fee→net presentation), Mixpanel (report/chart boards only).
+  We take structure, spacing, and component shapes from references — never their palettes. Quicken's violet is explicitly banned.
+- **Mood:** Trustworthy, precise, calm. Financial data is serious; the UI respects that without being cold.
+- **Process — Mobbin as flow reference:** when building or reworking an individual UI flow (search, onboarding, capture review, filing wizard, etc.), pull real-product flow references from Mobbin first (`mcp__mobbin__search_flows` / `search_screens`), pick a reference pattern, and record it in the Decisions Log. Shell and kit primitives are already decided here and are not re-litigated per flow.
 
 ## Typography
-- **Display/Hero:** Geist Sans 700 — clean geometric sans with good Thai character pairing
-- **Body:** Geist Sans 400/500 — readable at 14px, pairs naturally with Noto Sans Thai
-- **UI/Labels:** Geist Sans 500/600 — same family, weight differentiation creates hierarchy
-- **Data/Tables:** Geist Sans with `font-variant-numeric: tabular-nums` — critical for financial columns to align
-- **Code:** Geist Mono — matches the sans-serif family for visual consistency
-- **Thai glyphs:** Noto Sans Thai — full Unicode coverage, weight-matched to Geist
-- **Loading:** Google Fonts via `next/font` (Geist bundled with Next.js, Noto Sans Thai from Google)
+- **Families:** Geist Sans (Latin), Noto Sans Thai (Thai glyphs, weight-matched), Geist Mono (identifiers only). Loaded via `next/font`.
 - **Scale:**
-  - Page heading: 24px / 600 / -0.01em tracking (`text-2xl font-semibold tracking-tight` — use the `PageHeader` component)
+  - Page heading: 24px / 600 / tracking-tight (`text-2xl font-semibold tracking-tight` — always via `PageHeader`).
+    **Composite-header exception:** a page whose header row must compose inline context around the title (back link + identifier + status + tabs + actions, e.g. bank-account detail, document review) may render its own `<h1>` with these exact classes instead of `PageHeader`; the typography is still frozen.
   - Section heading: 18px / 600
-  - Card heading: 16px / 500 (`CardTitle` default — do not override per page)
+  - Card heading: 16px / 500 (`CardTitle` default — never override per page)
   - Body: 14px / 400
   - Caption: 12px / 400 — the smallest size; never `text-[10px]`
-- **Financial numbers:** always `tabular-nums` (via the `Amount` component), right-aligned in tables. Geist Mono is reserved for identifiers (account numbers, tax IDs, references) — never for money.
-  - Nav heading: 11px / 600 / uppercase / 0.08em tracking / text-foreground/70
-  - Nav item: 14px / 500 / text-muted-foreground
-  - Nav active: 14px / 600 / text-accent-foreground
+  - Nav item: 14px / 500 `text-muted-foreground`; active: 14px / 600 `text-accent-foreground`
+  - Nav group label: 11px / 600 / uppercase / 0.08em tracking / `text-foreground/70`
+- **Financial numbers:** always `tabular-nums`, always rendered through the `Amount` component, right-aligned in tables.
+  Geist Mono is reserved for identifiers (account numbers, tax IDs, references) — never for money.
+- **Non-money numbers (documented exemptions to the Amount rule):**
+  counts and quantities may use `toLocaleString` (transaction counts, token counts, document counts);
+  4-decimal inventory figures (quantities, unit costs) render via a local `quantity()` helper;
+  USD AI micro-costs (`ai-cost-analytics`) use a local `formatUsd` (6 decimals below one cent — `Amount`'s 2-decimal THB format cannot express them);
+  text-only contexts that cannot hold an element (e.g. `<option>` labels) call `formatAmount()` from `src/lib/utils/money.ts` — the same function `Amount` renders.
+  Money math is always integer satang via `src/lib/utils/money.ts` (`sumAmounts`, `toSatangOrZero`, `fromSatang`) — never float arithmetic.
 
-## Color
-- **Approach:** Restrained — one warm accent + neutrals. Color is rare and meaningful
-- **Primary:** `oklch(0.45 0.12 80)` — warm golden-brown. Marks the brand and primary actions
-- **Primary foreground:** `oklch(1 0 0)` — white text on primary
-- **Ring/Focus:** `oklch(0.65 0.10 80)` — lighter warm tone for focus rings
-- **Accent:** `oklch(0.96 0.02 80)` — light warm tint for hover/active states
-- **Accent foreground:** `oklch(0.25 0.04 80)` — dark warm for text on accent
-- **Neutrals:** Pure gray scale (chroma 0), warm to the eye because of the warm accent context
-  - Background: `oklch(1 0 0)`
-  - Sidebar: `oklch(0.985 0 0)`
-  - Muted: `oklch(0.97 0 0)`
-  - Border: `oklch(0.922 0 0)`
-  - Muted foreground: `oklch(0.556 0 0)`
-  - Foreground: `oklch(0.145 0 0)`
-- **Semantic (implemented as tokens in `globals.css` — use these, never raw Tailwind palette classes):**
-  - Success: `--success` `oklch(0.52 0.14 150)` — green
-  - Warning: `--warning` `oklch(0.55 0.14 60)` — amber, darkened from `#f57c00` for AA text contrast
-  - Error/Destructive: `--destructive` `oklch(0.577 0.245 27.325)` — red
-  - Info: `--info` `oklch(0.47 0.14 255)` — blue
-  - Soft usage via opacity modifiers: `bg-success/10 border-success/30 text-success`; solid usage pairs with `*-foreground`. Badge has `success`/`warning`/`info` variants; banners use the `Alert` component.
-- **Charts:** warm lightness-stepped ramp `--chart-1..5` (hues 60–100) — never blue/violet series colors
-- **Dark mode:** Invert lightness on neutrals, reduce saturation 10-20% on semantic colors. Surfaces use oklch lightness 0.17-0.28. Semantic tokens carry their own dark values — raw palette classes with hand-written `dark:` variants are a smell
+## Color — Ink Neutral (token source: `src/app/globals.css`)
+- **Approach:** one ink accent + cool grays. Semantic colors are the only saturated colors on screen.
+- **Canvas / background:** `oklch(0.972 0.003 260)` — soft cool gray; the page is never white
+- **Card:** `oklch(1 0 0)` white — content sits on white cards over the gray canvas
+- **Foreground:** `oklch(0.145 0 0)`
+- **Primary (ink):** `oklch(0.22 0.01 260)`; primary-foreground white. Marks the single primary action per view.
+- **Accent (brand-soft):** `oklch(0.945 0.012 260)`; accent-foreground `oklch(0.22 0.02 260)`. Used for hover/active nav states and tinted sub-panels.
+- **Muted:** `oklch(0.97 0 0)`; muted-foreground `oklch(0.556 0 0)`
+- **Border:** `oklch(0.94 0 0)`; input border `oklch(0.90 0 0)`; ring `oklch(0.55 0.02 260)`
+- **Semantic (tokens only — never raw Tailwind palette classes):**
+  - Success: `--success` `oklch(0.52 0.14 150)`
+  - Warning: `--warning` `oklch(0.55 0.14 60)`
+  - Error/Destructive: `--destructive` `oklch(0.577 0.245 27.325)`
+  - Info: `--info` `oklch(0.47 0.14 255)`
+  - Soft usage via opacity modifiers: `bg-success/10 border-success/30 text-success`; solid usage pairs with `*-foreground`. Badge has `success`/`warning`/`info` variants; banners use `Alert`.
+- **Charts:** neutral ink lightness ramp `--chart-1..5` for series data; evaluative charts (good/at-risk/bad) use success/warning/destructive directly. Never blue/violet series colors.
+- **Bank-brand exemption:** Thai bank identity colors (KBank green, SCB purple, …) in the bank-account list and statement-upload bank picker are brand marks, not UI semantics — they are the only permitted raw palette classes and live only in `bank-account-list.tsx` and `smart-upload-form.tsx`.
+- **Dark mode:** removed. There is no `.dark` block, no `dark:` variants, no theme switching. Reintroducing dark mode is a product decision, not a styling tweak.
+- **Retired:** the warm golden-brown accent (oklch hue 80) and all `--sidebar-*` tokens.
+
+## Surfaces
+- **Card anatomy:** white `bg-card`, `border border-border`, `shadow-xs` (`0 1px 2px oklch(0 0 0 / 0.05)`), `rounded-xl` (14px). No rings, no heavier shadows.
+- **Tinted sub-panel** (detail block inside a card): inline `rounded-lg bg-accent p-4` — usage pattern, not a component.
+- **White vs canvas:** after the gray canvas, `bg-background` means gray. Anything that must read as a raised white surface uses `bg-card` (active tab pill, outline button, sheets, popovers).
+- **Border radius:** `--radius: 0.625rem`; hierarchical sm/md/lg from it; cards are `rounded-xl` = 14px exactly. Do not invent new radii.
 
 ## Spacing
-- **Base unit:** 4px
-- **Density:** Comfortable — financial data needs breathing room to be scannable
-- **Scale:** 2xs(2) xs(4) sm(8) md(16) lg(24) xl(32) 2xl(48) 3xl(64)
-- **Touch targets:** Minimum 44px height for interactive elements (already enforced in sidebar nav)
+- **Base unit:** 4px; scale 2xs(2) xs(4) sm(8) md(16) lg(24) xl(32) 2xl(48) 3xl(64)
+- **Density:** comfortable — financial data needs breathing room to scan
+- **Touch targets:** minimum 44px height for anything reachable by touch — tab strips (they render on mobile), the mobile tab bar, and the mobile More sheet. The desktop-only sidebar is pointer-driven and may be denser (rows ≥36px).
 
-## Layout
-- **Approach:** Mobile-first
-- **Philosophy:** Every component is designed for 320px viewport FIRST, then expanded with responsive utilities. Desktop is the progressive enhancement, not the default
-- **Grid:** Single column mobile, 2-column tablet, sidebar + content desktop
-- **Breakpoints:** `sm(640px)` `md(768px)` `lg(1024px)` `xl(1280px)`
-- **Desktop shell:** Persistent two-tier left nav, 304px total width: 64px primary icon strip + 240px secondary text panel. Main content is fluid and scrolls independently.
-- **Mobile shell:** 56px header with hamburger + workspace actions. Navigation opens in a left Sheet that stacks the same tier-1 categories above the selected tier-2 section links.
-- **Max content width:** Fluid within the main area, tables scroll horizontally on mobile
-- **Border radius:** Hierarchical — sm: `calc(0.625rem * 0.6)`, md: `calc(0.625rem * 0.8)`, lg: `0.625rem`, full: `9999px`
+## Layout & Shell
+- **Desktop shell:** single left sidebar (~240px, `bg-card`, border-right) + thin top bar + fluid main content on the gray canvas.
+  - Sidebar: brand + org switcher in the header; 5 top-level items; Settings pinned in the footer.
+  - Top bar: capture button, help trigger, locale switcher, user menu. No search, no month picker (future flows — search will be Mobbin-guided when built; a persistent global period context is an explicit non-goal).
+- **Mobile shell:** bottom tab bar — Home, Bank, ＋ capture FAB (center, routes to `/capture`), Tax, More. "More" opens a sheet exposing the full nav tree so every route stays reachable. No hamburger, no drawer.
+- **Breakpoints:** `sm(640px)` `md(768px)` `lg(1024px)` `xl(1280px)`; mobile-first — components are designed at 320px first.
+- **Max content width:** fluid within the main area; tables scroll horizontally on mobile.
 
 ## Navigation
-- **Desktop:** Gamma-style two-tier shell. Tier 1 is icon-first category navigation (7 main categories + a Settings gear anchored at the strip bottom); Tier 2 shows grouped links for the active category. Workspace/org controls sit at the top of Tier 2.
-- **Long-tail groups:** Operations tier-2 sections are collapsible accordions, default collapsed; the section containing the active route auto-opens. Openness is derived state (user override wins), no persistence in v1.
-- **Mobile:** Hamburger menu opens a Sheet with tier categories (4-column grid) and section links; it must expose the same destinations as desktop, including the accordions.
-- **Active state:** Category and item active states are route-derived. Use longest-prefix style behavior so sibling paths such as `/tax/vat` and `/tax/vat/forecast` do not mis-highlight.
-- **Keyboard:** Tier-1 navigation supports arrow keys plus Home/End. Focus states must remain visible and use the shared ring token.
-- **Heading hierarchy:** Section headings use `text-foreground/40` (subordinate labels), clickable items use `text-muted-foreground` (interactive), active items use `bg-accent text-accent-foreground font-semibold`
-- **Group separation:** Use subtle `border-border` separators between tier panels and section groups; avoid heavy background blocks.
+- **Top level (exactly five):** Home, Bank, Documents, Tax, More — plus Settings in the sidebar footer, plus a profile-gated sixth item "Sales" when the org has `hasPosSales`.
+- **Groups expand in place** (accordion; the active section auto-opens): Tax ▾ VAT / Withholding / Calendar; More ▾ Vendors, Reports, Payroll, Accounting, Analytics. Reconciliation lives under Bank. URLs never move for IA reasons.
+- **Depth budget: max 2 nav levels ever** — sidebar parent → (sidebar child | in-page tab). Anything deeper is a drawer, dialog, or drill-down row inside the page.
+- **In-page tabs are route-based:** a tab strip is a `nav[aria-label="Section navigation"]` of links styled as tabs, rendered by a nested `layout.tsx`. Deep links always work; the URL is the state. Genuine content tabs inside one route (e.g. PND 2/3/53/54 form panels) use the Base UI `Tabs` component.
+- **Active state:** route-derived, longest-prefix; rendered as `bg-accent text-accent-foreground font-semibold` plus `aria-current="page"`. No left-border indicators.
+- **Badges carry "why go here":** counts on Documents/Bank (same query as the dashboard cockpit — numbers must never disagree) and the next filing deadline chip on Tax. Badges are advisory and eventually consistent — they refresh per navigation, never by polling. Badge pills are `aria-hidden` so a link's accessible name never churns with data ("Documents", never "Documents 7"); the cockpit carries the authoritative, accessible counts.
+- **Keyboard:** sidebar uses roving tabindex — arrow keys move focus, Enter activates, Home/End jump. Focus rings use the shared ring token and must stay visible.
+
+## Domain Display Rules
+- **Settlement strip (sales/POS money):** Gross − Discounts (may be 0) → VAT (7/107 of the discounted total) → − Fees → **Net-to-bank**. Net is what reconciliation matches against statements. Rendered with the `FlowStrip` component; every figure through `Amount`.
+- **PP30 computation strip:** the VAT dashboard renders the PP30 math the same way — Output VAT − Input VAT − PP36 reclaim − Carryforward = **Net VAT payable** — via `FlowStrip` (`src/components/ui/flow-strip.tsx`); the equals-step gets `bg-accent` emphasis.
+- **Tax IA:** the Compliance Calendar is a pure awareness hub linking into VAT and WHT sections. PP36 is never mixed into PP30 input VAT. อย่างย่อ (abbreviated) receipts cannot claim input VAT.
+- **Status rendering:** every domain status has exactly one bilingual rendering, defined in the status registry (`src/lib/ui/status-registry.ts`) and rendered by `StatusBadge`. No page-local status colors or labels.
+- **Workflow explainer graphs:** clean n8n-style node canvases (never sketch/whiteboard styling), English labels, click-a-node → explainer sidebar. Explanatory only — an ordered-text equivalent must exist for accessibility.
+- **AI posture:** AI suggests, humans confirm. Every AI-derived value shows confidence and a review affordance; nothing auto-commits.
 
 ## Motion
-- **Approach:** Minimal-functional — only transitions that aid comprehension
-- **Easing:** enter: `ease-out`, exit: `ease-in`, move: `ease-in-out`
+- **Approach:** minimal-functional — only transitions that aid comprehension
+- **Easing:** enter `ease-out`, exit `ease-in`, move `ease-in-out`
 - **Duration:** micro(50-100ms) short(150-250ms) medium(250-400ms)
-- **Where used:** Color transitions on hover (150ms), sheet open/close (200ms), page transitions
+- **Where used:** hover color transitions (150ms), sheet open/close (200ms), accordion expand
+
+## Test Contract (accessibility layer — no test IDs)
+- e2e asserts roles, names, and ARIA — never `data-testid`.
+- Fixed landmarks: `nav[aria-label="Primary navigation"]` (sidebar), `nav[aria-label="Section navigation"]` (tab strips), `nav[aria-label="Mobile navigation"]` (bottom bar), `nav[aria-label="More navigation"]` (full nav tree inside the mobile More sheet); every route renders a visible `<main>`.
+- **Heading-text freeze:** rendered page-heading accessible names are byte-frozen; changing one requires updating the corresponding spec in the same diff.
+- Active nav state is asserted via `aria-current="page"` (primary) with the `bg-accent` class as canary.
 
 ## Anti-Patterns (Never Do These)
-- Purple/violet gradients as accent
-- 3-column feature grid with icons in colored circles
-- Gradient buttons as primary CTA
-- Uniform bubbly border-radius on everything
-- Generic stock-photo hero sections
-- Left-border active indicators on sidebar nav (use bg + font-weight instead)
+- Purple/violet as accent; any raw Tailwind palette class (`bg-green-500`, `text-blue-600`, …) — semantic tokens only (sole exemption: bank brand marks, see Color)
+- `font-mono` or `toLocaleString` for money — `Amount` is the only money path (non-money exemptions listed under Typography)
+- `dark:` variants or theme providers — dark mode does not exist
+- Left-border active indicators on nav
+- Stateful in-page tabs for navigation (tabs that don't change the URL) — section tabs are links
+- 3-column feature grids with icons in colored circles, gradient buttons, uniform bubbly radii, stock-photo heroes
+- `data-testid` attributes — the accessibility layer is the test contract
 
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-04-01 | Initial design system created | Created by /design-consultation based on product context |
-| 2026-04-01 | Nav headings use text-foreground/40 | Distinguish from interactive items which use text-muted-foreground |
-| 2026-04-01 | Mobile sheet uses bg-sidebar | Prevent white background bleed from bg-background mismatch |
-| 2026-04-01 | Mobile-first as core layout principle | Prevent desktop-first debt accumulation |
-| 2026-04-01 | App renamed to Long Dtua (ลงตัว) | "Everything falls into place" — product identity |
-| 2026-04-01 | No left-border nav indicators | User preference — use bg highlight + font-weight for active state |
-| 2026-05-16 | Two-tier navigation shell adopted | Keeps 50+ accounting/tax destinations scannable while preserving existing route compatibility |
-| 2026-07-02 | Semantic success/warning/info tokens implemented | UI review found ~127 raw palette usages across 26 files with inconsistent dark mode; tokens + Alert/Badge variants replace them |
-| 2026-07-02 | Page heading standardized at 24px/600 | The de-facto standard on all 49 pages; doc updated to match reality instead of forcing a 32px retrofit |
-| 2026-07-02 | tabular-nums mandated for money; mono reserved for IDs | Review found a 29-file font-mono / 12-file tabular-nums split on financial columns |
-| 2026-07-02 | Kit primitives added: PageHeader, StatCard, Alert, EmptyState, StatusBadge, Amount | Review found the same patterns hand-rolled on ~40 pages with drifting details |
-| 2026-07-02 | Nav group headers darkened to text-foreground/70 + border-t separators between tier-2 groups | Founder walkthrough: tax menu group headers read weaker than items, groups blurred together; separators were already specified but never implemented |
-| 2026-07-02 | Tier-1 tooltips via portal-based kit Tooltip (Base UI) | Old absolutely-positioned hover span was clipped by the icon strip's scroll container, so labels never appeared |
-| 2026-07-02 | Guided-compliance shell: Sales & POS and Compliance tier-1, Operations accordion replaces 29-item More, Settings gear anchored at strip bottom | Founder-approved IA proposal (docs/reviews/nav-ia-proposal-2026-07-02.md) — non-professionals see the monthly loop, not the whole ledger |
+| 2026-04-01 | Initial design system created | /design-consultation baseline |
+| 2026-04-01 | Mobile-first as core layout principle | Prevent desktop-first debt |
+| 2026-04-01 | No left-border nav indicators | Owner preference — bg + weight for active state |
+| 2026-05-16 | Two-tier navigation shell adopted | Superseded 2026-08-02 by the single-sidebar shell |
+| 2026-07-02 | Semantic success/warning/info tokens; Alert/Badge variants | ~127 raw palette usages replaced |
+| 2026-07-02 | Page heading standardized at 24px/600 | De-facto standard across all pages |
+| 2026-07-02 | tabular-nums mandated for money; mono reserved for IDs | 29-file font-mono / 12-file tabular-nums split found |
+| 2026-07-02 | Kit primitives: PageHeader, StatCard, Alert, EmptyState, StatusBadge, Amount | Same patterns hand-rolled on ~40 pages |
+| 2026-08-02 | Quicken Simplifi = primary shell/global-style reference; Midday/Mercury/Attio/Wise/Stripe supporting | Owner selection from Mobbin review |
+| 2026-08-02 | **Ink Neutral palette adopted; warm golden-brown retired** | Owner-approved mockups (Lavish rounds 1–3): gray canvas, white cards, ink accent |
+| 2026-08-02 | **Single sidebar, 5 top-level items + gated Sales; owner/pro toggle rejected; depth budget ≤2; in-page tabs route-based** | Owner: "no owner/pro toggle — minimise menu items and fold complexity inside pages" |
+| 2026-08-02 | Dark mode removed entirely | Dead code — never activated; owner-mode reset ships light-only |
+| 2026-08-02 | Nav pins feature removed (`user_nav_pins` dropped) | Doesn't fit the minimal 5-item nav; owner decision |
+| 2026-08-02 | Brand romanization standardized to "Long Tua" | Owner decision (RTGS romanization) |
+| 2026-08-02 | Thin desktop top bar (capture/help/locale/user); search + month slots deliberately absent | Search is a future Mobbin-guided flow; global period context is a non-goal |
+| 2026-08-02 | Mobbin recorded as the flow-reference process for future flows | Owner instruction during reset planning |
+| 2026-08-02 | Composite-header exception codified (inline `<h1>`, frozen typography) | Bank-account detail + document review need inline back-link/tabs/actions |
+| 2026-08-02 | Money-formatting exemptions codified: counts/quantities, 4-decimal inventory figures, USD AI micro-costs, `<option>` text | Stage 5 sweep — `Amount` covers all THB money; satang lib mandated for money math |
+| 2026-08-02 | Bank brand colors exempted from the raw-palette ban | Brand identity marks, not UI semantics |
+| 2026-08-02 | FlowStrip extended to the PP30 computation strip | Same gross→net display rule as settlement math |
+| 2026-08-02 | **Sidebar children de-duplicated against tab strips** — Tax ▾ VAT / Withholding Tax / Compliance Calendar / Statutory Reports; Bank ▾ Reconciliation only; Documents has no children. A destination appears in the sidebar OR a tab strip, never both | Sol pass (b) P1: sidebar duplicated every tab strip, breaking the depth budget; approved mockup shows one child level |
+| 2026-08-02 | Tab-strip links get `min-h-11` (44px touch-target floor applies to tab strips, not just nav/mobile bar) | Sol pass (b) P1: 36px tabs vs the documented 44px minimum |
+| 2026-08-02 | "Compliance Calendar" is the one name for /tax/calendar (page title + EN nav; TH stays ปฏิทินภาษี) | Sol pass (b) P2: three names in flight (Tax Calendar / Filing Calendar / Compliance Calendar) |
+| 2026-08-02 | Document-side reconciliation badges (documents table + detail sidebar) route through the status registry; localized labels stay via the `label` prop | /design-review audit P1: matched/partial/unmatched rendered as default/outline/secondary locally while the transaction table used registry variants for the same statuses |

@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
-import { TwoTierSidebar } from "@/components/layout/two-tier-sidebar";
-import { MobileDrawer } from "@/components/layout/mobile-drawer";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import { TopBar } from "@/components/layout/top-bar";
+import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import {
   getOrganizationById,
@@ -10,12 +10,10 @@ import {
   isUserMemberOfOrg,
 } from "@/lib/db/queries/organizations";
 import { getCurrentUser } from "@/lib/utils/auth";
-import { listPins } from "@/lib/db/queries/user-nav-pins";
-import { isKnownNavHref } from "@/lib/nav/pins";
+import { getNavBadges } from "@/lib/nav/badges";
 import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { HelpSidebar } from "@/components/help/help-sidebar";
 import { NoOrgGate } from "@/components/layout/no-org-gate";
+import type { NavGateFlags } from "@/lib/nav/structure";
 
 export default async function AppLayout({
   children,
@@ -37,6 +35,7 @@ export default async function AppLayout({
 
   // Validate that the active org exists AND the user has access to it
   let validActiveOrgId: string | null = null;
+  let gateFlags: NavGateFlags = { hasPosSales: false, hasEmployees: false };
   if (activeOrgId && dbUser) {
     const [activeOrg, hasAccess] = await Promise.all([
       getOrganizationById(activeOrgId),
@@ -44,6 +43,10 @@ export default async function AppLayout({
     ]);
     if (activeOrg && hasAccess) {
       validActiveOrgId = activeOrgId;
+      gateFlags = {
+        hasPosSales: activeOrg.hasPosSales,
+        hasEmployees: activeOrg.hasEmployees,
+      };
     }
   }
 
@@ -53,44 +56,34 @@ export default async function AppLayout({
     branchNumber: o.branchNumber,
   }));
 
-  // User nav pins — silently drop pins whose href left the nav structure.
-  const pins =
-    dbUser && validActiveOrgId ? await listPins(validActiveOrgId, dbUser.id) : [];
-  const pinnedHrefs = pins.map((pin) => pin.href).filter(isKnownNavHref);
+  // Advisory badges — refreshed per navigation, never polled.
+  const badges = validActiveOrgId
+    ? await getNavBadges(validActiveOrgId)
+    : undefined;
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Desktop sidebar */}
       <div className="hidden md:flex">
-        <TwoTierSidebar
+        <AppSidebar
           orgs={orgList}
           activeOrgId={validActiveOrgId}
-          pinnedHrefs={pinnedHrefs}
+          gateFlags={gateFlags}
+          badges={badges}
         />
       </div>
 
-      {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile header */}
-        <header className="flex h-14 items-center gap-2 border-b px-4 md:hidden">
-          <MobileDrawer
-            orgs={orgList}
-            activeOrgId={validActiveOrgId}
-            pinnedHrefs={pinnedHrefs}
-          />
-          <span className="text-lg font-semibold text-primary">Long Dtua</span>
-          <div className="ml-auto flex items-center gap-1">
-            <TooltipProvider delay={200} closeDelay={0}>
-              <HelpSidebar />
-            </TooltipProvider>
-            <UserButton />
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6">
+        <TopBar />
+        <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">
           {validActiveOrgId ? children : <NoOrgGate hasOrgs={orgs.length > 0} />}
         </main>
       </div>
+
+      <MobileTabBar
+        orgs={orgList}
+        activeOrgId={validActiveOrgId}
+        gateFlags={gateFlags}
+      />
 
       <Toaster />
     </div>

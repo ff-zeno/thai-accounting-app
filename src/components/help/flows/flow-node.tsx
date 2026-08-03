@@ -16,7 +16,7 @@ const KIND_CLASSES: Record<HelpFlowNodeKind, string> = {
   step: "border-border bg-card text-foreground",
   action: "border-primary/50 bg-accent text-accent-foreground",
   outcome: "border-border bg-muted text-foreground",
-  note: "border-dashed border-border bg-background text-muted-foreground",
+  note: "border-dashed border-border bg-card text-muted-foreground",
 };
 
 const HIDDEN_HANDLE_STYLE = { visibility: "hidden" } as const;

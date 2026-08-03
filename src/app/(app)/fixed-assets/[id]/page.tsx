@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Calculator, Landmark } from "lucide-react";
 import { getFixedAssetDetail } from "@/lib/db/queries/fixed-assets";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

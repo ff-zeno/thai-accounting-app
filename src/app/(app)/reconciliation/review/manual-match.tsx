@@ -4,15 +4,14 @@ import { useState, useTransition, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Check,
   AlertTriangle,
   Landmark,
   FileText,
   Loader2,
 } from "lucide-react";
-import Link from "next/link";
 import { Amount } from "@/components/ui/amount";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,14 +49,6 @@ interface Props {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatAmount(amount: string | null, currency?: string | null): string {
-  if (!amount) return "--";
-  return `${parseFloat(amount).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} ${currency || "THB"}`;
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -171,21 +162,11 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button variant="ghost" size="icon" render={<Link href="/reconciliation" />}>
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Manual Reconciliation
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Select transaction(s) on the left and a document on the right to
-            create a match
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        className="mb-6"
+        title="Manual Reconciliation"
+        description="Select transaction(s) on the left and a document on the right to create a match"
+      />
 
       {/* Side-by-side panels */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
@@ -305,8 +286,8 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                           {doc.issueDate || "No date"}
                         </p>
                       </div>
-                      <span className="whitespace-nowrap text-sm tabular-nums">
-                        {formatAmount(doc.totalAmount, doc.currency)}
+                      <span className="whitespace-nowrap text-sm">
+                        <Amount value={doc.totalAmount} /> {doc.currency || "THB"}
                       </span>
                     </button>
                   );
@@ -327,8 +308,8 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                 <p className="text-xs font-medium text-muted-foreground">
                   Selected Transactions ({selectedTxnIds.size})
                 </p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {formatAmount(selectedTxnTotal.toFixed(2))}
+                <p className="text-lg font-semibold">
+                  <Amount value={selectedTxnTotal} /> THB
                 </p>
               </div>
 
@@ -337,10 +318,15 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                 <p className="text-xs font-medium text-muted-foreground">
                   Selected Document
                 </p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {selectedDoc
-                    ? formatAmount(selectedDoc.totalAmount, selectedDoc.currency)
-                    : "--"}
+                <p className="text-lg font-semibold">
+                  {selectedDoc ? (
+                    <>
+                      <Amount value={selectedDoc.totalAmount} />{" "}
+                      {selectedDoc.currency || "THB"}
+                    </>
+                  ) : (
+                    "--"
+                  )}
                 </p>
               </div>
 
@@ -351,7 +337,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                     Difference
                   </p>
                   <p
-                    className={`text-lg font-semibold tabular-nums ${
+                    className={`text-lg font-semibold ${
                       amountDifference < 0.01
                         ? "text-success"
                         : hasAmountWarning
@@ -359,7 +345,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                           : "text-warning"
                     }`}
                   >
-                    {formatAmount(amountDifference.toFixed(2))}
+                    <Amount value={amountDifference} /> THB
                   </p>
                 </div>
               )}

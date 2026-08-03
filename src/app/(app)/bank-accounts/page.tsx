@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/ui/page-header";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getBankAccountsByOrg } from "@/lib/db/queries/bank-accounts";
 import { BankAccountList } from "./bank-account-list";
@@ -16,7 +17,7 @@ export default async function BankAccountsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Bank Accounts</h1>
+      <PageHeader title="Bank Accounts" />
       <BankAccountList accounts={accounts} />
     </div>
   );

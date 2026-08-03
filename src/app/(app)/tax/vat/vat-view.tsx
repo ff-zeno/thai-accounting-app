@@ -2,14 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlowStrip } from "@/components/ui/flow-strip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatCard } from "@/components/ui/stat-card";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -35,7 +37,6 @@ import {
   fileVatLedgerDraftAction,
   loadVatDataAction,
   loadVatRegisterAction,
-  loadVatForecastAction,
   recordPp36VatLedgerPaymentAction,
 } from "./actions";
 import {
@@ -49,6 +50,7 @@ import {
   Hammer,
   ReceiptText,
 } from "lucide-react";
+import { sumAmounts } from "@/lib/utils/money";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -136,15 +138,6 @@ interface VatBranchReadinessRow {
   pp30: VatLedgerPeriodDashboard["pp30"];
 }
 
-interface VatForecastRow {
-  period: { year: number; month: number };
-  pp30: VatLedgerPeriodDashboard["pp30"];
-  pp36: VatLedgerPeriodDashboard["pp36"];
-  expiringInputVat: { count: number; vatAmount: string };
-  pp36Reclaimable: { count: number; vatAmount: string };
-  advisoryOnly: boolean;
-}
-
 interface VatLedgerDraftResult {
   filing: {
     id: string;
@@ -187,43 +180,6 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function formatAmount(value: string | null): string {
-  if (!value) return "0.00";
-  let normalized: string;
-  try {
-    normalized = centsToMoney(moneyToCents(value));
-  } catch {
-    normalized = "0.00";
-  }
-  return Number(normalized).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatPeriod(year: number, month: number): string {
-  return `${String(month).padStart(2, "0")}/${year}`;
-}
-
-function moneyToCents(value: string): bigint {
-  const trimmed = value.trim();
-  const sign = trimmed.startsWith("-") ? BigInt(-1) : BigInt(1);
-  const unsigned = trimmed.replace(/^[+-]/, "");
-  const [whole = "0", fractional = ""] = unsigned.split(".");
-  const cents = `${fractional}00`.slice(0, 2);
-  return sign * (BigInt(whole || "0") * BigInt(100) + BigInt(cents || "0"));
-}
-
-function centsToMoney(cents: bigint): string {
-  const zero = BigInt(0);
-  const hundred = BigInt(100);
-  const sign = cents < zero ? "-" : "";
-  const absolute = cents < zero ? -cents : cents;
-  const whole = absolute / hundred;
-  const fractional = String(absolute % hundred).padStart(2, "0");
-  return `${sign}${whole}.${fractional}`;
-}
-
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -249,7 +205,6 @@ export function VatView({
   const [pp36PaymentAmount, setPp36PaymentAmount] = useState("");
   const [pp36PaymentDate, setPp36PaymentDate] = useState("");
   const [pp36PaymentReceipt, setPp36PaymentReceipt] = useState("");
-  const [forecast, setForecast] = useState<VatForecastRow[] | null>(null);
   const [branchReadiness, setBranchReadiness] = useState<VatBranchReadinessRow[]>([]);
   const [selectedEstablishmentId, setSelectedEstablishmentId] = useState("");
 
@@ -280,7 +235,6 @@ export function VatView({
       setLedgerDraft(null);
       setLedgerFiled(null);
       setLedgerActionError(null);
-      setForecast(null);
     });
   }
 
@@ -374,18 +328,6 @@ export function VatView({
       setLedgerFiled(null);
       setLedgerActionError(null);
       handleLoadData();
-    });
-  }
-
-  function handleLoadForecast() {
-    startTransition(async () => {
-      const result = await loadVatForecastAction(year, month);
-      if (!("success" in result)) {
-        setLedgerActionError(result.error ?? "VAT forecast could not be loaded.");
-        return;
-      }
-      setForecast(result.forecast as VatForecastRow[]);
-      setLedgerActionError(null);
     });
   }
 
@@ -529,13 +471,13 @@ export function VatView({
                         </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatAmount(branch.pp30.outputVatTotal)}
+                        <Amount value={branch.pp30.outputVatTotal} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatAmount(branch.pp30.inputVatTotal)}
+                        <Amount value={branch.pp30.inputVatTotal} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatAmount(branch.pp30.netPayable)}
+                        <Amount value={branch.pp30.netPayable} />
                       </TableCell>
                       <TableCell className="text-right">
                         {branch.missingBranchCount}
@@ -599,31 +541,44 @@ export function VatView({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <SummaryCard
-                    label="Output VAT"
-                    sublabel="Ledger output items"
-                    value={dashboard.pp30.outputVatTotal}
-                  />
-                  <SummaryCard
-                    label="Input VAT (PP 30)"
-                    sublabel="Ledger input claims"
-                    value={dashboard.pp30.inputVatTotal}
-                  />
-                  <SummaryCard
-                    label="Net VAT Payable"
-                    sublabel="After reclaims and carryforward"
-                    value={dashboard.pp30.netPayable}
-                    highlight
-                  />
-                </div>
+                <FlowStrip
+                  steps={[
+                    {
+                      label: "Output VAT",
+                      value: dashboard.pp30.outputVatTotal,
+                      hint: "Ledger output items",
+                    },
+                    {
+                      op: "minus",
+                      label: "Input VAT (PP 30)",
+                      value: dashboard.pp30.inputVatTotal,
+                      hint: "Ledger input claims",
+                    },
+                    {
+                      op: "minus",
+                      label: "PP 36 reclaim",
+                      value: dashboard.pp30.pp36ReclaimTotal,
+                    },
+                    {
+                      op: "minus",
+                      label: "Carryforward in",
+                      value: dashboard.pp30.carryforwardIn,
+                    },
+                    {
+                      op: "equals",
+                      label: "Net VAT Payable",
+                      value: dashboard.pp30.netPayable,
+                      hint: "After reclaims and carryforward",
+                    },
+                  ]}
+                />
 
                 {parseFloat(dashboard.pp30.refundable) > 0 && (
                   <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Lock className="size-4 text-muted-foreground" />
                       <span className="font-medium">
-                        Refundable / carryforward credit: {formatAmount(dashboard.pp30.refundable)}
+                        Refundable / carryforward credit: <Amount value={dashboard.pp30.refundable} />
                       </span>
                       <span className="text-muted-foreground">
                         Credit is frozen only when the PP 30 ledger draft is filed.
@@ -706,14 +661,6 @@ export function VatView({
                 >
                   {showRegister ? "Refresh Register" : "View Register"}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLoadForecast}
-                  disabled={isPending}
-                >
-                  Forecast
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -726,8 +673,6 @@ export function VatView({
               month={month}
             />
           )}
-
-          {forecast && <VatForecastDisplay forecast={forecast} />}
         </>
       )}
     </div>
@@ -975,10 +920,7 @@ function LedgerStatusGroup({
   items: VatLedgerStatusSummary[];
 }) {
   const totalCount = items.reduce((sum, item) => sum + item.count, 0);
-  const totalVat = items.reduce(
-    (sum, item) => sum + moneyToCents(item.vatAmount),
-    BigInt(0)
-  );
+  const totalVat = sumAmounts(items.map((item) => item.vatAmount));
 
   return (
     <div className="rounded-lg border p-3">
@@ -988,8 +930,8 @@ function LedgerStatusGroup({
           {totalCount}
         </div>
       </div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">
-        {formatAmount(centsToMoney(totalVat))}
+      <div className="mt-1">
+        <Amount value={totalVat} className="text-lg font-semibold" />
       </div>
       <div className="mt-3 space-y-2">
         {items.length === 0 ? (
@@ -1004,7 +946,7 @@ function LedgerStatusGroup({
                 {formatStatusLabel(item.status)}
               </span>
               <span className="tabular-nums">
-                {item.count} / {formatAmount(item.vatAmount)}
+                {item.count} / <Amount value={item.vatAmount} />
               </span>
             </div>
           ))
@@ -1023,55 +965,6 @@ function getExceptionSeverityVariant(severity: string) {
     default:
       return "secondary" as const;
   }
-}
-
-function VatForecastDisplay({ forecast }: { forecast: VatForecastRow[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>VAT Forecast</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Period</TableHead>
-              <TableHead>PP 30</TableHead>
-              <TableHead>PP 36</TableHead>
-              <TableHead className="text-right">Expiring Input</TableHead>
-              <TableHead className="text-right">PP 36 Reclaimable</TableHead>
-              <TableHead className="text-right">Projected Payable</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {forecast.map((row) => (
-              <TableRow key={`${row.period.year}-${row.period.month}`}>
-                <TableCell>{formatPeriod(row.period.year, row.period.month)}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{formatStatusLabel(row.pp30.status)}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{formatStatusLabel(row.pp36.status)}</Badge>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {row.expiringInputVat.count} / {formatAmount(row.expiringInputVat.vatAmount)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {row.pp36Reclaimable.count} / {formatAmount(row.pp36Reclaimable.vatAmount)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatAmount(row.pp30.netPayable)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Forecast is advisory only and does not create or mutate filing state.
-        </p>
-      </CardContent>
-    </Card>
-  );
 }
 
 function formatStatusLabel(value: string): string {
@@ -1103,7 +996,7 @@ function SummaryCard({
       hint={sublabel}
       value={
         <span className={highlight && numValue < 0 ? "text-success" : undefined}>
-          {formatAmount(value)}
+          <Amount value={value} />
         </span>
       }
       className={highlight ? "border-primary/30 bg-primary/5" : undefined}
@@ -1173,10 +1066,10 @@ function VatRegisterDisplay({
                       {entry.customerTaxId || "-"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatAmount(entry.baseAmount)}
+                      <Amount value={entry.baseAmount} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatAmount(entry.vatAmount)}
+                      <Amount value={entry.vatAmount} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1187,7 +1080,7 @@ function VatRegisterDisplay({
                     Total Output VAT
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
-                    {formatAmount(data.outputTotal)}
+                    <Amount value={data.outputTotal} />
                   </TableCell>
                 </TableRow>
               </TableFooter>
@@ -1243,10 +1136,10 @@ function VatRegisterDisplay({
                       {entry.vendorTaxId || "-"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatAmount(entry.baseAmount)}
+                      <Amount value={entry.baseAmount} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatAmount(entry.vatAmount)}
+                      <Amount value={entry.vatAmount} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1257,7 +1150,7 @@ function VatRegisterDisplay({
                     Total Input VAT
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
-                    {formatAmount(data.inputTotal)}
+                    <Amount value={data.inputTotal} />
                   </TableCell>
                 </TableRow>
               </TableFooter>

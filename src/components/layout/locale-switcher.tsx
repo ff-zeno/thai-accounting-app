@@ -28,7 +28,7 @@ export function LocaleSwitcher() {
       size="sm"
       onClick={switchLocale}
       disabled={isPending}
-      className="w-full justify-start gap-2 text-muted-foreground"
+      className="gap-2 text-muted-foreground"
       title={t("switchTo")}
     >
       <Globe className="size-4" />

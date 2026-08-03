@@ -1,15 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  ArrowRightLeft,
   BarChart3,
   Bot,
   BookOpen,
   Boxes,
-  Briefcase,
   Calendar,
-  CalendarCheck,
-  Camera,
   ClipboardList,
   FileText,
   FolderKanban,
@@ -17,8 +13,8 @@ import {
   Home,
   Landmark,
   Layers3,
-  Lightbulb,
   LockKeyhole,
+  MoreHorizontal,
   PackageSearch,
   Receipt,
   Settings,
@@ -29,50 +25,62 @@ import {
   UsersRound,
 } from "lucide-react";
 
+/** Org profile flags that gate nav visibility. */
+export interface NavGateFlags {
+  hasPosSales: boolean;
+  hasEmployees: boolean;
+}
+
 export interface NavItem {
   labelKey: string;
   href: string;
   icon: LucideIcon;
+  /** Item only renders when the org profile flag is true. */
+  gate?: keyof NavGateFlags;
 }
 
-export interface NavSection {
-  labelKey: string;
+/** A labelled group of child links rendered under an expanded entry. */
+export interface NavChildGroup {
+  /** null renders the items without a group heading. */
+  labelKey: string | null;
   items: NavItem[];
-  /** Collapsible sections render as accordions, default collapsed unless active. */
-  collapsible?: boolean;
 }
 
-export interface NavCategory {
+/**
+ * Top-level sidebar entry. The entry itself is a link (its href is the
+ * section home); children never repeat the section home.
+ */
+export interface NavEntry {
   labelKey: string;
   icon: LucideIcon;
   href: string;
-  sections: NavSection[];
-  /** "bottom" anchors the category below the main icon strip (Settings gear). */
-  anchor?: "bottom";
+  children: NavChildGroup[];
+  /** Entry only renders when the org profile flag is true. */
+  gate?: keyof NavGateFlags;
+  /** Badge slot identifier, resolved to a count by the shell (Stage 3). */
+  badgeKey?: "documents" | "bank" | "tax";
 }
 
-export const navCategories: NavCategory[] = [
+export const navEntries: NavEntry[] = [
   {
     labelKey: "home",
     icon: Home,
     href: "/dashboard",
-    sections: [
-      {
-        labelKey: "home",
-        items: [{ labelKey: "home", href: "/dashboard", icon: Home }],
-      },
-    ],
+    children: [],
   },
   {
     labelKey: "bank",
     icon: Landmark,
     href: "/bank-accounts",
-    sections: [
+    badgeKey: "bank",
+    // Upload lives in the /bank-accounts tab strip; reconciliation's own
+    // surfaces (review, AI review, insights) live in its tab strip. The
+    // sidebar only carries the section home of the reconciliation subflow.
+    children: [
       {
-        labelKey: "bank",
+        labelKey: null,
         items: [
-          { labelKey: "bankAccounts", href: "/bank-accounts", icon: Landmark },
-          { labelKey: "uploadStatement", href: "/bank-accounts/upload", icon: Upload },
+          { labelKey: "reconciliation", href: "/reconciliation", icon: GitCompareArrows },
         ],
       },
     ],
@@ -81,81 +89,24 @@ export const navCategories: NavCategory[] = [
     labelKey: "documents",
     icon: FileText,
     href: "/documents/expenses",
-    sections: [
-      {
-        labelKey: "documents",
-        items: [
-          { labelKey: "expenses", href: "/documents/expenses", icon: FileText },
-          { labelKey: "income", href: "/documents/income", icon: FileText },
-          { labelKey: "upload", href: "/documents/upload", icon: Upload },
-          { labelKey: "capture", href: "/capture", icon: Camera },
-        ],
-      },
-    ],
+    badgeKey: "documents",
+    // Expenses / Income / Upload are the /documents tab strip; Capture has
+    // the top-bar button and the mobile FAB. No sidebar children needed.
+    children: [],
   },
   {
-    labelKey: "reconciliationGroup",
-    icon: GitCompareArrows,
-    href: "/reconciliation",
-    sections: [
-      {
-        labelKey: "reconciliationGroup",
-        items: [
-          { labelKey: "overview", href: "/reconciliation", icon: GitCompareArrows },
-          { labelKey: "aiReview", href: "/reconciliation/ai-review", icon: Bot },
-          { labelKey: "reconciliationReview", href: "/reconciliation/review", icon: ArrowRightLeft },
-          { labelKey: "insights", href: "/reconciliation/insights", icon: Lightbulb },
-          { labelKey: "reconciliationRules", href: "/settings/reconciliation-rules", icon: Settings },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "salesPos",
-    icon: ShoppingCart,
-    href: "/sales",
-    sections: [
-      {
-        labelKey: "salesPos",
-        items: [
-          { labelKey: "salesOverview", href: "/sales", icon: ShoppingCart },
-        ],
-      },
-    ],
-  },
-  {
-    labelKey: "compliance",
+    labelKey: "tax",
     icon: Receipt,
     href: "/tax",
-    sections: [
+    badgeKey: "tax",
+    // One child level only — VAT and WHT internals are those pages' tab
+    // strips. The sidebar never gets deeper than "VAT".
+    children: [
       {
-        labelKey: "compliance",
-        items: [{ labelKey: "thisMonth", href: "/tax", icon: CalendarCheck }],
-      },
-      {
-        labelKey: "taxVat",
+        labelKey: null,
         items: [
-          { labelKey: "vatDashboard", href: "/tax/vat", icon: BarChart3 },
-          { labelKey: "inputVat", href: "/tax/vat/input", icon: Receipt },
-          { labelKey: "outputVat", href: "/tax/vat/output", icon: Receipt },
-          { labelKey: "vatRegister", href: "/tax/vat/register", icon: FileText },
-          { labelKey: "vatFilings", href: "/tax/vat/filings", icon: FileText },
-          { labelKey: "vatForecast", href: "/tax/vat/forecast", icon: BarChart3 },
-        ],
-      },
-      {
-        labelKey: "withholdingTax",
-        items: [
-          { labelKey: "whtDashboard", href: "/tax/withholding", icon: BarChart3 },
-          { labelKey: "incomingWht", href: "/tax/withholding/incoming", icon: Receipt },
-          { labelKey: "outgoingWht", href: "/tax/withholding/outgoing", icon: Receipt },
-          { labelKey: "whtRegister", href: "/tax/withholding/register", icon: FileText },
-          { labelKey: "whtFilings", href: "/tax/withholding/filings", icon: FileText },
-        ],
-      },
-      {
-        labelKey: "taxPlanning",
-        items: [
+          { labelKey: "taxVat", href: "/tax/vat", icon: Receipt },
+          { labelKey: "withholdingTax", href: "/tax/withholding", icon: Receipt },
           { labelKey: "taxCalendar", href: "/tax/calendar", icon: Calendar },
           { labelKey: "statutoryReports", href: "/tax/reports", icon: FileText },
         ],
@@ -163,13 +114,28 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    labelKey: "operations",
-    icon: Briefcase,
-    href: "/accounting",
-    sections: [
+    labelKey: "sales",
+    icon: ShoppingCart,
+    href: "/sales",
+    gate: "hasPosSales",
+    children: [],
+  },
+  {
+    labelKey: "more",
+    icon: MoreHorizontal,
+    href: "/vendors",
+    children: [
+      {
+        labelKey: "masterData",
+        items: [
+          { labelKey: "vendors", href: "/vendors", icon: Users },
+          { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
+          { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
+          { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },
+        ],
+      },
       {
         labelKey: "accounting",
-        collapsible: true,
         items: [
           { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
           { labelKey: "journal", href: "/accounting/journal", icon: BookOpen },
@@ -179,7 +145,6 @@ export const navCategories: NavCategory[] = [
       },
       {
         labelKey: "inventoryImports",
-        collapsible: true,
         items: [
           { labelKey: "inventoryControl", href: "/inventory", icon: Boxes },
           { labelKey: "importsControl", href: "/imports", icon: PackageSearch },
@@ -187,34 +152,21 @@ export const navCategories: NavCategory[] = [
       },
       {
         labelKey: "payrollAssets",
-        collapsible: true,
         items: [
-          { labelKey: "payrollControl", href: "/payroll", icon: UsersRound },
+          { labelKey: "payrollControl", href: "/payroll", icon: UsersRound, gate: "hasEmployees" },
           { labelKey: "fixedAssetRegister", href: "/fixed-assets", icon: ClipboardList },
           { labelKey: "fixedAssetRollForward", href: "/fixed-assets/reports/roll-forward", icon: ClipboardList },
         ],
       },
       {
         labelKey: "yearEndClose",
-        collapsible: true,
         items: [
           { labelKey: "closeChecklist", href: "/close", icon: LockKeyhole },
           { labelKey: "citWorkbench", href: "/year-end/cit", icon: Landmark },
         ],
       },
       {
-        labelKey: "masterData",
-        collapsible: true,
-        items: [
-          { labelKey: "vendors", href: "/vendors", icon: Users },
-          { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
-          { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
-          { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },
-        ],
-      },
-      {
         labelKey: "toolsAdmin",
-        collapsible: true,
         items: [
           { labelKey: "accountingCopilot", href: "/copilot", icon: Bot },
           { labelKey: "exports", href: "/reports", icon: Upload },
@@ -222,34 +174,55 @@ export const navCategories: NavCategory[] = [
       },
     ],
   },
-  {
-    labelKey: "settings",
-    icon: Settings,
-    href: "/settings",
-    anchor: "bottom",
-    sections: [
-      {
-        labelKey: "settings",
-        items: [
-          { labelKey: "organizationSettings", href: "/settings", icon: Settings },
-          { labelKey: "aiSettings", href: "/settings/ai", icon: Bot },
-          { labelKey: "extractionHealth", href: "/admin/extraction-health", icon: Activity },
-        ],
-      },
-    ],
-  },
 ];
 
-function isHrefActive(pathname: string, href: string): boolean {
+/** Settings lives in the sidebar footer, below the main entries. */
+export const settingsEntry: NavEntry = {
+  labelKey: "settings",
+  icon: Settings,
+  href: "/settings",
+  children: [
+    {
+      labelKey: null,
+      items: [
+        { labelKey: "aiSettings", href: "/settings/ai", icon: Bot },
+        { labelKey: "extractionHealth", href: "/admin/extraction-health", icon: Activity },
+      ],
+    },
+  ],
+};
+
+/** Filters entries and items by org profile gates. */
+export function getVisibleNavEntries(flags: NavGateFlags): NavEntry[] {
+  return navEntries
+    .filter((entry) => !entry.gate || flags[entry.gate])
+    .map((entry) => ({
+      ...entry,
+      children: entry.children
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => !item.gate || flags[item.gate]),
+        }))
+        .filter((group) => group.items.length > 0),
+    }));
+}
+
+export function isHrefActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href === "/dashboard") return false;
   return pathname.startsWith(`${href}/`);
 }
 
+function allNavItems(entries: NavEntry[]): NavItem[] {
+  return entries.flatMap((entry) => [
+    { labelKey: entry.labelKey, href: entry.href, icon: entry.icon },
+    ...entry.children.flatMap((group) => group.items),
+  ]);
+}
+
+/** Longest matching href wins, so deep links highlight the deepest item. */
 export function getActiveNavItem(pathname: string): NavItem | null {
-  const items = navCategories.flatMap((category) =>
-    category.sections.flatMap((section) => section.items)
-  );
+  const items = allNavItems([...navEntries, settingsEntry]);
   return (
     items
       .filter((item) => isHrefActive(pathname, item.href))
@@ -257,19 +230,25 @@ export function getActiveNavItem(pathname: string): NavItem | null {
   );
 }
 
-export function getActiveNavCategory(pathname: string): NavCategory {
-  const activeItem = getActiveNavItem(pathname);
-  const category =
-    activeItem &&
-    navCategories.find((entry) =>
-      entry.sections.some((section) =>
-        section.items.some((item) => item.href === activeItem.href)
-      )
-    );
-
-  return category ?? navCategories[0];
-}
-
 export function isNavItemActive(pathname: string, item: NavItem): boolean {
   return getActiveNavItem(pathname)?.href === item.href;
+}
+
+/**
+ * The entry that owns the current pathname — the one containing the active
+ * item (longest global match), so overlapping hrefs (e.g. reconciliation
+ * rules under Bank vs the Settings entry) resolve to a single owner.
+ */
+export function getActiveNavEntry(pathname: string): NavEntry | null {
+  const active = getActiveNavItem(pathname);
+  if (!active) return null;
+  return (
+    [...navEntries, settingsEntry].find(
+      (entry) =>
+        entry.href === active.href ||
+        entry.children.some((group) =>
+          group.items.some((item) => item.href === active.href)
+        )
+    ) ?? null
+  );
 }

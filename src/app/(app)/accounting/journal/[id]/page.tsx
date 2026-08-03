@@ -4,6 +4,7 @@ import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getJournalEntryDetail } from "@/lib/db/queries/general-ledger";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Table,
   TableBody,
@@ -27,10 +28,10 @@ export default async function JournalEntryDetailPage({
         <Link href="/accounting/journal" className="text-sm text-muted-foreground hover:underline">
           Back to journal
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Journal Entry Detail</h1>
-        <p className="text-sm text-muted-foreground">
-          Entry header, source trail, and balanced debit/credit lines.
-        </p>
+        <PageHeader
+          title="Journal Entry Detail"
+          description="Entry header, source trail, and balanced debit/credit lines."
+        />
       </div>
 
       {!orgId || !detail ? (

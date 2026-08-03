@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CircleAlert, Landmark } from "lucide-react";
 import { getFixedAssetDetail } from "@/lib/db/queries/fixed-assets";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";

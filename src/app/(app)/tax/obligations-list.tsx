@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const bangkokDateFormat = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Bangkok",

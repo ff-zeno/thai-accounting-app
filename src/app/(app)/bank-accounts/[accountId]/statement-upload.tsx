@@ -113,7 +113,7 @@ export function StatementUpload({ bankAccountId }: StatementUploadProps) {
     return (
       <Card>
         <CardContent className="flex items-start gap-3 p-4">
-          <CheckCircle className="mt-0.5 size-5 text-green-600" />
+          <CheckCircle className="mt-0.5 size-5 text-success" />
           <div>
             <p className="font-medium">Upload complete</p>
             <p className="text-sm text-muted-foreground">
@@ -121,7 +121,7 @@ export function StatementUpload({ bankAccountId }: StatementUploadProps) {
               skipped
             </p>
             {state.balanceWarning && (
-              <p className="mt-1 flex items-center gap-1 text-sm text-amber-600">
+              <p className="mt-1 flex items-center gap-1 text-sm text-warning">
                 <AlertTriangle className="size-4" />
                 {state.balanceWarning}
               </p>

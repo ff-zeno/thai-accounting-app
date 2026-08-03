@@ -6,6 +6,7 @@ import { buildInputTaxReport } from "@/lib/tax/input-tax-report";
 import { buildInventoryMovementReport } from "@/lib/tax/inventory-movement-report";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,13 +29,6 @@ type ReportsPageProps = {
     establishmentId?: string;
   }>;
 };
-
-function amount(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function quantity(value: string | null | undefined) {
   return Number(value ?? 0).toLocaleString("en-US", {
@@ -274,7 +268,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-semibold">
-                  {amount(outputReport.totals.taxBaseExVat)}
+                  <Amount value={outputReport.totals.taxBaseExVat} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Before output VAT.
@@ -287,7 +281,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-semibold">
-                  {amount(outputReport.totals.vatAmount)}
+                  <Amount value={outputReport.totals.vatAmount} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Ties to PP30 output VAT.
@@ -300,7 +294,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-semibold">
-                  {amount(outputReport.totals.amountIncludingVat)}
+                  <Amount value={outputReport.totals.amountIncludingVat} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   VAT-inclusive POS amount.
@@ -350,13 +344,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                         </TableCell>
                         <TableCell>{row.channel}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.taxBaseExVat)}
+                          <Amount value={row.taxBaseExVat} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.vatAmount)}
+                          <Amount value={row.vatAmount} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.amountIncludingVat)}
+                          <Amount value={row.amountIncludingVat} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -394,13 +388,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                           {row.saleCount}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.taxBaseExVat)}
+                          <Amount value={row.taxBaseExVat} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.vatAmount)}
+                          <Amount value={row.vatAmount} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.amountIncludingVat)}
+                          <Amount value={row.amountIncludingVat} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -439,13 +433,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                 <div>
                   <p className="text-sm text-muted-foreground">Tax base</p>
                   <p className="text-2xl font-semibold">
-                    {amount(inputReport.totals.baseAmount)}
+                    <Amount value={inputReport.totals.baseAmount} />
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Input VAT</p>
                   <p className="text-2xl font-semibold">
-                    {amount(inputReport.totals.vatAmount)}
+                    <Amount value={inputReport.totals.vatAmount} />
                   </p>
                 </div>
               </div>
@@ -480,10 +474,10 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                         </TableCell>
                         <TableCell>{row.status}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.baseAmount)}
+                          <Amount value={row.baseAmount} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.vatAmount)}
+                          <Amount value={row.vatAmount} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -541,7 +535,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                 <div>
                   <p className="text-sm text-muted-foreground">Movement value</p>
                   <p className="text-2xl font-semibold">
-                    {amount(inventoryReport.totals.movementValue)}
+                    <Amount value={inventoryReport.totals.movementValue} />
                   </p>
                 </div>
               </div>
@@ -589,7 +583,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                           {quantity(row.closingQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(row.movementValue)}
+                          <Amount value={row.movementValue} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -647,7 +641,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                             {quantity(row.netQuantity)}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {amount(row.totalCost)}
+                            <Amount value={row.totalCost} />
                           </TableCell>
                         </TableRow>
                       ))}

@@ -1,9 +1,10 @@
-import * as React from "react"
-
-import { Badge, badgeVariants } from "@/components/ui/badge"
 import type { VariantProps } from "class-variance-authority"
 
-type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>
+import type { badgeVariants } from "@/components/ui/badge"
+
+export type StatusBadgeVariant = NonNullable<
+  VariantProps<typeof badgeVariants>["variant"]
+>
 
 /**
  * One registry so the same domain status renders identically everywhere:
@@ -14,7 +15,7 @@ type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>
  * success = terminal-good, warning = needs human, destructive = terminal-bad
  * or urgent, secondary = superseded/inactive.
  */
-const STATUS_VARIANTS: Record<string, BadgeVariant> = {
+export const STATUS_VARIANTS: Record<string, StatusBadgeVariant> = {
   // shared filing lifecycle (WHT monthly, VAT, payroll PND/SSO, CIT)
   draft: "outline",
   submitted: "info",
@@ -38,10 +39,35 @@ const STATUS_VARIANTS: Record<string, BadgeVariant> = {
   extracting: "info",
   validating: "info",
   validated: "info",
+  processing: "info",
   completed: "success",
+  completed_with_warning: "warning",
   failed: "destructive",
+  // VAT ledger items (input / output / PP36 obligations)
+  awaiting_tax_invoice: "warning",
+  claimable: "info",
+  held: "warning",
+  do_not_claim: "secondary",
+  allocated_to_draft: "info",
+  expired: "destructive",
+  voided_by_amendment: "secondary",
+  reportable: "info",
+  pp36_required: "warning",
+  allocated_to_draft_pp36: "info",
+  pp36_filed: "info",
+  pp36_paid: "success",
+  eligible_for_pp30_reclaim: "info",
+  reclaimed_in_pp30: "success",
+  // VAT filing lifecycle + payment position
+  not_built: "outline",
+  ready_for_review: "warning",
+  not_required: "secondary",
+  waiting_to_pay_tax: "warning",
+  tax_paid: "success",
+  refund_or_credit: "info",
   // reconciliation
   matched: "success",
+  partially_matched: "info",
   unmatched: "warning",
   ambiguous: "warning",
   ai_suggested: "info",
@@ -55,32 +81,15 @@ const STATUS_VARIANTS: Record<string, BadgeVariant> = {
   done: "success",
 }
 
-function humanize(status: string): string {
-  return status
-    .replace(/[_-]+/g, " ")
-    .replace(/^\w/, (c) => c.toUpperCase())
-}
-
-function StatusBadge({
-  status,
-  label,
-  className,
-}: {
-  status: string
-  /** Override the auto-humanized label (e.g. a translated string). */
-  label?: React.ReactNode
-  className?: string
-}) {
+export function statusVariant(status: string): StatusBadgeVariant {
   const normalized = status.toLowerCase()
-  const variant =
+  return (
     STATUS_VARIANTS[normalized] ??
     // pipeline failure states are prefixed: failed_quality, failed_extraction…
     (normalized.startsWith("failed") ? "destructive" : "secondary")
-  return (
-    <Badge variant={variant} className={className}>
-      {label ?? humanize(normalized)}
-    </Badge>
   )
 }
 
-export { StatusBadge, STATUS_VARIANTS }
+export function humanizeStatus(status: string): string {
+  return status.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+}

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -23,10 +23,11 @@ type InventoryCountPageProps = {
   params: Promise<{ id: string }>;
 };
 
-function amount(value: string | null | undefined, digits = 2) {
+// 4-decimal inventory figures (quantities, unit costs) — not money amounts.
+function quantity(value: string | null | undefined) {
   return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
   });
 }
 
@@ -136,13 +137,13 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
                         <TableCell>{item.category ?? "-"}</TableCell>
                         <TableCell>{item.varianceReason ?? "-"}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(item.systemQuantity, 4)}
+                          {quantity(item.systemQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(item.countedQuantity, 4)}
+                          {quantity(item.countedQuantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(item.variance, 4)}
+                          {quantity(item.variance)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Amount value={item.varianceValueThb} />
@@ -185,10 +186,10 @@ export default async function InventoryCountPage({ params }: InventoryCountPageP
                           {shortId(movement.journalEntryId)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(movement.quantity, 4)}
+                          {quantity(movement.quantity)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {amount(movement.unitCost, 4)}
+                          {quantity(movement.unitCost)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Amount value={movement.totalCost} />

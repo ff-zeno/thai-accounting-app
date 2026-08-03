@@ -28,8 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { Amount } from "@/components/ui/amount";
 import { getDocumentSummaryAction } from "../dashboard/actions";
 import type { SummaryRow } from "@/lib/db/queries/dashboard";
+import { sumAmounts } from "@/lib/utils/money";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,36 +53,13 @@ interface Props {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatThb(value: string): string {
-  const num = parseFloat(value);
-  if (isNaN(num)) return "0.00";
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function computeTotals(rows: SummaryRow[]) {
-  let totalPreVat = 0;
-  let totalVat = 0;
-  let totalWht = 0;
-  let netPaid = 0;
-  let documentCount = 0;
-
-  for (const row of rows) {
-    documentCount += row.documentCount;
-    totalPreVat += parseFloat(row.totalPreVat);
-    totalVat += parseFloat(row.totalVat);
-    totalWht += parseFloat(row.totalWht);
-    netPaid += parseFloat(row.netPaid);
-  }
-
   return {
-    documentCount,
-    totalPreVat: totalPreVat.toFixed(2),
-    totalVat: totalVat.toFixed(2),
-    totalWht: totalWht.toFixed(2),
-    netPaid: netPaid.toFixed(2),
+    documentCount: rows.reduce((count, row) => count + row.documentCount, 0),
+    totalPreVat: sumAmounts(rows.map((row) => row.totalPreVat)),
+    totalVat: sumAmounts(rows.map((row) => row.totalVat)),
+    totalWht: sumAmounts(rows.map((row) => row.totalWht)),
+    netPaid: sumAmounts(rows.map((row) => row.netPaid)),
   };
 }
 
@@ -285,17 +264,17 @@ export function SummaryView({
                   <TableCell className="text-right">
                     <Badge variant="secondary">{row.documentCount}</Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatThb(row.totalPreVat)}
+                  <TableCell className="text-right">
+                    <Amount value={row.totalPreVat} />
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatThb(row.totalVat)}
+                  <TableCell className="text-right">
+                    <Amount value={row.totalVat} />
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatThb(row.totalWht)}
+                  <TableCell className="text-right">
+                    <Amount value={row.totalWht} />
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatThb(row.netPaid)}
+                  <TableCell className="text-right">
+                    <Amount value={row.netPaid} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -306,17 +285,17 @@ export function SummaryView({
                 <TableCell className="text-right font-bold">
                   {totals.documentCount}
                 </TableCell>
-                <TableCell className="text-right font-mono font-bold">
-                  {formatThb(totals.totalPreVat)}
+                <TableCell className="text-right font-bold">
+                  <Amount value={totals.totalPreVat} />
                 </TableCell>
-                <TableCell className="text-right font-mono font-bold">
-                  {formatThb(totals.totalVat)}
+                <TableCell className="text-right font-bold">
+                  <Amount value={totals.totalVat} />
                 </TableCell>
-                <TableCell className="text-right font-mono font-bold">
-                  {formatThb(totals.totalWht)}
+                <TableCell className="text-right font-bold">
+                  <Amount value={totals.totalWht} />
                 </TableCell>
-                <TableCell className="text-right font-mono font-bold">
-                  {formatThb(totals.netPaid)}
+                <TableCell className="text-right font-bold">
+                  <Amount value={totals.netPaid} />
                 </TableCell>
               </TableRow>
             </TableFooter>

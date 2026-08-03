@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { UploadTabs } from "./upload-tabs";
 
 export default async function DocumentUploadPage({
@@ -12,14 +13,11 @@ export default async function DocumentUploadPage({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("uploadTitle")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("uploadDescription")}
-        </p>
-      </div>
+      <PageHeader
+        className="mb-6"
+        title={t("uploadTitle")}
+        description={t("uploadDescription")}
+      />
       <UploadTabs defaultDirection={defaultDirection} />
     </div>
   );

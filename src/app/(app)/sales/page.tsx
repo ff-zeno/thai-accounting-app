@@ -6,12 +6,13 @@ import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FlowStrip } from "@/components/ui/flow-strip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -21,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { fromSatang, toSatangOrZero } from "@/lib/utils/money";
 import {
   createManualPosSaleAction,
   importPosSalesCsvAction,
@@ -315,7 +317,29 @@ export default async function SalesPage() {
             <CardHeader>
               <CardTitle>Processor Settlement</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <FlowStrip
+                steps={[
+                  {
+                    label: "Gross settled",
+                    value: dashboard.settlementSummary.grossAmount,
+                  },
+                  {
+                    op: "minus",
+                    label: "Processor fees",
+                    value: fromSatang(
+                      toSatangOrZero(dashboard.settlementSummary.grossAmount) -
+                        toSatangOrZero(dashboard.settlementSummary.netPayout)
+                    ),
+                  },
+                  {
+                    op: "equals",
+                    label: "Net to bank",
+                    value: dashboard.settlementSummary.netPayout,
+                    hint: "Reconciliation matches this against statements",
+                  },
+                ]}
+              />
               <form action={submitProcessorSettlement} className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
                   <Label htmlFor="processor">Processor</Label>

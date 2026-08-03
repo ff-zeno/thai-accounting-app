@@ -10,6 +10,14 @@ export const taxConfigSeedData = [
     effectiveTo: "2026-09-30",
   },
   {
+    key: "vat_rate",
+    value: "0.07",
+    description:
+      "Standard VAT rate (7%), decree extension approved by Cabinet 2026-07-27, valid through Sep 2027",
+    effectiveFrom: "2026-10-01",
+    effectiveTo: "2027-09-30",
+  },
+  {
     key: "efiling_extension_days",
     value: "8",
     description: "Extra days granted for e-filing (valid through Jan 2027)",

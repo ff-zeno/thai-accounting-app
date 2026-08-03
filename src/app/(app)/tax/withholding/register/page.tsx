@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { getWhtRegisterRows } from "@/lib/db/queries/wht-register";
 import { getActiveOrgId } from "@/lib/utils/org-context";
+import { Amount } from "@/components/ui/amount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -10,13 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function amount(value: string | number | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+import { sumAmounts } from "@/lib/utils/money";
 
 function rate(value: string | null | undefined) {
   return `${(Number(value ?? 0) * 100).toFixed(2)}%`;
@@ -30,30 +27,32 @@ export default async function WhtRegisterPage() {
   const orgId = await getActiveOrgId();
   const rows = orgId ? await getWhtRegisterRows(orgId) : [];
 
-  const incomingTotal = rows
-    .filter((row) => row.direction === "incoming")
-    .reduce((sum, row) => sum + Number(row.whtAmount ?? 0), 0);
-  const outgoingTotal = rows
-    .filter((row) => row.direction === "outgoing")
-    .reduce((sum, row) => sum + Number(row.whtAmount ?? 0), 0);
+  const incomingTotal = sumAmounts(
+    rows
+      .filter((row) => row.direction === "incoming")
+      .map((row) => row.whtAmount),
+  );
+  const outgoingTotal = sumAmounts(
+    rows
+      .filter((row) => row.direction === "outgoing")
+      .map((row) => row.whtAmount),
+  );
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">WHT Register</h1>
-        <p className="text-sm text-muted-foreground">
-          Source-linked incoming credits, outgoing certificates, forms, filing periods, and evidence status.
-        </p>
-      </div>
+      <PageHeader
+        title="WHT Register"
+        description="Source-linked incoming credits, outgoing certificates, forms, filing periods, and evidence status."
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader><CardTitle className="text-sm">Incoming Credits</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{amount(incomingTotal)}</div></CardContent>
+          <CardContent><Amount value={incomingTotal} className="text-2xl font-semibold" /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle className="text-sm">Outgoing Withheld</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{amount(outgoingTotal)}</div></CardContent>
+          <CardContent><Amount value={outgoingTotal} className="text-2xl font-semibold" /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle className="text-sm">Register Rows</CardTitle></CardHeader>
@@ -93,14 +92,14 @@ export default async function WhtRegisterPage() {
                     <TableCell>{row.counterpartyName}</TableCell>
                     <TableCell>{row.paymentDate ?? "-"}</TableCell>
                     <TableCell>{formLabel(row.formType)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {amount(row.grossAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={row.grossAmount} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{rate(row.whtRate)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {amount(row.whtAmount)}
+                    <TableCell className="text-right">
+                      <Amount value={row.whtAmount} />
                     </TableCell>
-                    <TableCell>{row.certificateStatus}</TableCell>
+                    <TableCell><StatusBadge status={row.certificateStatus} /></TableCell>
                     <TableCell>
                       {row.filingPeriod ?? "-"} / {row.filingStatus}
                     </TableCell>

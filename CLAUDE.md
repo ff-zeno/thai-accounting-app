@@ -80,6 +80,8 @@ The spec skips when Inngest (:8288) is down unless `CI`/`E2E_REQUIRE_INNGEST=1`.
 | Data exports | `src/lib/export/` (FlowAccount, Peak, full data export) |
 | External APIs | `src/lib/api/dbd-client.ts` (Thai DBD company lookup, no auth) |
 | PDF generation | `src/lib/pdf/fifty-tawi.tsx` (50 Tawi WHT certificate), `src/lib/pdf/reconciliation-summary.tsx` (monthly recon PDF), `src/app/api/reconciliation-summary/route.ts` (PDF download API) |
+| App shell / nav | `src/lib/nav/structure.ts` (5-item registry: Home, Bank, Documents, Tax, More + gated Sales via `hasPosSales`; nav pins removed), `src/lib/nav/badges.ts` (nav badge counts + tax deadline chip, unit-tested), `src/components/layout/` (app-sidebar, top-bar, mobile-tab-bar, route-tabs, org-switcher, locale-switcher, no-org-gate) |
+| UI kit | `DESIGN.md` (governing contract — read first), `src/components/ui/` (page-header, amount, flow-strip, status-badge, stat-card, empty-state, …), `src/lib/ui/status-registry.ts` (status→variant registry, no page-local switches), `src/lib/utils/money.ts` (satang math + formatAmount) |
 | Debugging | `docs/_ai_context/debugging-methodology.md` |
 | Domain terms | `docs/_ai_context/_glossary.md` |
 | Recon architecture | `docs/_ai_context/reconciliation-architecture.md` |

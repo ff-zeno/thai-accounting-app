@@ -8,7 +8,6 @@ import {
   buildPp36VatFilingDraft,
   getVatBranchReadiness,
   getVatFilingDrilldown,
-  getVatForecastByPeriodRange,
   getVatLedgerPeriodDashboard,
   getVatLedgerRegister,
   markVatFilingDraftFiled,
@@ -88,22 +87,6 @@ export async function loadVatFilingDrilldownAction(filingId: string) {
 
   const drilldown = await getVatFilingDrilldown({ orgId, filingId });
   return { success: true, drilldown };
-}
-
-export async function loadVatForecastAction(year: number, month: number) {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return { error: "No organization selected" };
-
-  const period = validateVatPeriod(year, month);
-  if ("error" in period) return period;
-
-  const forecast = await getVatForecastByPeriodRange({
-    orgId,
-    startYear: period.periodYear,
-    startMonth: period.periodMonth,
-    months: 6,
-  });
-  return { success: true, forecast };
 }
 
 // ---------------------------------------------------------------------------

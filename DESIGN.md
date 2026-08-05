@@ -31,6 +31,7 @@ In QA mode, flag any code that does not match this document.
   - Body: 14px / 400
   - Caption: 12px / 400 — the smallest size; never `text-[10px]`
   - Nav item: 14px / 500 `text-muted-foreground`; active: 14px / 600 `text-accent-foreground`
+  - Nav icon: `text-accent-foreground/55` when idle, `text-accent-foreground` when active — the icons are what carry hue into the rail, in the sidebar, the mobile tab bar, and the More sheet alike
   - Nav group label: 11px / 600 / uppercase / 0.08em tracking / `text-foreground/70`
 - **Financial numbers:** always `tabular-nums`, always rendered through the `Amount` component, right-aligned in tables.
   Geist Mono is reserved for identifiers (account numbers, tax IDs, references) — never for money.
@@ -70,7 +71,7 @@ In QA mode, flag any code that does not match this document.
 ## Spacing
 - **Base unit:** 4px; scale 2xs(2) xs(4) sm(8) md(16) lg(24) xl(32) 2xl(48) 3xl(64)
 - **Density:** comfortable — financial data needs breathing room to scan
-- **Touch targets:** minimum 44px height for anything reachable by touch — tab strips (they render on mobile), the mobile tab bar, and the mobile More sheet. The desktop-only sidebar is pointer-driven and may be denser (rows ≥36px).
+- **Touch targets:** minimum 44px height for anything reachable by touch — tab strips (they render on mobile), the mobile tab bar, and the mobile More sheet. The desktop-only sidebar and top bar are pointer-driven and may be denser (rows and controls ≥36px).
 
 ## Layout & Shell
 - **Desktop shell:** single left sidebar (~240px, `bg-card`, border-right) + thin top bar + fluid main content on the gray canvas.
@@ -145,3 +146,9 @@ In QA mode, flag any code that does not match this document.
 | 2026-08-02 | Tab-strip links get `min-h-11` (44px touch-target floor applies to tab strips, not just nav/mobile bar) | Sol pass (b) P1: 36px tabs vs the documented 44px minimum |
 | 2026-08-02 | "Compliance Calendar" is the one name for /tax/calendar (page title + EN nav; TH stays ปฏิทินภาษี) | Sol pass (b) P2: three names in flight (Tax Calendar / Filing Calendar / Compliance Calendar) |
 | 2026-08-02 | Document-side reconciliation badges (documents table + detail sidebar) route through the status registry; localized labels stay via the `label` prop | /design-review audit P1: matched/partial/unmatched rendered as default/outline/secondary locally while the transaction table used registry variants for the same statuses |
+| 2026-08-03 | **`--accent` chroma raised 0.012 → 0.032; `--accent-foreground` 0.22/0.02 → 0.33/0.075** | Owner review: "the menu items could have more colour". At 0.012 chroma the active nav pill was a 5% lightness step off a white sidebar and the whole shell read monochrome. Ripples consistently to every selected/highlighted surface (menu highlight, selected model/account rows, FlowStrip equals-step, help topic) |
+| 2026-08-03 | ~~Nav icons carry the accent hue (`/55` idle, full when active)~~ — superseded the same day by the per-section tones below | First attempt at the owner's "more colour" note; tinting one hue onto monochrome glyphs was not what the mockups showed |
+| 2026-08-03 | **Six `--nav-*` section identity hues + `<NavIcon>` coloured tiles.** Top-level rows render a 28px `rounded-lg` tile at a 14% tint of the section hue with the glyph at full hue, solid-filled when the section is active; children render the parent's hue as a bare glyph; the mobile bottom bar renders bare glyphs (a tile would crowd the FAB). All six tones live in `globals.css`; `src/components/layout/nav-icon.tsx` is the only place they are read | Owner review: "menu items have lame icons, could be colourful, rich icons like in earlier mockups". The approved Lavish mockups got ALL their colour from emoji glyphs on an otherwise neutral shell — so per-section coloured icons honour both the Ink Neutral palette and the owner's memory. Vector, not emoji, so it renders identically on every OS and in print. **Nav tones are identity, never status** — they answer "which section", not "is this OK"; status colour stays with success/warning/destructive. Tones resolve through inline `color-mix` on `var(--nav-*)` because Tailwind cannot statically scan a runtime-built `bg-nav-${tone}` class. Active-state contract (`bg-accent` + `font-semibold` + `aria-current`) unchanged |
+| 2026-08-03 | `--muted-foreground` darkened 0.556 → 0.48 and given the ink hue | Adjacent defect found while adding nav colour: pure-gray 0.556 on white is ~3.5:1, below the AA 4.5:1 floor this doc requires. Now ~4.6:1 on white |
+| 2026-08-03 | Tab strips get `gap-1` between tabs, `px-4` per tab, and an `bg-accent/70` track | Owner review: "selectors to swap between internal tabs lack padding/separation". The `bg-muted` track was a 3% step off the white active pill, so tabs ran together with no visible boundary |
+| 2026-08-03 | Desktop top-bar controls standardized at h-9 with explicit horizontal padding; header h-12 → h-14; help trigger 44px → 36px | Owner review: "some small buttons in the top strip lack padding". The `sm` button variant's `has-data-[icon=inline-start]:pl-1.5` rule cut the leading edge to 6px whenever a button had an icon. Fixed per-instance in the top bar, not in the shared `sm` variant, to avoid rippling across every small button in the app |

@@ -11,13 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  capitalizeDocumentAsFixedAssetAction,
   confirmDocumentAction,
   rejectDocumentAction,
-  receiveDocumentInventoryAction,
   updateDocumentAction,
   retryExtractionAction,
 } from "./actions";
@@ -50,7 +47,6 @@ interface DocumentData {
   reviewNotes: string | null;
   detectedLanguage: string | null;
   updatedAt: string | null;
-  capitalizedAssetId: string | null;
 }
 
 interface VendorData {
@@ -73,25 +69,14 @@ interface LineItem {
   whtType: string | null;
 }
 
-interface InventorySkuOption {
-  id: string;
-  skuCode: string;
-  nameEn: string | null;
-  nameTh: string | null;
-  currentAvgCost: string | null;
-  standardCost: string | null;
-}
-
 export function ExtractionForm({
   document: doc,
   vendor,
   lineItems,
-  inventorySkus,
 }: {
   document: DocumentData;
   vendor: VendorData | null;
   lineItems: LineItem[];
-  inventorySkus: InventorySkuOption[];
 }) {
   const t = useTranslations("documents");
   const tr = useTranslations("review");
@@ -99,8 +84,6 @@ export function ExtractionForm({
 
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [capitalizing, setCapitalizing] = useState(false);
-  const [receivingInventory, setReceivingInventory] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const confidence = doc.aiConfidence ? parseFloat(doc.aiConfidence) : null;
@@ -108,17 +91,6 @@ export function ExtractionForm({
   const isConfirmed = doc.status === "confirmed";
   const isForeignVendor =
     vendor?.entityType === "foreign" || (vendor?.country ?? "TH") !== "TH";
-  const capitalizationBase = Number(
-    doc.totalAmountThb ?? doc.subtotal ?? doc.totalAmount ?? 0
-  );
-  const canPromptCapitalization =
-    isConfirmed &&
-    doc.direction === "expense" &&
-    !doc.capitalizedAssetId &&
-    Number.isFinite(capitalizationBase) &&
-    capitalizationBase >= 5000;
-  const canReceiveInventory =
-    isConfirmed && doc.direction === "expense" && inventorySkus.length > 0;
   const isRecoverableTaxInvoice =
     doc.taxInvoiceSubtype === "full_ti" || doc.taxInvoiceSubtype === "e_tax_invoice";
   const hasRecoverableVat = Number(doc.vatAmount ?? 0) > 0;
@@ -136,20 +108,6 @@ export function ExtractionForm({
       doc.buyerTaxIdSnapshot?.trim() &&
       doc.buyerBranchNumberSnapshot?.trim()
     );
-
-  const defaultAssetCategory = (() => {
-    const category = (doc.category ?? "").toLowerCase();
-    if (category.includes("software")) return "computer_software";
-    if (category.includes("computer") || category.includes("laptop")) {
-      return "computer_hardware";
-    }
-    if (category.includes("vehicle") || category.includes("car")) return "vehicle";
-    if (category.includes("furniture")) return "furniture_fixtures";
-    if (category.includes("building")) return "building";
-    if (category.includes("leasehold")) return "leasehold_improvement";
-    if (category.includes("land")) return "land";
-    return "equipment";
-  })();
 
   const handleSave = async (formData: FormData) => {
     setSaving(true);
@@ -188,8 +146,6 @@ export function ExtractionForm({
         taxInvoiceSerialNumber: formData.get("taxInvoiceSerialNumber") as string,
         taxInvoiceWords: formData.get("taxInvoiceWords") as string,
         isPp36Subject: formData.get("isPp36Subject") === "on",
-        correctionExplanation:
-          (formData.get("correctionExplanation") as string | null)?.trim() || null,
       }, doc.updatedAt ?? undefined);
       if (!result.success) {
         toast.error(result.error ?? "Failed to save");
@@ -240,38 +196,6 @@ export function ExtractionForm({
       toast.success("Extraction retry started");
     } catch {
       toast.error("Failed to retry");
-    }
-  };
-
-  const handleCapitalize = async (formData: FormData) => {
-    setCapitalizing(true);
-    try {
-      const result = await capitalizeDocumentAsFixedAssetAction(doc.id, formData);
-      if (!result.success) {
-        toast.error(result.error ?? "Failed to create fixed asset");
-        return;
-      }
-      toast.success(result.alreadyExists ? "Fixed asset already exists" : "Fixed asset created");
-    } catch {
-      toast.error("Failed to create fixed asset");
-    } finally {
-      setCapitalizing(false);
-    }
-  };
-
-  const handleReceiveInventory = async (formData: FormData) => {
-    setReceivingInventory(true);
-    try {
-      const result = await receiveDocumentInventoryAction(doc.id, formData);
-      if (!result.success) {
-        toast.error(result.error ?? "Failed to receive inventory");
-        return;
-      }
-      toast.success(result.alreadyExists ? "Inventory already received" : "Inventory received");
-    } catch {
-      toast.error("Failed to receive inventory");
-    } finally {
-      setReceivingInventory(false);
     }
   };
 
@@ -593,19 +517,6 @@ export function ExtractionForm({
           </div>
         )}
 
-        {!isConfirmed && (
-          <div>
-            <Label htmlFor="correctionExplanation">Correction note</Label>
-            <Textarea
-              name="correctionExplanation"
-              id="correctionExplanation"
-              placeholder="Example: for this vendor, total amount should use GrandTotal, not Credit Amount."
-              className="mt-1 min-h-20"
-              maxLength={2000}
-            />
-          </div>
-        )}
-
         {/* Actions */}
         {!isConfirmed && (
           <div className="flex gap-2 border-t pt-4">
@@ -666,155 +577,6 @@ export function ExtractionForm({
         </div>
       )}
 
-      {canPromptCapitalization && (
-        <form action={handleCapitalize} className="space-y-3 border-t p-4">
-          <div>
-            <Label className="text-sm font-medium">Capitalize as fixed asset</Label>
-            <p className="text-xs text-muted-foreground">
-              Create an asset register row from this confirmed purchase.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="assetName">Asset name</Label>
-              <Input
-                id="assetName"
-                name="assetName"
-                defaultValue={[
-                  doc.category?.replaceAll("_", " "),
-                  doc.documentNumber ? `#${doc.documentNumber}` : null,
-                ].filter(Boolean).join(" ")}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="assetCategory">Asset category</Label>
-              <NativeSelect
-                id="assetCategory"
-                name="assetCategory"
-                className="mt-1 w-full"
-                defaultValue={defaultAssetCategory}
-              >
-                <option value="equipment">Equipment</option>
-                <option value="computer_hardware">Computer hardware</option>
-                <option value="computer_software">Computer software</option>
-                <option value="vehicle">Vehicle</option>
-                <option value="furniture_fixtures">Furniture and fixtures</option>
-                <option value="leasehold_improvement">Leasehold improvement</option>
-                <option value="building">Building</option>
-                <option value="land">Land</option>
-              </NativeSelect>
-            </div>
-            <div>
-              <Label htmlFor="assetCost">Asset cost</Label>
-              <Input
-                id="assetCost"
-                name="assetCost"
-                inputMode="decimal"
-                defaultValue={capitalizationBase.toFixed(2)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="acquisitionDate">Acquisition date</Label>
-              <Input
-                id="acquisitionDate"
-                name="acquisitionDate"
-                type="date"
-                defaultValue={doc.issueDate ?? ""}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="usefulLifeMonths">Book life months</Label>
-              <Input
-                id="usefulLifeMonths"
-                name="usefulLifeMonths"
-                inputMode="numeric"
-                defaultValue={defaultAssetCategory === "land" ? "0" : "60"}
-              />
-            </div>
-          </div>
-          <Button type="submit" variant="outline" disabled={capitalizing}>
-            {capitalizing && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Create Fixed Asset
-          </Button>
-        </form>
-      )}
-
-      {doc.capitalizedAssetId && (
-        <div className="border-t p-4 text-sm text-muted-foreground">
-          Fixed asset created from this document.
-        </div>
-      )}
-
-      {canReceiveInventory && (
-        <form action={handleReceiveInventory} className="space-y-3 border-t p-4">
-          <div>
-            <Label className="text-sm font-medium">Receive inventory from document</Label>
-            <p className="text-xs text-muted-foreground">
-              Create a purchase-in stock movement and inventory/AP journal entry from this confirmed purchase.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="inventorySkuId">SKU</Label>
-              <NativeSelect
-                id="inventorySkuId"
-                name="inventorySkuId"
-                className="mt-1 w-full"
-                required
-              >
-                <option value="">Select SKU</option>
-                {inventorySkus.map((sku) => (
-                  <option key={sku.id} value={sku.id}>
-                    {sku.skuCode} {sku.nameEn ? `- ${sku.nameEn}` : ""}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div>
-              <Label htmlFor="inventoryReceiptDate">Receipt date</Label>
-              <Input
-                id="inventoryReceiptDate"
-                name="inventoryReceiptDate"
-                type="date"
-                defaultValue={doc.issueDate ?? ""}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="inventoryQuantity">Quantity</Label>
-              <Input
-                id="inventoryQuantity"
-                name="inventoryQuantity"
-                inputMode="decimal"
-                defaultValue={lineItems[0]?.quantity ?? "1.0000"}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="inventoryUnitCost">Unit cost</Label>
-              <Input
-                id="inventoryUnitCost"
-                name="inventoryUnitCost"
-                inputMode="decimal"
-                defaultValue={
-                  lineItems[0]?.unitPrice ??
-                  inventorySkus[0]?.currentAvgCost ??
-                  inventorySkus[0]?.standardCost ??
-                  ""
-                }
-                required
-              />
-            </div>
-          </div>
-          <Button type="submit" disabled={receivingInventory}>
-            {receivingInventory && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Receive Inventory
-          </Button>
-        </form>
-      )}
     </div>
   );
 }

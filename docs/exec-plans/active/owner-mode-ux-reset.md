@@ -1,6 +1,6 @@
 # Documents-First Accounting Workflow Reset
 
-**Status:** Design gate exited 2026-08-02 — shell/kit implementation in progress.
+**Status:** Design gate exited 2026-08-02; shell/kit implementation executed 2026-08-02 (uncommitted). Superseded in part on 2026-08-03 by `scope-reduction.md` — the owner reviewed the reset live and judged the app still far too broad, so the foreground was cut further: "More" was deleted rather than demoted, and the top level is now Home, Bank, Documents, Tax, Vendors + Settings. The workflow stages below (dual-source intake, evidence-provenance reconciliation, VAT/WHT lifecycle) remain this plan's live scope.
 **Authority:** This is the single authoritative active plan for the owner-facing product reset.
 **Last revised:** 2026-08-02.
 **Decision source:** `docs/reviews/consolidated-design-guidance-2026-08-01.md`.
@@ -51,7 +51,7 @@ The result should let a Thai business owner answer four questions without unders
 | Existing routes and accounting capability are preserved. | The reset changes projection and workflow, not historical links or domain capability. | Approved product direction. |
 | React Flow remains explanatory only. | Help diagrams must not calculate readiness, persist edits, or mutate accounting state. | Approved product direction. |
 | VAT lifecycle UI waits for a truthful read model. | `src/lib/tax/vat-register.ts` still reads `documents`, while filing state is authoritative in `vat_input_items`, `vat_output_items`, `vat_filings`, and `vat_filing_lines`. | Blocking technical decision. |
-| Single sidebar with five top-level items (Home, Bank, Documents, Tax, More) + Settings footer; no owner/pro mode toggle. | Owner rejected the toggle during mockup review: "minimise menu items and fold complexity inside pages". Depth budget is two nav levels; deeper structure becomes route-based in-page tab strips so all deep links survive. | Approved 2026-08-02 (design gate). |
+| Single sidebar with five top-level items + Settings footer; no owner/pro mode toggle. (The fifth item was "More" as approved; on 2026-08-03 it became "Vendors" when `scope-reduction.md` removed everything More contained.) | Owner rejected the toggle during mockup review: "minimise menu items and fold complexity inside pages". Depth budget is two nav levels; deeper structure becomes route-based in-page tab strips so all deep links survive. | Approved 2026-08-02 (design gate). |
 | POS appears as a profile-gated sixth top-level item "Sales" when `organizations.hasPosSales` is set. | Resolves open decision 1 — POS-enabled orgs get a foreground entry; others see exactly five items. | Approved 2026-08-02 (owner decision). |
 | Nav pins are removed and `user_nav_pins` is dropped. | The pin feature does not fit the minimal five-item nav; dashboard shortcuts section goes with it. | Approved 2026-08-02 (owner decision). |
 | Visual system is "Quicken Soft" + Ink Neutral: gray canvas, white 14px-radius cards, near-black ink accent; warm golden-brown retired; dark mode removed. | Owner-approved mockups; DESIGN.md rewritten as the governing contract. | Approved 2026-08-02 (design gate). |

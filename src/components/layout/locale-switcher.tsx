@@ -25,10 +25,9 @@ export function LocaleSwitcher() {
   return (
     <Button
       variant="ghost"
-      size="sm"
       onClick={switchLocale}
       disabled={isPending}
-      className="gap-2 text-muted-foreground"
+      className="h-9 gap-2 px-3 text-muted-foreground"
       title={t("switchTo")}
     >
       <Globe className="size-4" />

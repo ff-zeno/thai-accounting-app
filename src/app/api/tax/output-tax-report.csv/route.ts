@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getPosSalesWorkflowDashboard } from "@/lib/db/queries/pos-sales-ledger";
+import { listEstablishments } from "@/lib/db/queries/establishments";
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import { buildOutputTaxReport } from "@/lib/tax/output-tax-report";
 import { outputTaxReportToCsv } from "@/lib/tax/output-tax-report-export";
@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
   const fallbackMonth = Number(today.slice(5, 7));
   const periodYear = parseYear(url.searchParams.get("year"), fallbackYear);
   const periodMonth = parseMonth(url.searchParams.get("month"), fallbackMonth);
-  const dashboard = await getPosSalesWorkflowDashboard(orgId);
+  const establishmentList = await listEstablishments(orgId);
   const establishmentId = url.searchParams.get("establishmentId");
   const establishment =
     establishmentId
-      ? dashboard.establishments.find((entry) => entry.id === establishmentId)
-      : dashboard.establishments.find((entry) => entry.isHeadOffice) ??
-        dashboard.establishments[0];
+      ? establishmentList.find((entry) => entry.id === establishmentId)
+      : establishmentList.find((entry) => entry.isHeadOffice) ??
+        establishmentList[0];
 
   if (!establishment) {
     return NextResponse.json({ error: "Establishment not found" }, { status: 404 });

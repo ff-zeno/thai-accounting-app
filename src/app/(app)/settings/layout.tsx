@@ -20,9 +20,6 @@ export default async function SettingsLayout({
             href: "/settings/reconciliation-rules",
             label: t("reconciliationRules"),
           },
-          { href: "/settings/cost-centers", label: t("costCenters") },
-          { href: "/settings/projects", label: t("projects") },
-          { href: "/settings/allocation-rules", label: t("allocationRules") },
         ]}
       />
       {children}

@@ -12,12 +12,13 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {
   getActiveNavEntry,
-  getVisibleNavEntries,
+  navEntries,
   isNavItemActive,
   settingsEntry,
-  type NavGateFlags,
+  type NavTone,
 } from "@/lib/nav/structure";
 import { OrgSwitcher } from "./org-switcher";
+import { NavIcon } from "./nav-icon";
 import { LocaleSwitcher } from "./locale-switcher";
 import { CreateOrgDialog } from "./create-org-dialog";
 
@@ -30,20 +31,20 @@ interface Org {
 interface MobileTabBarProps {
   orgs: Org[];
   activeOrgId: string | null;
-  gateFlags: NavGateFlags;
 }
 
 /** Bottom-bar slots; every other destination lives in the More sheet. */
-const directSlots: { labelKey: string; href: string; icon: LucideIcon }[] = [
-  { labelKey: "home", href: "/dashboard", icon: Home },
-  { labelKey: "bank", href: "/bank-accounts", icon: Landmark },
+type Slot = { labelKey: string; href: string; icon: LucideIcon; tone: NavTone };
+const directSlots: Slot[] = [
+  { labelKey: "home", href: "/dashboard", icon: Home, tone: "home" },
+  { labelKey: "bank", href: "/bank-accounts", icon: Landmark, tone: "bank" },
 ];
-const trailingSlots: { labelKey: string; href: string; icon: LucideIcon }[] = [
-  { labelKey: "tax", href: "/tax", icon: Receipt },
+const trailingSlots: Slot[] = [
+  { labelKey: "tax", href: "/tax", icon: Receipt, tone: "tax" },
 ];
 const slotEntryKeys = new Set(["home", "bank", "tax"]);
 
-export function MobileTabBar({ orgs, activeOrgId, gateFlags }: MobileTabBarProps) {
+export function MobileTabBar({ orgs, activeOrgId }: MobileTabBarProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [moreOpen, setMoreOpen] = useState(false);
@@ -64,6 +65,7 @@ export function MobileTabBar({ orgs, activeOrgId, gateFlags }: MobileTabBarProps
             key={slot.href}
             href={slot.href}
             icon={slot.icon}
+            tone={slot.tone}
             label={t(slot.labelKey)}
             active={activeEntry?.labelKey === slot.labelKey}
           />
@@ -84,6 +86,7 @@ export function MobileTabBar({ orgs, activeOrgId, gateFlags }: MobileTabBarProps
             key={slot.href}
             href={slot.href}
             icon={slot.icon}
+            tone={slot.tone}
             label={t(slot.labelKey)}
             active={activeEntry?.labelKey === slot.labelKey}
           />
@@ -94,11 +97,18 @@ export function MobileTabBar({ orgs, activeOrgId, gateFlags }: MobileTabBarProps
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-1 text-[11px]",
               moreActive
-                ? "font-semibold text-primary"
+                ? "font-semibold text-accent-foreground"
                 : "font-medium text-muted-foreground"
             )}
           >
-            <MoreHorizontal className="size-5" />
+            <MoreHorizontal
+              className={cn(
+                "size-5",
+                moreActive
+                  ? "text-accent-foreground"
+                  : "text-accent-foreground/55"
+              )}
+            />
             {t("more")}
           </SheetTrigger>
           <SheetContent
@@ -113,7 +123,6 @@ export function MobileTabBar({ orgs, activeOrgId, gateFlags }: MobileTabBarProps
               />
             </div>
             <MoreNavTree
-              gateFlags={gateFlags}
               pathname={pathname}
               onNavigate={() => setMoreOpen(false)}
             />
@@ -136,12 +145,14 @@ export function MobileTabBar({ orgs, activeOrgId, gateFlags }: MobileTabBarProps
 
 function TabSlot({
   href,
-  icon: Icon,
+  icon,
+  tone,
   label,
   active,
 }: {
   href: string;
   icon: LucideIcon;
+  tone: NavTone;
   label: string;
   active: boolean;
 }) {
@@ -152,11 +163,11 @@ function TabSlot({
       className={cn(
         "flex flex-1 flex-col items-center justify-center gap-1 text-[11px]",
         active
-          ? "font-semibold text-primary"
+          ? "font-semibold text-accent-foreground"
           : "font-medium text-muted-foreground"
       )}
     >
-      <Icon className="size-5" />
+      <NavIcon icon={icon} tone={tone} variant="bare" active={active} />
       {label}
     </Link>
   );
@@ -164,16 +175,14 @@ function TabSlot({
 
 /** Full nav tree so every route stays reachable on mobile. */
 function MoreNavTree({
-  gateFlags,
   pathname,
   onNavigate,
 }: {
-  gateFlags: NavGateFlags;
   pathname: string;
   onNavigate: () => void;
 }) {
   const t = useTranslations("nav");
-  const entries = [...getVisibleNavEntries(gateFlags), settingsEntry];
+  const entries = [...navEntries, settingsEntry];
 
   return (
     <nav aria-label="More navigation" className="px-4 py-3">
@@ -183,6 +192,8 @@ function MoreNavTree({
             <TreeLink
               href={entry.href}
               icon={entry.icon}
+              tone={entry.tone}
+              variant="tile"
               label={t(entry.labelKey)}
               active={pathname === entry.href}
               onNavigate={onNavigate}
@@ -203,6 +214,8 @@ function MoreNavTree({
                           <TreeLink
                             href={item.href}
                             icon={item.icon}
+                            tone={entry.tone}
+                            variant="glyph"
                             label={t(item.labelKey)}
                             active={isNavItemActive(pathname, item)}
                             onNavigate={onNavigate}
@@ -223,7 +236,9 @@ function MoreNavTree({
 
 function TreeLink({
   href,
-  icon: Icon,
+  icon,
+  tone,
+  variant,
   label,
   active,
   onNavigate,
@@ -231,6 +246,9 @@ function TreeLink({
 }: {
   href: string;
   icon: LucideIcon;
+  tone: NavTone;
+  /** tile for section rows, glyph for their children. */
+  variant: "tile" | "glyph";
   label: string;
   active: boolean;
   onNavigate: () => void;
@@ -250,7 +268,7 @@ function TreeLink({
             : "font-medium text-muted-foreground"
       )}
     >
-      <Icon className="size-4 shrink-0" />
+      <NavIcon icon={icon} tone={tone} variant={variant} active={active} />
       <span className="truncate">{label}</span>
     </Link>
   );

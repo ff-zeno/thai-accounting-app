@@ -163,7 +163,7 @@ export function HelpSidebar() {
           render={
             <SheetTrigger
               aria-label="Help"
-              className="flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+              className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-accent-foreground"
             />
           }
         >

@@ -14,12 +14,14 @@ test.describe("Statutory Tax Reports", () => {
     await expect(page.getByText("Report Filters")).toBeVisible();
     await expect(page.getByText("Output Tax Report", { exact: true })).toBeVisible();
     await expect(page.getByText("Input Tax Report", { exact: true })).toBeVisible();
-    await expect(page.getByText("Goods and Raw Materials Report", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /Download Output CSV/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /Download Input CSV/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Download Goods CSV/i })).toBeVisible();
     await expect(page.getByText("Daily Totals", { exact: true })).toBeVisible();
-    await expect(page.getByText("Movement Detail", { exact: true })).toBeAttached();
+    // The Section 87 goods/raw-materials report needed the inventory module,
+    // which was removed on 2026-08-03 (docs/deferred-features.md).
+    await expect(
+      page.getByText("Goods and Raw Materials Report", { exact: true })
+    ).toHaveCount(0);
   });
 
   test("has route in primary navigation", async ({ page }) => {

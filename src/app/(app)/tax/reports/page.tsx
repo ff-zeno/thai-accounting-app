@@ -1,9 +1,8 @@
 import { AlertTriangle, FileText } from "lucide-react";
 import { getActiveOrgId } from "@/lib/utils/org-context";
-import { getPosSalesWorkflowDashboard } from "@/lib/db/queries/pos-sales-ledger";
+import { listEstablishments } from "@/lib/db/queries/establishments";
 import { buildOutputTaxReport } from "@/lib/tax/output-tax-report";
 import { buildInputTaxReport } from "@/lib/tax/input-tax-report";
-import { buildInventoryMovementReport } from "@/lib/tax/inventory-movement-report";
 import { formatBangkokDate } from "@/lib/tax/filing-deadlines";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
@@ -30,13 +29,6 @@ type ReportsPageProps = {
   }>;
 };
 
-function quantity(value: string | null | undefined) {
-  return Number(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  });
-}
-
 function parseMonth(value: string | undefined, fallback: number) {
   const parsed = value ? Number.parseInt(value, 10) : fallback;
   return parsed >= 1 && parsed <= 12 ? parsed : fallback;
@@ -45,76 +37,6 @@ function parseMonth(value: string | undefined, fallback: number) {
 function parseYear(value: string | undefined, fallback: number) {
   const parsed = value ? Number.parseInt(value, 10) : fallback;
   return parsed >= 2000 && parsed <= 2100 ? parsed : fallback;
-}
-
-function shortId(value: string | null | undefined) {
-  return value ? value.slice(0, 8) : "-";
-}
-
-function sourceLabel(sourceEntityType: string | null | undefined) {
-  switch (sourceEntityType) {
-    case "documents":
-      return "Document";
-    case "import_packets":
-      return "Import";
-    case "import_goods_lines":
-      return "Import line";
-    case "inventory_counts":
-      return "Count";
-    case "sales_transactions":
-      return "Sale";
-    case "manual":
-      return "Manual";
-    default:
-      return sourceEntityType ?? "Manual";
-  }
-}
-
-function sourceHref(
-  sourceEntityType: string | null | undefined,
-  sourceEntityId: string | null | undefined
-) {
-  if (!sourceEntityType || !sourceEntityId) return null;
-  switch (sourceEntityType) {
-    case "documents":
-      return `/documents/${sourceEntityId}/review`;
-    case "import_packets":
-      return `/imports/${sourceEntityId}`;
-    case "inventory_counts":
-      return "/inventory";
-    case "sales_transactions":
-      return "/sales";
-    default:
-      return null;
-  }
-}
-
-function SourceCell({
-  sourceEntityType,
-  sourceEntityId,
-}: {
-  sourceEntityType: string | null | undefined;
-  sourceEntityId: string | null | undefined;
-}) {
-  const label = sourceLabel(sourceEntityType);
-  const href = sourceHref(sourceEntityType, sourceEntityId);
-  if (!href) {
-    return (
-      <div>
-        <div>{label}</div>
-        <div className="text-xs text-muted-foreground">{shortId(sourceEntityId)}</div>
-      </div>
-    );
-  }
-
-  return (
-    <a className="font-medium underline-offset-4 hover:underline" href={href}>
-      <span>{label}</span>
-      <span className="block text-xs text-muted-foreground">
-        {shortId(sourceEntityId)}
-      </span>
-    </a>
-  );
 }
 
 export default async function TaxReportsPage({ searchParams }: ReportsPageProps) {
@@ -126,14 +48,13 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
   const selectedYear = parseYear(params.year, fallbackYear);
   const selectedMonth = parseMonth(params.month, fallbackMonth);
 
-  const dashboard = orgId ? await getPosSalesWorkflowDashboard(orgId) : null;
+  const establishmentList = orgId ? await listEstablishments(orgId) : [];
   const selectedEstablishment =
     params.establishmentId
-      ? dashboard?.establishments.find(
-          (entry) => entry.id === params.establishmentId
-        ) ?? null
-      : dashboard?.establishments.find((entry) => entry.isHeadOffice) ??
-        dashboard?.establishments[0] ??
+      ? establishmentList.find((entry) => entry.id === params.establishmentId) ??
+        null
+      : establishmentList.find((entry) => entry.isHeadOffice) ??
+        establishmentList[0] ??
         null;
   const outputReport =
     orgId && selectedEstablishment
@@ -151,24 +72,11 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
         periodMonth: selectedMonth,
       })
     : null;
-  const inventoryReport =
-    orgId && selectedEstablishment
-      ? await buildInventoryMovementReport({
-          orgId,
-          establishmentId: selectedEstablishment.id,
-          periodYear: selectedYear,
-          periodMonth: selectedMonth,
-        })
-      : null;
   const outputExportHref =
     selectedEstablishment
       ? `/api/tax/output-tax-report.csv?year=${selectedYear}&month=${selectedMonth}&establishmentId=${selectedEstablishment.id}`
       : "#";
   const inputExportHref = `/api/tax/input-tax-report.csv?year=${selectedYear}&month=${selectedMonth}`;
-  const inventoryExportHref =
-    selectedEstablishment
-      ? `/api/tax/inventory-movement-report.csv?year=${selectedYear}&month=${selectedMonth}&establishmentId=${selectedEstablishment.id}`
-      : "#";
 
   return (
     <div className="space-y-6">
@@ -186,7 +94,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
         </AlertDescription>
       </Alert>
 
-      {!orgId || !dashboard || !selectedEstablishment || !outputReport || !inputReport || !inventoryReport ? (
+      {!orgId || !selectedEstablishment || !outputReport || !inputReport ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
             <FileText className="size-8 text-muted-foreground" />
@@ -233,7 +141,7 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                     className="w-full"
                     defaultValue={selectedEstablishment.id}
                   >
-                    {dashboard.establishments.map((establishment) => (
+                    {establishmentList.map((establishment) => (
                       <option key={establishment.id} value={establishment.id}>
                         {establishment.branchNumber}{" "}
                         {establishment.nameEn ?? establishment.nameTh ?? ""}
@@ -484,171 +392,6 @@ export default async function TaxReportsPage({ searchParams }: ReportsPageProps)
                   </TableBody>
                 </Table>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle>Goods and Raw Materials Report</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<a href={inventoryExportHref} />}
-                >
-                  Download Goods CSV
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-5">
-                <div>
-                  <p className="text-sm text-muted-foreground">Movements</p>
-                  <p className="text-2xl font-semibold">
-                    {inventoryReport.totals.movementCount}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Opening qty</p>
-                  <p className="text-2xl font-semibold">
-                    {quantity(inventoryReport.totals.openingQuantity)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Inbound qty</p>
-                  <p className="text-2xl font-semibold">
-                    {quantity(inventoryReport.totals.inboundQuantity)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Outbound qty</p>
-                  <p className="text-2xl font-semibold">
-                    {quantity(inventoryReport.totals.outboundQuantity)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Closing qty</p>
-                  <p className="text-2xl font-semibold">
-                    {quantity(inventoryReport.totals.closingQuantity)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Movement value</p>
-                  <p className="text-2xl font-semibold">
-                    <Amount value={inventoryReport.totals.movementValue} />
-                  </p>
-                </div>
-              </div>
-              {inventoryReport.skuSummary.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No inventory movements for this period.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">Opening</TableHead>
-                      <TableHead className="text-right">In</TableHead>
-                      <TableHead className="text-right">Out</TableHead>
-                      <TableHead className="text-right">Net</TableHead>
-                      <TableHead className="text-right">Closing</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {inventoryReport.skuSummary.map((row) => (
-                      <TableRow key={row.skuId}>
-                        <TableCell>
-                          <div>{row.skuCode}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {row.skuName}
-                          </div>
-                        </TableCell>
-                        <TableCell>{row.unitOfMeasure}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {quantity(row.openingQuantity)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {quantity(row.inboundQuantity)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {quantity(row.outboundQuantity)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {quantity(row.netQuantity)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {quantity(row.closingQuantity)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          <Amount value={row.movementValue} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Movement Detail</h3>
-                {inventoryReport.rows.length === 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">
-                    No movement detail for this period.
-                  </p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>JE</TableHead>
-                        <TableHead className="text-right">In</TableHead>
-                        <TableHead className="text-right">Out</TableHead>
-                        <TableHead className="text-right">Net</TableHead>
-                        <TableHead className="text-right">Value</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {inventoryReport.rows.slice(0, 50).map((row) => (
-                        <TableRow key={row.movementId}>
-                          <TableCell>{row.movementDate}</TableCell>
-                          <TableCell>
-                            <div>{row.skuCode}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {row.skuName}
-                            </div>
-                          </TableCell>
-                          <TableCell>{row.movementType}</TableCell>
-                          <TableCell>
-                            <SourceCell
-                              sourceEntityType={row.sourceEntityType}
-                              sourceEntityId={row.sourceEntityId}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {shortId(row.journalEntryId)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {quantity(row.inboundQuantity)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {quantity(row.outboundQuantity)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {quantity(row.netQuantity)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            <Amount value={row.totalCost} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
             </CardContent>
           </Card>
         </>

@@ -57,8 +57,12 @@ export interface Obligation {
   what: string;
   /** Why it exists / what it settles. */
   why: string;
-  /** The workbench route where the user acts on this obligation. */
-  workbenchHref: string;
+  /**
+   * The workbench route where the user acts on this obligation. Absent for
+   * awareness-only obligations the app tracks the deadline for but cannot file
+   * (PND 1 and SSO — see docs/deferred-features.md).
+   */
+  workbenchHref?: string;
 }
 
 export interface NotApplicableObligation {
@@ -164,29 +168,32 @@ export function deriveObligations(
     workbenchHref: "/tax/withholding/filings",
   });
 
+  // PND 1 and SSO are payroll filings. Payroll was removed from the app, so
+  // these stay as awareness-only deadlines: the statutory date is still real
+  // and still the owner's problem, the app just cannot file or track it.
   if (profile.hasEmployees) {
     obligations.push({
       key: "pnd1",
       form: "PND 1",
       appliesBecause: "Your organization has employees.",
+      conditionalNote: "Filed outside this app — the deadline is shown for awareness.",
       dueDate: whtPaperDeadline(period.year, period.month, config).deadline,
       dueDateIsEfiling: false,
       efilingDueDate: whtEfilingDeadline(period.year, period.month, config)
         .deadline,
       what: "Remits the personal income tax withheld from your employees' salaries this month.",
       why: "Employers withhold income tax from every payroll run and pass it to the Revenue Department monthly.",
-      workbenchHref: "/payroll/filings/pnd1",
     });
 
     obligations.push({
       key: "sso",
       form: "SSO",
       appliesBecause: "Your organization has employees.",
+      conditionalNote: "Filed outside this app — the deadline is shown for awareness.",
       dueDate: deadlineInFollowingMonth(period, SSO_DEADLINE_DAY),
       dueDateIsEfiling: false,
       what: "Monthly social security contributions — the amounts deducted from employee salaries plus your matching employer share.",
       why: "Paid to the Social Security Office (not the Revenue Department); it funds employee health care, unemployment and pension benefits.",
-      workbenchHref: "/payroll/filings/sso",
     });
   }
 
@@ -278,25 +285,6 @@ function mapVatFilingStatus(filing: {
   }
 }
 
-function mapPayrollFilingStatus(filing: {
-  filingStatus: string;
-  paidAt: Date | null;
-}): { status: ObligationStatus; displayStatus: string } {
-  if (filing.paidAt !== null) return { status: "paid", displayStatus: "paid" };
-  switch (filing.filingStatus) {
-    case "draft":
-      return { status: "draft", displayStatus: "draft" };
-    case "submitted":
-    case "accepted":
-      return { status: "filed", displayStatus: filing.filingStatus };
-    case "rejected":
-      // Rejected by RD/SSO — work is back in the org's court.
-      return { status: "draft", displayStatus: "rejected" };
-    default:
-      return { status: "unknown", displayStatus: filing.filingStatus };
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Data layer
 // ---------------------------------------------------------------------------
@@ -320,12 +308,10 @@ export async function getObligationsWithStatus(
     { getOrganizationById },
     { getFilingDeadlineConfig },
     { getFilingsByPeriod },
-    { getPayrollPndFilings, getPayrollSsoFilings },
   ] = await Promise.all([
     import("@/lib/db/queries/organizations"),
     import("@/lib/db/queries/tax-config"),
     import("@/lib/db/queries/wht-filings"),
-    import("@/lib/db/queries/payroll"),
   ]);
 
   const org = await getOrganizationById(orgId);
@@ -340,7 +326,6 @@ export async function getObligationsWithStatus(
   const config = await getFilingDeadlineConfig();
   const obligations = deriveObligations(profile, period, config);
   const notApplicable = deriveNotApplicableObligations(profile);
-  const periodStr = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   const withStatus: ObligationWithStatus[] = await Promise.all(
     obligations.map(async (obligation) => {
@@ -373,33 +358,15 @@ export async function getObligationsWithStatus(
           const status = combineWhtStatuses(statuses);
           return { ...obligation, status, displayStatus: status };
         }
-        case "pnd1": {
-          const filings = await getPayrollPndFilings(orgId, {
-            formType: "PND1",
-          });
-          // Ordered by createdAt desc within period — first match is current.
-          const filing = filings.find((f) => f.taxPeriod === periodStr);
-          if (!filing) {
-            return {
-              ...obligation,
-              status: "not_started" as const,
-              displayStatus: "not_started",
-            };
-          }
-          return { ...obligation, ...mapPayrollFilingStatus(filing) };
-        }
-        case "sso": {
-          const filings = await getPayrollSsoFilings(orgId);
-          const filing = filings.find((f) => f.taxMonth === periodStr);
-          if (!filing) {
-            return {
-              ...obligation,
-              status: "not_started" as const,
-              displayStatus: "not_started",
-            };
-          }
-          return { ...obligation, ...mapPayrollFilingStatus(filing) };
-        }
+        // Payroll filings are awareness-only — nothing in the app records
+        // whether they were filed, so we say so rather than guess.
+        case "pnd1":
+        case "sso":
+          return {
+            ...obligation,
+            status: "unknown" as const,
+            displayStatus: "not_tracked",
+          };
       }
     })
   );

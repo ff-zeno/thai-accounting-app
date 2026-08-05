@@ -3,7 +3,6 @@ import { db, type DbConnection } from "../index";
 import { documentLineItems, documents, vendors, whtCreditsReceived } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
-import { enqueuePostingOutbox } from "./posting-outbox";
 
 export interface CreateWhtCreditReceivedInput {
   orgId: string;
@@ -114,21 +113,9 @@ export async function createWhtCreditReceived(
     },
     conn
   );
-  await enqueuePostingOutbox({
-    orgId: input.orgId,
-    sourceEntityType: "wht_credits_received",
-    sourceEntityId: created.id,
-    eventType: "create",
-    postingDate: input.paymentDate,
-    payload: {
-      customerVendorId: input.customerVendorId,
-      paymentDate: input.paymentDate,
-      grossAmount: formatCents(grossAmountCents),
-      whtAmount: formatCents(whtAmountCents),
-      certificateNo: input.certificateNo ?? null,
-    },
-    tx: conn,
-  });
+  // Used to enqueue a posting_outbox row so the general ledger recorded this
+  // credit as a journal entry. The ledger went with the accounting surface
+  // (docs/deferred-features.md); restore the enqueue if it comes back.
 
   return created.id;
 }

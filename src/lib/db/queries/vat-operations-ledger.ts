@@ -5,7 +5,6 @@ import {
   auditLog,
   exceptionQueue,
   periodLocks,
-  postingOutbox,
   pp36Obligations,
   taxPaymentEvents,
   taxPaymentEventTypeEnum,
@@ -1026,24 +1025,10 @@ export async function recordTaxPaymentEvent(
     })
     .returning();
 
-  if (data.eventType === "payment") {
-    await conn
-      .insert(postingOutbox)
-      .values({
-        orgId: data.orgId,
-        sourceEntityType: "tax_payment_events",
-        sourceEntityId: event.id,
-        eventType: "payment",
-        postingDate: formatBangkokDate(data.paidAt),
-        postingStatus: "pending",
-        payload: {
-          filingId: data.filingId,
-          paymentDate: formatBangkokDate(data.paidAt),
-        },
-      })
-      .onConflictDoNothing();
-  }
-
+  // A "payment" event used to enqueue a posting_outbox row so the general
+  // ledger picked it up as a journal entry. The ledger was removed with the
+  // accounting surface (docs/deferred-features.md); restore the enqueue here
+  // if double-entry ever comes back.
   return event;
 }
 

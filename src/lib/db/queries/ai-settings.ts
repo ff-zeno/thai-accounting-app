@@ -23,13 +23,6 @@ export async function upsertOrgAiSettings(
     translationModel?: string | null;
     monthlyBudgetUsd?: string | null;
     budgetAlertThreshold?: string | null;
-    copilotProvider?: string | null;
-    copilotModel?: string | null;
-    copilotApiKeySecretRef?: string | null;
-    copilotApiKeyLast4?: string | null;
-    copilotMonthlyBudgetUsd?: string | null;
-    copilotLiveModelEnabled?: boolean;
-    copilotWriteToolsEnabled?: boolean;
   }
 ) {
   const [row] = await db

@@ -38,13 +38,17 @@ export interface ExtractionFile {
 }
 
 // ---------------------------------------------------------------------------
-// Extraction context (Phase 8 learning loop)
+// Extraction context
 // ---------------------------------------------------------------------------
 
+/**
+ * Deterministic facts we already hold about the two parties on the document.
+ * This is not a learned signal: it is read straight off the matched vendor
+ * record and the tenant's own organization record, and exists only to help the
+ * model tell seller fields from buyer fields on bilingual Thai tax invoices.
+ */
 export interface ExtractionContext {
-  tier: 0 | 1 | 2 | 3;
   vendorId: string | null;
-  vendorKey?: string | null;
   identityAnchor?: {
     vendorName?: string | null;
     vendorNameTh?: string | null;
@@ -59,103 +63,15 @@ export interface ExtractionContext {
     buyerAddress?: string | null;
     buyerAddressTh?: string | null;
   };
-  exemplarIds: string[];
-  globalExemplarIds?: string[];
-  exemplars: Array<{
-    fieldName: string;
-    aiValue: string | null;
-    userValue: string | null;
-  }>;
-  learningCandidates?: Array<{
-    fieldName: string;
-    candidateType: "field_exemplar" | "field_rule" | "document_family_rule" | "vendor_rule";
-    documentFamily: string | null;
-    rationale: string | null;
-    selectorHint: string | null;
-    rejectHint: string | null;
-    status: "active";
-  }>;
-  compiledPatternId?: string;
-  compiledJs?: string;
-  compiledResult?: Record<string, string>;
 }
 
-// Exact-value exemplars are limited to stable identity/classification fields.
-// Variable fields such as totals and document numbers must flow through
-// structured learning candidates so prompts describe selectors, not stale values.
-const PROMPT_ELIGIBLE_EXEMPLAR_FIELDS = new Set([
-  "documentType",
-  "vendorName",
-  "vendorNameEn",
-  "vendorNameTh",
-  "vendorTaxId",
-  "vendorBranchNumber",
-  "vendorAddress",
-  "vendorAddressTh",
-  "buyerName",
-  "buyerNameTh",
-  "buyerTaxId",
-  "buyerBranchNumber",
-  "buyerAddress",
-  "buyerAddressTh",
-  "taxInvoiceSubtype",
-  "currency",
-  "detectedLanguage",
-]);
-
 /**
- * Build a few-shot exemplar block for the extraction prompt.
- * Tier 1: private corrections from this org's history.
- * Tier 2: community patterns from the global exemplar pool.
+ * Build the party-identity block appended to the extraction prompt.
+ * Returns "" when no vendor was matched or every anchor value is unusable.
  *
  * Exported for testing.
  */
-export function buildExemplarPrompt(ctx: ExtractionContext): string {
-  const identityBlock = buildIdentityAnchorPrompt(ctx);
-  const candidateBlock = buildLearningCandidatePrompt(ctx);
-  if (ctx.tier < 1 || (ctx.exemplars.length === 0 && !candidateBlock)) return identityBlock;
-
-  if (ctx.tier === 2) {
-    // Tier 2: global community patterns
-    const lines = ctx.exemplars
-      .filter((e) => PROMPT_ELIGIBLE_EXEMPLAR_FIELDS.has(e.fieldName))
-      .map((e) => {
-        return `- ${e.fieldName}: expected value "${e.userValue ?? "(empty)"}"`;
-      });
-    if (lines.length === 0) return identityBlock + candidateBlock;
-
-    return `${identityBlock}\n\nIMPORTANT — Community patterns for this vendor:
-Multiple organizations have confirmed the following field values for documents from this vendor.
-Use these community-verified patterns as guidance for field extraction:
-${lines.join("\n")}
-
-These are consensus values from multiple independent sources — treat as reliable defaults.${candidateBlock}`;
-  }
-
-  // Tier 1: private corrections
-  const corrections = ctx.exemplars.filter(
-    (e) =>
-      e.aiValue !== e.userValue &&
-      e.userValue != null &&
-      PROMPT_ELIGIBLE_EXEMPLAR_FIELDS.has(e.fieldName)
-  );
-  if (corrections.length === 0) return identityBlock + candidateBlock;
-
-  const lines = corrections.map((e) => {
-    const from = e.aiValue ?? "(empty)";
-    const to = e.userValue ?? "(empty)";
-    return `- ${e.fieldName}: AI extracted "${from}" → user corrected to "${to}"`;
-  });
-
-  return `${identityBlock}\n\nIMPORTANT — Prior corrections for this vendor:
-The user has previously corrected the following fields for documents from this vendor.
-Apply these corrections when extracting similar fields:
-${lines.join("\n")}
-
-Use these corrections as strong guidance for field extraction.${candidateBlock}`;
-}
-
-function buildIdentityAnchorPrompt(ctx: ExtractionContext): string {
+export function buildIdentityAnchorPrompt(ctx: ExtractionContext): string {
   const anchor = ctx.identityAnchor;
   if (!anchor) return "";
 
@@ -204,39 +120,6 @@ function formatAnchorLine(fieldName: string, value: string | null | undefined) {
   return cleaned ? `- ${fieldName}: ${JSON.stringify(cleaned)}` : null;
 }
 
-function buildLearningCandidatePrompt(ctx: ExtractionContext): string {
-  const activeRules = (ctx.learningCandidates ?? []).filter(
-    (candidate) =>
-      candidate.status === "active" && candidate.candidateType !== "field_exemplar"
-  );
-  if (activeRules.length === 0) return "";
-
-  const lines = activeRules.map((candidate) => {
-    const rationale = formatPromptRationale(candidate.rationale);
-    const details = [
-      candidate.selectorHint ? `use "${candidate.selectorHint}"` : null,
-      candidate.rejectHint ? `do not use "${candidate.rejectHint}"` : null,
-      rationale ? `rationale: ${rationale}` : null,
-    ].filter(Boolean);
-    return `- ${candidate.fieldName}: ${details.join("; ")}`;
-  });
-
-  return `\n\nConfirmed extraction rules for this vendor:
-${lines.join("\n")}
-
-Use these structured rules only when the new document has matching labels or layout cues.`;
-}
-
-function formatPromptRationale(value: string | null) {
-  if (!value) return null;
-  const cleaned = value.replace(/\s+/g, " ").trim();
-  if (!cleaned) return null;
-  if (hasInstructionLikeText(cleaned)) {
-    return null;
-  }
-  return cleaned.length <= 240 ? cleaned : `${cleaned.slice(0, 237)}...`;
-}
-
 function formatAnchorValue(fieldName: string, value: string | null | undefined) {
   if (!value) return null;
   const cleaned = value
@@ -281,9 +164,9 @@ export async function extractDocument(
     | { type: "image"; image: Uint8Array; mediaType?: string }
     | { type: "file"; data: Uint8Array; mediaType: string };
 
-  const exemplarBlock = context ? buildExemplarPrompt(context) : "";
+  const anchorBlock = context ? buildIdentityAnchorPrompt(context) : "";
   const content: ContentPart[] = [
-    { type: "text", text: EXTRACTION_PROMPT + exemplarBlock },
+    { type: "text", text: EXTRACTION_PROMPT + anchorBlock },
   ];
 
   for (const file of files) {

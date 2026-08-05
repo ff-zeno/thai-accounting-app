@@ -4,12 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getDocumentWithDetails } from "@/lib/db/queries/documents";
 import { getMatchesByDocumentId } from "@/lib/db/queries/reconciliation";
-import { getLatestExtractionLog } from "@/lib/db/queries/extraction-log";
-import { getFixedAssetByAcquisitionDocument } from "@/lib/db/queries/fixed-assets";
-import { getInventorySkuOptions } from "@/lib/db/queries/inventory";
 import { DocumentReview } from "./document-review";
 import { MatchedTransactions } from "./matched-transactions";
-import { LearningIndicator } from "./learning-indicator";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
@@ -24,16 +20,11 @@ export default async function DocumentReviewPage({
 
   if (!orgId) notFound();
 
-  const [doc, matches, extractionLog] = await Promise.all([
+  const [doc, matches] = await Promise.all([
     getDocumentWithDetails(orgId, docId),
     getMatchesByDocumentId(orgId, docId),
-    getLatestExtractionLog(orgId, docId),
   ]);
   if (!doc) notFound();
-  const [capitalizedAsset, inventorySkus] = await Promise.all([
-    getFixedAssetByAcquisitionDocument(orgId, docId),
-    getInventorySkuOptions(orgId),
-  ]);
 
   return (
     <div className="space-y-4">
@@ -45,12 +36,6 @@ export default async function DocumentReviewPage({
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         {doc.documentNumber && (
           <span className="text-muted-foreground">#{doc.documentNumber}</span>
-        )}
-        {extractionLog && (
-          <LearningIndicator
-            tierUsed={extractionLog.tierUsed}
-            exemplarCount={extractionLog.exemplarIds?.length ?? 0}
-          />
         )}
       </div>
 
@@ -83,7 +68,6 @@ export default async function DocumentReviewPage({
           reviewNotes: doc.reviewNotes,
           detectedLanguage: doc.detectedLanguage,
           updatedAt: doc.updatedAt?.toISOString() ?? null,
-          capitalizedAssetId: capitalizedAsset?.id ?? null,
         }}
         files={doc.files.map((f) => ({
           id: f.id,
@@ -99,14 +83,6 @@ export default async function DocumentReviewPage({
           amount: li.amount,
           vatAmount: li.vatAmount,
           whtType: li.whtType,
-        }))}
-        inventorySkus={inventorySkus.map((sku) => ({
-          id: sku.id,
-          skuCode: sku.skuCode,
-          nameEn: sku.nameEn,
-          nameTh: sku.nameTh,
-          currentAvgCost: sku.currentAvgCost,
-          standardCost: sku.standardCost,
         }))}
         vendor={
           doc.vendor

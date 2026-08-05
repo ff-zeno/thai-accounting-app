@@ -22,10 +22,6 @@ import {
   getVendorsByOrg,
   updateVendor,
 } from "@/lib/db/queries/vendors";
-import {
-  writeReviewExemplars,
-  type UserReviewValues,
-} from "@/lib/db/queries/review-exemplars";
 
 interface SearchFilters {
   search?: string;
@@ -189,30 +185,6 @@ export async function updateDocumentSidebarAction(
       }
       throw error;
     }
-  }
-
-  // Feed the learning loop with the same diff payload the full review page uses.
-  try {
-    const userValues: UserReviewValues = {};
-    if ("type" in data) userValues.documentType = data.type ?? null;
-    if ("documentNumber" in data)
-      userValues.documentNumber = data.documentNumber ?? null;
-    if ("issueDate" in data) userValues.issueDate = data.issueDate ?? null;
-    if ("dueDate" in data) userValues.dueDate = data.dueDate ?? null;
-    if ("subtotal" in data) userValues.subtotal = data.subtotal ?? null;
-    if ("vatAmount" in data) userValues.vatAmount = data.vatAmount ?? null;
-    if ("totalAmount" in data)
-      userValues.totalAmount = data.totalAmount ?? null;
-    if ("currency" in data) userValues.currency = data.currency ?? null;
-    if ("vendorName" in data && data.vendorName != null) {
-      userValues.vendorName = data.vendorName;
-    }
-    await writeReviewExemplars({ orgId, docId, userValues });
-  } catch (error) {
-    console.error(
-      "[updateDocumentSidebarAction] exemplar write failed:",
-      error
-    );
   }
 
   revalidatePath("/documents");

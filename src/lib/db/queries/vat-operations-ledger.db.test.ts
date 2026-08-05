@@ -1367,22 +1367,6 @@ describe("VAT operations ledger helpers", () => {
       amount: "70.00",
       receiptNo: "PP36-RD-1",
     });
-    const [outbox] = await testDb
-      .select()
-      .from(schema.postingOutbox)
-      .where(sql`${schema.postingOutbox.sourceEntityId} = ${payment.event.id}`)
-      .limit(1);
-    expect(outbox).toMatchObject({
-      orgId: org.id,
-      sourceEntityType: "tax_payment_events",
-      eventType: "payment",
-      postingDate: "2026-05-16",
-      postingStatus: "pending",
-    });
-    expect(outbox.payload).toMatchObject({
-      filingId: filed.id,
-      paymentDate: "2026-05-16",
-    });
     expect(payment.paidObligations).toHaveLength(1);
     expect(payment.paidObligations[0]).toMatchObject({
       id: obligation.id,

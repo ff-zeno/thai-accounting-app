@@ -11,7 +11,7 @@ test.describe("Sidebar navigation", () => {
       name: "Primary navigation",
     });
 
-    for (const entry of ["Home", "Bank", "Documents", "Tax", "More"]) {
+    for (const entry of ["Home", "Bank", "Documents", "Tax", "Vendors"]) {
       await expect(
         primaryNav.getByRole("link", { name: entry, exact: true })
       ).toBeVisible();
@@ -21,15 +21,26 @@ test.describe("Sidebar navigation", () => {
       page.getByRole("link", { name: "Settings", exact: true })
     ).toBeVisible();
 
-    // Reconciliation is nested under Bank, Admin is gone, and the e2e org
-    // has POS sales disabled so the gated Sales entry must not render.
-    await expect(
-      primaryNav.getByRole("link", { name: "Reconciliation" })
-    ).toHaveCount(0);
-    await expect(primaryNav.getByRole("link", { name: "Admin" })).toHaveCount(0);
-    await expect(
-      primaryNav.getByRole("link", { name: "Sales", exact: true })
-    ).toHaveCount(0);
+    // The five entries are the whole desktop tree: there is no "More"
+    // catch-all any more, Reconciliation is nested under Bank, and the
+    // accounting/analytics/payroll surfaces were removed outright
+    // (docs/deferred-features.md).
+    for (const gone of [
+      "More",
+      "Reconciliation",
+      "Admin",
+      "Sales",
+      "Accounting",
+      "General Ledger",
+      "Analytics",
+      "Payroll",
+      "Inventory",
+      "Fixed Assets",
+    ]) {
+      await expect(
+        primaryNav.getByRole("link", { name: gone, exact: true })
+      ).toHaveCount(0);
+    }
   });
 
   test("active entry has aria-current and active styling on /dashboard", async ({
@@ -126,19 +137,16 @@ test.describe("Sidebar navigation", () => {
     await page.waitForURL("**/tax/vat/forecast");
   });
 
-  test("advanced links are grouped under More", async ({ page }) => {
+  test("Vendors is a top-level entry, not a More sub-item", async ({ page }) => {
     const primaryNav = page.getByRole("navigation", {
       name: "Primary navigation",
     });
-    await primaryNav.getByRole("link", { name: "More", exact: true }).click();
+    await primaryNav.getByRole("link", { name: "Vendors", exact: true }).click();
     await page.waitForURL("**/vendors");
 
     await expect(
       primaryNav.getByRole("link", { name: "Vendors", exact: true })
-    ).toBeVisible();
-    await expect(
-      primaryNav.getByRole("link", { name: "General Ledger", exact: true })
-    ).toBeVisible();
+    ).toHaveAttribute("aria-current", "page");
   });
 
   test("mobile bottom bar and More sheet expose the full tree", async ({
@@ -163,13 +171,18 @@ test.describe("Sidebar navigation", () => {
       mobileNav.getByRole("link", { name: "Capture", exact: true })
     ).toHaveAttribute("href", "/capture");
 
+    // Documents and Vendors have no bottom-bar slot, so the More sheet is
+    // the only mobile route to them — it must carry the whole tree.
     await mobileNav.getByRole("button", { name: "More", exact: true }).click();
     const moreNav = page.getByRole("navigation", { name: "More navigation" });
     await expect(
-      moreNav.getByRole("link", { name: "Withholding Tax", exact: true })
+      moreNav.getByRole("link", { name: "Documents", exact: true })
     ).toBeVisible();
     await expect(
-      moreNav.getByRole("link", { name: "Extraction Health" })
+      moreNav.getByRole("link", { name: "Vendors", exact: true })
+    ).toBeVisible();
+    await expect(
+      moreNav.getByRole("link", { name: "Withholding Tax", exact: true })
     ).toBeVisible();
   });
 });

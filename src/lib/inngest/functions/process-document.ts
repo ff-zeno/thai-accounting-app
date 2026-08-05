@@ -35,15 +35,10 @@ const lazyExtractPdfText = () =>
   import("@/lib/pdf/rasterize").then((m) => m.extractPdfText);
 const lazyProbeVendorIdentity = () =>
   import("@/lib/vendor/probe-identity").then((m) => m.probeVendorIdentity);
-import { getVendorTier } from "@/lib/db/queries/vendor-tier";
 import { getVendorById } from "@/lib/db/queries/vendors";
 import { getOrganizationById } from "@/lib/db/queries/organizations";
-import { getTopExemplars } from "@/lib/db/queries/extraction-exemplars";
-import { getActiveLearningCandidates } from "@/lib/db/queries/extraction-learning-candidates";
-import { getGlobalExemplars } from "@/lib/db/queries/global-exemplar-pool";
 import { insertExtractionLog } from "@/lib/db/queries/extraction-log";
 import { suggestCategoryForVendor } from "@/lib/db/queries/category-suggest";
-import { getActivePattern } from "@/lib/db/queries/compiled-patterns";
 
 // ---------------------------------------------------------------------------
 // Types for Inngest step serialization
@@ -322,21 +317,33 @@ export const processDocument = inngest.createFunction(
       }
     });
 
-    // Step 3: Resolve extraction context (tier + exemplars).
-    // If the probe found a known vendor, load their tier and exemplars.
+    // Step 3: Resolve the party-identity anchor.
+    // If the probe matched a known vendor, load that vendor record and this
+    // org's own record so the extraction prompt can tell seller fields from
+    // buyer fields on bilingual Thai tax invoices. Deterministic lookup only —
+    // no learned exemplars, no per-vendor tiers.
     // Note: Inngest serializes step results through JSON, so we cast the
     // deserialized result back to ExtractionContext.
     const extractionContext = await step.run(
       "resolve-extraction-context",
       async (): Promise<ExtractionContext> => {
-        const buildIdentityAnchor = async (vendorId: string) => {
-          try {
-            const [vendor, org] = await Promise.all([
-              getVendorById(orgId, vendorId),
-              getOrganizationById(orgId),
-            ]);
+        if (!probeResult.vendorId) {
+          console.log("[process-document] no vendorId probed — extracting without anchor");
+          return { vendorId: null };
+        }
 
-            return {
+        try {
+          const [vendor, org] = await Promise.all([
+            getVendorById(orgId, probeResult.vendorId),
+            getOrganizationById(orgId),
+          ]);
+
+          console.log(
+            `[process-document] identity anchor for vendorId=${probeResult.vendorId}`
+          );
+          return {
+            vendorId: probeResult.vendorId,
+            identityAnchor: {
               vendorName: vendor?.name ?? null,
               vendorNameTh: vendor?.nameTh ?? null,
               vendorTaxId: vendor?.taxId ?? null,
@@ -349,161 +356,14 @@ export const processDocument = inngest.createFunction(
               buyerBranchNumber: org?.branchNumber ?? null,
               buyerAddress: org?.address ?? null,
               buyerAddressTh: org?.addressTh ?? null,
-            };
-          } catch (error) {
-            console.warn(
-              "[process-document] identity-anchor lookup failed; continuing without anchor:",
-              error
-            );
-            return undefined;
-          }
-        };
-
-        const log = (ctx: ExtractionContext, reason: string) => {
-          console.log(
-            `[process-document] tier=${ctx.tier} vendorId=${ctx.vendorId ?? "none"} exemplars=${ctx.exemplars.length} candidates=${ctx.learningCandidates?.length ?? 0} identityAnchor=${ctx.identityAnchor ? "yes" : "no"} (${reason})`
-          );
-          return ctx;
-        };
-        if (!probeResult.vendorId) {
-          // No vendor identified — check if we have a tax ID for Tier 2
-          if (probeResult.taxIdFound) {
-            try {
-              const globalExemplars = await getGlobalExemplars(probeResult.taxIdFound);
-              if (globalExemplars.length > 0) {
-                return log(
-                  {
-                    tier: 2 as const,
-                    vendorId: null,
-                    vendorKey: probeResult.taxIdFound,
-                    exemplarIds: [],
-                    globalExemplarIds: globalExemplars.map((e) => e.id),
-                    exemplars: globalExemplars.map((e) => ({
-                      fieldName: e.fieldName,
-                      aiValue: null,
-                      userValue: e.canonicalValue,
-                    })),
-                  },
-                  "no vendorId but global exemplars found"
-                );
-              }
-            } catch {
-              // Tier 2 lookup failure is non-fatal
-            }
-          }
-          return log(
-            { tier: 0, vendorId: null, exemplarIds: [], exemplars: [] },
-            "no vendorId probed"
-          );
-        }
-
-        try {
-          const identityAnchor = await buildIdentityAnchor(probeResult.vendorId);
-          const tierRow = await getVendorTier(orgId, probeResult.vendorId);
-          const tier = (tierRow?.tier === 1 ? 1 : 0) as 0 | 1;
-          console.log(
-            `[process-document] vendor_tier row for ${probeResult.vendorId}: tier=${tierRow?.tier ?? "none"} docs=${tierRow?.docsProcessedTotal ?? 0}`
-          );
-
-          if (tier === 1) {
-            // Tier 1: load top private exemplars for prompt injection
-            const exemplars = await getTopExemplars(
-              orgId,
-              probeResult.vendorId,
-              3
-            );
-            const learningCandidates = await getActiveLearningCandidates({
-              orgId,
-              vendorId: probeResult.vendorId,
-            });
-
-            if (exemplars.length > 0 || learningCandidates.length > 0) {
-              return log(
-                {
-                  tier: 1 as const,
-                  vendorId: probeResult.vendorId,
-                  identityAnchor,
-                  exemplarIds: exemplars.map((e) => e.id),
-                  learningCandidates: learningCandidates.map((candidate) => ({
-                    fieldName: candidate.fieldName,
-                    candidateType: candidate.candidateType,
-                    documentFamily: candidate.documentFamily,
-                    rationale: candidate.rationale,
-                    selectorHint: candidate.selectorHint,
-                    rejectHint: candidate.rejectHint,
-                    status: "active" as const,
-                  })),
-                  exemplars: exemplars.map((e) => ({
-                    fieldName: e.fieldName,
-                    aiValue: e.aiValue,
-                    userValue: e.userValue,
-                  })),
-                },
-                "tier 1 exemplars loaded"
-              );
-            }
-            console.log(
-              `[process-document] tier=1 row exists but no corrected exemplars — falling through`
-            );
-          }
-
-          // Tier 0 or Tier 1 with no exemplars — try Tier 2 fallback
-          if (probeResult.taxIdFound) {
-            const globalExemplars = await getGlobalExemplars(probeResult.taxIdFound);
-            if (globalExemplars.length > 0) {
-              return {
-                tier: 2 as const,
-                vendorId: probeResult.vendorId,
-                vendorKey: probeResult.taxIdFound,
-                identityAnchor,
-                exemplarIds: [],
-                globalExemplarIds: globalExemplars.map((e) => e.id),
-                exemplars: globalExemplars.map((e) => ({
-                  fieldName: e.fieldName,
-                  aiValue: null,
-                  userValue: e.canonicalValue,
-                })),
-              };
-            }
-          }
-
-          // Tier 3: Check for compiled pattern
-          if (probeResult.taxIdFound && tierRow && tierRow.tier >= 3) {
-            try {
-              const pattern = await getActivePattern(probeResult.taxIdFound, "global");
-              if (pattern) {
-                return {
-                  tier: 3 as const,
-                  vendorId: probeResult.vendorId,
-                  vendorKey: probeResult.taxIdFound,
-                  identityAnchor,
-                  exemplarIds: [],
-                  exemplars: [],
-                  compiledPatternId: pattern.id,
-                  compiledJs: pattern.compiledJs,
-                };
-              }
-            } catch {
-              // Tier 3 lookup failure is non-fatal
-            }
-          }
-
-          return log(
-            {
-              tier: 0 as const,
-              vendorId: probeResult.vendorId,
-              identityAnchor,
-              exemplarIds: [],
-              exemplars: [],
             },
-            "vendor identified but no exemplars/patterns"
-          );
+          };
         } catch (error) {
-          console.warn("[process-document] resolve-extraction-context failed:", error);
-          return log(
-            { tier: 0 as const, vendorId: null, exemplarIds: [], exemplars: [] },
-            "resolve failed"
+          console.warn(
+            "[process-document] identity-anchor lookup failed; continuing without anchor:",
+            error
           );
+          return { vendorId: probeResult.vendorId };
         }
       }
     );
@@ -596,17 +456,10 @@ export const processDocument = inngest.createFunction(
           }
 
           // Write extraction log (idempotent by inngest event ID + step)
-          // For Tier 2, log global exemplar IDs since private exemplarIds is empty
-          const loggedExemplarIds =
-            extractionContext.tier === 2
-              ? (extractionContext.globalExemplarIds ?? [])
-              : extractionContext.exemplarIds;
           await insertExtractionLog({
             documentId,
             orgId,
             vendorId: extractionContext.vendorId,
-            tierUsed: extractionContext.tier,
-            exemplarIds: loggedExemplarIds,
             modelUsed: result.modelUsed,
             inputTokens: result.tokenUsage.input,
             outputTokens: result.tokenUsage.output,

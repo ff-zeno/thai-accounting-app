@@ -16,7 +16,6 @@ import {
 } from "@/lib/tax/filing-deadlines";
 import { getFilingDeadlineConfig } from "./tax-config";
 import { getVatLedgerPeriodDashboard } from "./vat-operations-ledger";
-import { computeCashForecast, computeDso } from "@/lib/analytics/kpi-engine";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,34 +29,11 @@ interface FilingDeadline {
   daysRemaining: number;
 }
 
-export interface DashboardMetrics {
-  totalExpenses: string;
-  totalIncome: string;
-  prevMonthExpenses: string;
-  prevMonthIncome: string;
-  netVatPosition: string;
-  outstandingFilings: number;
-  analyticsSnapshot: DashboardAnalyticsSnapshot;
-  upcomingDeadlines: FilingDeadline[];
-  openExceptions: ReviewException[];
-}
-
 export interface OwnerHomeMetrics {
   netVatPosition: string;
   outstandingFilings: number;
   upcomingDeadlines: FilingDeadline[];
   openExceptions: ReviewException[];
-}
-
-export interface DashboardAnalyticsSnapshot {
-  asOfDate: string;
-  arTotal: string;
-  apTotal: string;
-  projected30DayCash: string;
-  runwayMonths: number | null;
-  dsoDays: string;
-  scheduledPayrollOutflows: string;
-  scheduledDepreciationExpense: string;
 }
 
 export interface ReviewException {
@@ -83,128 +59,14 @@ function formatPeriod(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
-function todayBangkokDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function daysBetween(from: Date, to: Date): number {
   const msPerDay = 86400000;
   return Math.ceil((to.getTime() - from.getTime()) / msPerDay);
 }
 
 // ---------------------------------------------------------------------------
-// Aggregate document totals for a given month
-// ---------------------------------------------------------------------------
-
-async function getMonthlyDocumentTotals(
-  orgId: string,
-  year: number,
-  month: number,
-  direction: "expense" | "income"
-): Promise<string> {
-  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear = month === 12 ? year + 1 : year;
-  const endDate = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
-
-  const [result] = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${documents.totalAmount}), 0)::numeric(14,2)::text`,
-    })
-    .from(documents)
-    .where(
-      and(
-        ...orgScope(documents, orgId),
-        eq(documents.direction, direction),
-        eq(documents.status, "confirmed"),
-        sql`${documents.issueDate} >= ${startDate}`,
-        sql`${documents.issueDate} < ${endDate}`
-      )
-    );
-
-  return result?.total ?? "0.00";
-}
-
-// ---------------------------------------------------------------------------
 // Main dashboard query
 // ---------------------------------------------------------------------------
-
-export async function getDashboardMetrics(
-  orgId: string,
-  year: number,
-  month: number
-): Promise<DashboardMetrics> {
-  const prev = getPreviousMonth(year, month);
-  const asOfDate = todayBangkokDate();
-
-  const [
-    totalExpenses,
-    totalIncome,
-    prevMonthExpenses,
-    prevMonthIncome,
-    vatResult,
-    outstandingResult,
-    cashForecast,
-    dso,
-  ] = await Promise.all([
-    getMonthlyDocumentTotals(orgId, year, month, "expense"),
-    getMonthlyDocumentTotals(orgId, year, month, "income"),
-    getMonthlyDocumentTotals(orgId, prev.year, prev.month, "expense"),
-    getMonthlyDocumentTotals(orgId, prev.year, prev.month, "income"),
-    getVatLedgerPeriodDashboard({
-      orgId,
-      periodYear: year,
-      periodMonth: month,
-    }),
-    // Outstanding WHT filings count
-    db
-      .select({
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(whtMonthlyFilings)
-      .where(
-        and(
-          ...orgScope(whtMonthlyFilings, orgId),
-          sql`${whtMonthlyFilings.status} != 'filed'`
-        )
-      ),
-    computeCashForecast({ orgId, asOfDate }),
-    computeDso({ orgId, asOfDate }),
-  ]);
-
-  const netVatPosition = vatResult.pp30.signedNetPosition;
-  const outstandingFilings = outstandingResult[0]?.count ?? 0;
-
-  // Build upcoming deadlines from WHT filings and VAT ledger state.
-  const upcomingDeadlines = await getUpcomingDeadlines(orgId, year, month);
-  const openExceptions = await getOpenExceptions(orgId);
-
-  return {
-    totalExpenses,
-    totalIncome,
-    prevMonthExpenses,
-    prevMonthIncome,
-    netVatPosition,
-    outstandingFilings,
-    analyticsSnapshot: {
-      asOfDate,
-      arTotal: cashForecast.arTotal,
-      apTotal: cashForecast.apTotal,
-      projected30DayCash: cashForecast.projected30DayCash,
-      runwayMonths: cashForecast.runwayMonths,
-      dsoDays: dso.averageDays,
-      scheduledPayrollOutflows: cashForecast.scheduledPayrollOutflows,
-      scheduledDepreciationExpense: cashForecast.scheduledDepreciationExpense,
-    },
-    upcomingDeadlines,
-    openExceptions,
-  };
-}
 
 export async function getOwnerHomeMetrics(
   orgId: string,

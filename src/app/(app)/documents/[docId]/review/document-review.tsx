@@ -33,7 +33,6 @@ interface DocumentReviewProps {
     reviewNotes: string | null;
     detectedLanguage: string | null;
     updatedAt: string | null;
-    capitalizedAssetId: string | null;
   };
   files: Array<{
     id: string;
@@ -50,14 +49,6 @@ interface DocumentReviewProps {
     vatAmount: string | null;
     whtType: string | null;
   }>;
-  inventorySkus: Array<{
-    id: string;
-    skuCode: string;
-    nameEn: string | null;
-    nameTh: string | null;
-    currentAvgCost: string | null;
-    standardCost: string | null;
-  }>;
   vendor: {
     id: string;
     name: string;
@@ -73,7 +64,6 @@ export function DocumentReview({
   document: doc,
   files,
   lineItems,
-  inventorySkus,
   vendor,
 }: DocumentReviewProps) {
   return (
@@ -89,7 +79,6 @@ export function DocumentReview({
           document={doc}
           vendor={vendor}
           lineItems={lineItems}
-          inventorySkus={inventorySkus}
         />
         <div className="border-t p-4">
           <TranslationOverlay

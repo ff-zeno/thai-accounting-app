@@ -57,9 +57,14 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.945 0.012 260);
-  --accent-foreground: oklch(0.22 0.02 260);
+  /* Secondary text: darkened from 0.556 (which failed AA on white at ~3.5:1)
+     and given the ink hue so nav labels read as ink, not flat gray. */
+  --muted-foreground: oklch(0.48 0.015 260);
+  /* Accent carries the app's colour. Raised from 0.012 to 0.032 chroma after
+     owner review 2026-08-03: at 0.012 the active nav pill was a 5% step off
+     white and the whole shell read monochrome. */
+  --accent: oklch(0.932 0.032 258);
+  --accent-foreground: oklch(0.33 0.075 262);
   --destructive: oklch(0.577 0.245 27.325);
   /* Semantic status colors (DESIGN.md): darkened for AA text contrast on light
      surfaces — soft usage via opacity modifiers (bg-success/10, border-warning/40). */
@@ -69,6 +74,16 @@
   --warning-foreground: oklch(1 0 0);
   --info: oklch(0.47 0.14 255);
   --info-foreground: oklch(1 0 0);
+  /* Nav section identity hues (DESIGN.md 2026-08-03). The shell stays Ink
+     Neutral and ALL of its colour lives in the nav icons — the balance the
+     approved mockups struck with their emoji glyphs. These are identity
+     colours, never status: they say "which section", not "is this OK". */
+  --nav-home: oklch(0.45 0.035 260);
+  --nav-bank: oklch(0.52 0.105 195);
+  --nav-documents: oklch(0.56 0.105 68);
+  --nav-tax: oklch(0.49 0.125 258);
+  --nav-vendors: oklch(0.50 0.105 150);
+  --nav-settings: oklch(0.48 0.02 260);
   --border: oklch(0.94 0 0);
   --input: oklch(0.90 0 0);
   --ring: oklch(0.55 0.02 260);

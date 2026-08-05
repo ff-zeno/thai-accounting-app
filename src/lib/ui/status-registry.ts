@@ -62,6 +62,8 @@ export const STATUS_VARIANTS: Record<string, StatusBadgeVariant> = {
   not_built: "outline",
   ready_for_review: "warning",
   not_required: "secondary",
+  // payroll deadlines the app shows but cannot file (PND 1, SSO)
+  not_tracked: "secondary",
   waiting_to_pay_tax: "warning",
   tax_paid: "success",
   refund_or_credit: "info",

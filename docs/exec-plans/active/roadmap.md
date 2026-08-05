@@ -1,7 +1,7 @@
 # Thai Accounting Platform — Roadmap and Exec-Plan Index
 
 **Status:** Active table of contents and remaining-work map.
-**Last updated:** 2026-08-02 (design gate exited; the owner-mode shell/kit implementation is executed in the working tree, pending peer review; `design-refresh.md` and the visual half of `ui-consistency.md` were merged into that pass).
+**Last updated:** 2026-08-03 (scope reduction executed in the working tree: 82 → 39 page routes, 99 → 40 tables, 20 → 7 Inngest functions; see `scope-reduction.md` and `docs/deferred-features.md`).
 **Current baseline:** PR #1 merged to `main` at `f89b7f420f4daeb80e89d631e1336be5644512d8`; Vercel Production deploy succeeded; post-merge `pnpm db:migrate`, `pnpm tsc --noEmit`, and 65-route smoke passed.
 
 This file is the first place to read before planning more work. It separates:
@@ -16,6 +16,7 @@ Only keep documents here when they drive current or next work.
 
 | Document | Role | Done condition |
 |---|---|---|
+| `scope-reduction.md` | **Executed in the working tree 2026-08-03, uncommitted.** Strips the app to the weekly money loop (Home, Documents, Bank, Tax, Vendors, Settings) after the owner reported the app was unusable through excess. Everything removed is registered in `docs/deferred-features.md`. | Golden-path e2e run and green; `drizzle/0003_large_living_lightning.sql` applied with owner authorization; committed. |
 | `owner-mode-ux-reset.md` | **Authoritative active plan, design gate exited 2026-08-02:** reset the owner foreground around truth documents and reconciliation. The shell/kit implementation (Ink Neutral tokens, 5-item nav, route tabs, page sweeps, legacy rip-out) is executed in the working tree and awaits peer review; the documents-first workflow stages and VAT read-model gate remain. | Peer review + `/design-review` reach zero P1; then the dual-source intake, evidence-provenance reconciliation, VAT truth contract, and progressive disclosure are implemented and accepted. |
 | `engineering-hardening.md` | Reliability backbone: CI, golden-path E2E, money-math hardening, effective-dated tax config, 2027 holidays, payroll test coverage, in-flight VAT commit, external-validation kickoff | CI gates every PR, golden-path E2E green, no float money math, tax config centralized and date-safe, dirty tree cleared |
 | `ui-consistency.md` | Partially executed 2026-08-02 (status registry, DESIGN.md rules, and header/empty-state/money furniture landed via the UI reset); remaining scope is the shared data-table, table migrations, and react-hook-form adoption | Owner-mode tables use the shared data-table; one form approach documented and exemplified |
@@ -38,9 +39,15 @@ Completed plans live in `docs/exec-plans/completed/`. They are historical eviden
 
 ## Current State
 
-The app is now a broad non-production baseline, but the primary UX is too complex for the intended user. The merged stack includes VAT operations ledger, WHT/foreign-vendor tax, tax workflow surfaces, GL/accounting, POS/sales, imports, inventory, payroll, fixed assets, analytics/FX/cost centers, CIT/year-end readiness, navigation shell, and Copilot preview/settings.
+The app has been deliberately cut back to the weekly money loop.
+What remains, in the working tree, is: document capture → AI extraction → human confirmation; bank statements and the reconciliation cascade; VAT and withholding tax with the compliance calendar; vendors; settings.
+39 page routes, 40 tables, 7 Inngest functions.
 
-This is not production/fileable complete. The immediate gap is no longer "add more accounting features." The immediate gap is a product-design-approved documents-first reset around Home, Bank, Documents, Tax, and More, with advanced accounting/audit modules hidden or demoted.
+Everything else — GL/accounting, POS/sales, imports, inventory, payroll, fixed assets, analytics/FX/cost centers, CIT/year-end, Copilot, data exports, and the AI self-learning layer — was removed on 2026-08-03 and is registered in `docs/deferred-features.md` with the reason, the code paths, and the tables each would need back.
+The phase plans in the Completed Evidence table below are still accurate history for how those modules were built; they are no longer a description of the shipping app.
+
+This is not production/fileable complete.
+The immediate gap is proving the surviving loop actually works end to end for a real week of the owner's own paperwork — not adding features back.
 
 The proposed documents-first product model is:
 
@@ -54,12 +61,11 @@ The proposed documents-first product model is:
 
 ### Engineering reliability (see `engineering-hardening.md` and `docs/reviews/engineering-review-2026-06-12.md`)
 
-- No CI exists; add GitHub Actions gates before further feature work.
-- No golden-path E2E proving statement → document → extraction → reconciliation → PP30 draft.
+- Done: GitHub Actions gates (quality, db-tests, build) and the golden-path e2e (expense → PP30) on an ephemeral Neon branch per run.
+- **The golden-path e2e has not been run against the reduced app.** It is the one CI-protected journey and the reduction touched the schema underneath it. Run it before committing the reduction.
 - Float money math in `src/lib/reconciliation/matcher.ts` and `src/lib/tax/vat-register.ts`.
 - Tax config date bombs: 2026-only holiday calendar, VAT 7% hardcoded in 4 places (rate validated only through Sep 2026), static deadline constants, WHT rate duplication.
-- Uncommitted branch-scoped VAT PP30 work (13 files, migrations 0072/0073) needs gates + commit.
-- Payroll and reconciliation-rule test coverage gaps; no Inngest failed-run audit trail.
+- Reconciliation-rule test coverage gaps; no Inngest failed-run audit trail. (Payroll coverage is moot — payroll is deferred.)
 
 ### UI consistency and design (see `ui-consistency.md`)
 
@@ -69,8 +75,8 @@ The proposed documents-first product model is:
 ### Documents-first UX reset — design gate exited 2026-08-02, shell implemented
 
 - The shell/nav/visual-kit half is executed (working tree, pending peer review); the workflow stages (dual-source intake, evidence-provenance reconciliation, Tax lifecycle) remain per `owner-mode-ux-reset.md`.
-- Default navigation to owner mode: Home, Bank, Documents, Tax, More.
-- Demote GL/accounting internals, analytics, CIT/year-end, fixed assets, imports control, advanced settings, admin, and Copilot tool runner.
+- Navigation is Home, Bank, Documents, Tax, Vendors + Settings. The "More" menu no longer exists.
+- GL/accounting internals, analytics, CIT/year-end, fixed assets, imports, and the Copilot tool runner were not demoted but removed outright (`scope-reduction.md`).
 - Rework Home into "what needs attention" and "this month's filings."
 - Rework Bank and Documents around the two starting truth inputs, AI extraction/coding, matching, money location, sales provenance, and exception review.
 - Resolve the VAT read-model/source-of-truth contract before Tax lifecycle tables or diagrams; then rework Tax around monthly readiness and line-level lifecycle status.
@@ -86,15 +92,14 @@ The proposed documents-first product model is:
 
 ### Product gaps to schedule after QA
 
-- Owner-mode UX: approved documents-first Bank/POS/expense-evidence intake, reconciliation, monthly VAT/WHT checklist, VAT line lifecycle, WHT line lifecycle.
-- Imports: direct-clear customs, backfill/reversal depth, richer document/payment picker UX, richer charge classifier UX.
-- Inventory: FIFO/specific-ID/statutory true-up, richer count edit/approval, line-level SKU assignment, demand/reorder automation.
-- Sales/POS: connectors, richer settlement matching, cash slip OCR, bank matching, branch/establishment propagation, Excel/PDF section 87 exports.
-- Payroll: exact file exports, employee 50 Tawi production flow, receipt attachments, reconciliation, bank matching.
-- Analytics/FX: bank/WHT FX revaluation, realized settlement FX, remaining posting-context allocation metadata.
-- DBD/TFRS: fileable statements, notes, Builder packet, and auditor ZIP after CPA/Builder validation.
-- Copilot: live model orchestration, MCP, and confirmed/posted source writes beyond current guarded preview/apply tools.
-- Extraction learning: richer correction assistant and broader FedEx/Photoism held-out validation when more samples exist.
+Inside the surviving scope:
+
+- Owner-mode UX workflow stages: documents-first expense-evidence intake, evidence-provenance reconciliation, monthly VAT/WHT checklist, VAT line lifecycle, WHT line lifecycle (`owner-mode-ux-reset.md`).
+- DBD/TFRS: fileable statements, notes, Builder packet, and auditor ZIP after CPA/Builder validation — note this depends on GL, which is currently deferred.
+
+Outside it: the enhancement backlogs for imports, inventory, sales/POS, payroll, analytics/FX, Copilot, and extraction learning are not scheduled, because those modules were removed on 2026-08-03.
+`docs/deferred-features.md` is the register.
+Nothing from that list gets re-scheduled without the owner using the reduced app first and asking for it by name.
 
 ## Planning Rules
 

@@ -72,14 +72,16 @@ export function ObligationsList({
                   </span>
                 ) : null}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                render={<Link href={obligation.workbenchHref} />}
-              >
-                Open {obligation.form}
-                <ChevronRight className="size-4" />
-              </Button>
+              {obligation.workbenchHref ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={obligation.workbenchHref} />}
+                >
+                  Open {obligation.form}
+                  <ChevronRight className="size-4" />
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>

@@ -1,13 +1,9 @@
 "use client";
 
 import { useTransition, useState } from "react";
-import { AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -48,13 +44,6 @@ interface AiSettingsFormProps {
     translationModel: string | null;
     monthlyBudgetUsd: string | null;
     budgetAlertThreshold: string | null;
-    copilotProvider: string | null;
-    copilotModel: string | null;
-    copilotApiKeySecretRef: string | null;
-    copilotApiKeyLast4: string | null;
-    copilotMonthlyBudgetUsd: string | null;
-    copilotLiveModelEnabled: boolean;
-    copilotWriteToolsEnabled: boolean;
   } | null;
 }
 
@@ -285,96 +274,6 @@ export function AiSettingsForm({ settings }: AiSettingsFormProps) {
                 </p>
               </div>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Copilot Controls
-            </h3>
-            <Alert variant="warning">
-              <AlertTriangle />
-              <AlertDescription>
-                Copilot live model orchestration is preview-only. These settings store
-                provider preferences and secret references, but the current Copilot UI
-                still routes prompts through deterministic audited tools until live
-                orchestration is enabled in a later phase.
-              </AlertDescription>
-            </Alert>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="copilotProvider">Provider</Label>
-                <NativeSelect
-                  id="copilotProvider"
-                  name="copilotProvider"
-                  className="w-full"
-                  defaultValue={settings?.copilotProvider ?? ""}
-                >
-                  <option value="">No live model</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="anthropic">Anthropic</option>
-                  <option value="openrouter">OpenRouter</option>
-                </NativeSelect>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="copilotModel">Model</Label>
-                <Input
-                  id="copilotModel"
-                  name="copilotModel"
-                  placeholder="e.g. gpt-5.2 or claude-sonnet-4.5"
-                  defaultValue={settings?.copilotModel ?? ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="copilotApiKeySecretRef">API key secret reference</Label>
-                <Input
-                  id="copilotApiKeySecretRef"
-                  name="copilotApiKeySecretRef"
-                  placeholder="Vercel/env secret name, not the raw key"
-                  defaultValue={settings?.copilotApiKeySecretRef ?? ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="copilotApiKeyLast4">API key last 4</Label>
-                <Input
-                  id="copilotApiKeyLast4"
-                  name="copilotApiKeyLast4"
-                  maxLength={4}
-                  placeholder="safe audit hint"
-                  defaultValue={settings?.copilotApiKeyLast4 ?? ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="copilotMonthlyBudgetUsd">Copilot monthly budget USD</Label>
-                <Input
-                  id="copilotMonthlyBudgetUsd"
-                  name="copilotMonthlyBudgetUsd"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="No limit"
-                  defaultValue={settings?.copilotMonthlyBudgetUsd ?? ""}
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    name="copilotLiveModelEnabled"
-                    defaultChecked={settings?.copilotLiveModelEnabled ?? false}
-                  />
-                  Enable live model orchestration
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    name="copilotWriteToolsEnabled"
-                    defaultChecked={settings?.copilotWriteToolsEnabled ?? false}
-                  />
-                  Allow write-capable Copilot tools
-                </label>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Store only a secret reference and last-four hint here. Raw provider keys stay outside the database.
-            </p>
           </div>
 
           <div className="flex justify-end">

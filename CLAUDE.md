@@ -59,9 +59,9 @@ The spec skips when Inngest (:8288) is down unless `CI`/`E2E_REQUIRE_INNGEST=1`.
 | Working on... | Read these |
 |---------------|-----------|
 | Any code work | `docs/_ai_context/code-quality-guidelines.md` |
-| Plan overview | `docs/exec-plans/active/000-overview.md` |
-| Roadmap | `docs/exec-plans/active/roadmap.md` |
-| Schema reference | `docs/exec-plans/active/001-schema.md` |
+| Roadmap | `docs/exec-plans/active/roadmap.md` — read first |
+| Current scope | `docs/exec-plans/active/scope-reduction.md` (what the app is now) + `docs/deferred-features.md` (what it no longer is) |
+| Plan overview / schema reference | `docs/exec-plans/completed/000-overview.md`, `docs/exec-plans/completed/001-schema.md` — historical; both predate the 2026-08 reduction |
 | Thai tax rules | `thai-tax-compliance.html` |
 | Database schema | `src/lib/db/schema.ts` |
 | DB queries | `src/lib/db/queries/` (documents, transactions, payments, vendors, wht-certificates, vat-operations-ledger, reconciliation, reconciliation-metrics, reconciliation-rules, wht-filings, wht-rates, dashboard, ai-suggestions, ai-settings, vendor-aliases, bank-accounts, organizations, document-files) |
@@ -77,10 +77,10 @@ The spec skips when Inngest (:8288) is down unless `CI`/`E2E_REQUIRE_INNGEST=1`.
 | Vendor aliases | `src/lib/db/queries/vendor-aliases.ts` (auto-learn from manual matches, auto-confirm at 3 occurrences) |
 | Recon insights | `src/app/(app)/reconciliation/insights/` (metrics dashboard, confidence trend, PDF export), `src/lib/db/queries/reconciliation-metrics.ts` (11 aggregation queries incl. quality score + confidence trend) |
 | AI review | `src/app/(app)/reconciliation/ai-review/` (approve/reject AI suggestions), `src/app/(app)/reconciliation/review/actions.ts` (approve/reject/rematch server actions) |
-| Data exports | `src/lib/export/` (FlowAccount, Peak, full data export) |
 | External APIs | `src/lib/api/dbd-client.ts` (Thai DBD company lookup, no auth) |
+| Deferred features | `docs/deferred-features.md` — what the 2026-08 reduction removed, why, and how to restore it |
 | PDF generation | `src/lib/pdf/fifty-tawi.tsx` (50 Tawi WHT certificate), `src/lib/pdf/reconciliation-summary.tsx` (monthly recon PDF), `src/app/api/reconciliation-summary/route.ts` (PDF download API) |
-| App shell / nav | `src/lib/nav/structure.ts` (5-item registry: Home, Bank, Documents, Tax, More + gated Sales via `hasPosSales`; nav pins removed), `src/lib/nav/badges.ts` (nav badge counts + tax deadline chip, unit-tested), `src/components/layout/` (app-sidebar, top-bar, mobile-tab-bar, route-tabs, org-switcher, locale-switcher, no-org-gate) |
+| App shell / nav | `src/lib/nav/structure.ts` (5 top-level entries — Home, Bank, Documents, Tax, Vendors — plus Settings in the footer; nav pins and the POS/Sales gate removed), `src/lib/nav/badges.ts` (nav badge counts + tax deadline chip, unit-tested), `src/components/layout/` (app-sidebar, top-bar, mobile-tab-bar, route-tabs, org-switcher, locale-switcher, no-org-gate) |
 | UI kit | `DESIGN.md` (governing contract — read first), `src/components/ui/` (page-header, amount, flow-strip, status-badge, stat-card, empty-state, …), `src/lib/ui/status-registry.ts` (status→variant registry, no page-local switches), `src/lib/utils/money.ts` (satang math + formatAmount) |
 | Debugging | `docs/_ai_context/debugging-methodology.md` |
 | Domain terms | `docs/_ai_context/_glossary.md` |

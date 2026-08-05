@@ -22,7 +22,9 @@ test.describe("Dashboard", () => {
       "/bank-accounts/upload"
     );
     await expect(
-      page.getByRole("link", { name: /Documents \/ POS uploads/i })
+      page
+        .locator('a[href="/documents/upload"]')
+        .filter({ hasText: "Upload for this month" })
     ).toHaveAttribute("href", "/documents/upload");
     await expect(
       page.locator('a[href="/reconciliation"]').filter({ hasText: "Reconciliation" }).last()

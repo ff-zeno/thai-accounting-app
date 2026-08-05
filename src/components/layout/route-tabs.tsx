@@ -37,7 +37,10 @@ export function RouteTabs({
       aria-label="Section navigation"
       className={cn("overflow-x-auto", className)}
     >
-      <div className="inline-flex w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+      {/* gap-1 separates adjacent tabs; the accent-tinted track is what makes
+          the white active pill legible (bg-muted was a 3% step off white and
+          the tabs ran together — owner review 2026-08-03). */}
+      <div className="inline-flex w-fit items-center justify-center gap-1 rounded-lg bg-accent/70 p-1 text-muted-foreground">
         {tabs.map((tab) => {
           const isActive = active?.href === tab.href;
           return (
@@ -47,10 +50,10 @@ export function RouteTabs({
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 // min-h-11 = the 44px touch-target floor from DESIGN.md.
-                "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none",
-                "hover:bg-card/50 hover:text-foreground",
+                "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none",
+                "hover:bg-card/60 hover:text-accent-foreground",
                 "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                isActive && "bg-card text-foreground shadow"
+                isActive && "bg-card font-semibold text-foreground shadow-xs"
               )}
             >
               {tab.label}

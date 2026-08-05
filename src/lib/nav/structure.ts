@@ -1,42 +1,35 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
-  BarChart3,
   Bot,
-  BookOpen,
-  Boxes,
   Calendar,
-  ClipboardList,
+  FileSpreadsheet,
   FileText,
-  FolderKanban,
   GitCompareArrows,
   Home,
   Landmark,
-  Layers3,
-  LockKeyhole,
-  MoreHorizontal,
-  PackageSearch,
+  Percent,
   Receipt,
   Settings,
-  ShoppingCart,
-  SplitSquareVertical,
-  Upload,
   Users,
-  UsersRound,
 } from "lucide-react";
 
-/** Org profile flags that gate nav visibility. */
-export interface NavGateFlags {
-  hasPosSales: boolean;
-  hasEmployees: boolean;
-}
+/**
+ * Section identity hue. The shell itself stays neutral (Ink Neutral) and all
+ * colour lives in the nav icons — the balance the approved mockups struck.
+ * Resolved to the `--nav-*` tokens in globals.css by <NavIcon>.
+ */
+export type NavTone =
+  | "home"
+  | "bank"
+  | "documents"
+  | "tax"
+  | "vendors"
+  | "settings";
 
 export interface NavItem {
   labelKey: string;
   href: string;
   icon: LucideIcon;
-  /** Item only renders when the org profile flag is true. */
-  gate?: keyof NavGateFlags;
 }
 
 /** A labelled group of child links rendered under an expanded entry. */
@@ -55,23 +48,30 @@ export interface NavEntry {
   icon: LucideIcon;
   href: string;
   children: NavChildGroup[];
-  /** Entry only renders when the org profile flag is true. */
-  gate?: keyof NavGateFlags;
-  /** Badge slot identifier, resolved to a count by the shell (Stage 3). */
+  /** Section identity hue; children inherit it. */
+  tone: NavTone;
+  /** Badge slot identifier, resolved to a count by the shell. */
   badgeKey?: "documents" | "bank" | "tax";
 }
 
+/**
+ * Five top-level entries covering the weekly money loop: capture a document,
+ * match it to the bank, file the tax. Anything outside that loop was removed
+ * on 2026-08-03 and is recorded in docs/deferred-features.md.
+ */
 export const navEntries: NavEntry[] = [
   {
     labelKey: "home",
     icon: Home,
     href: "/dashboard",
+    tone: "home",
     children: [],
   },
   {
     labelKey: "bank",
     icon: Landmark,
     href: "/bank-accounts",
+    tone: "bank",
     badgeKey: "bank",
     // Upload lives in the /bank-accounts tab strip; reconciliation's own
     // surfaces (review, AI review, insights) live in its tab strip. The
@@ -89,6 +89,7 @@ export const navEntries: NavEntry[] = [
     labelKey: "documents",
     icon: FileText,
     href: "/documents/expenses",
+    tone: "documents",
     badgeKey: "documents",
     // Expenses / Income / Upload are the /documents tab strip; Capture has
     // the top-bar button and the mobile FAB. No sidebar children needed.
@@ -98,6 +99,7 @@ export const navEntries: NavEntry[] = [
     labelKey: "tax",
     icon: Receipt,
     href: "/tax",
+    tone: "tax",
     badgeKey: "tax",
     // One child level only — VAT and WHT internals are those pages' tab
     // strips. The sidebar never gets deeper than "VAT".
@@ -106,73 +108,19 @@ export const navEntries: NavEntry[] = [
         labelKey: null,
         items: [
           { labelKey: "taxVat", href: "/tax/vat", icon: Receipt },
-          { labelKey: "withholdingTax", href: "/tax/withholding", icon: Receipt },
+          { labelKey: "withholdingTax", href: "/tax/withholding", icon: Percent },
           { labelKey: "taxCalendar", href: "/tax/calendar", icon: Calendar },
-          { labelKey: "statutoryReports", href: "/tax/reports", icon: FileText },
+          { labelKey: "statutoryReports", href: "/tax/reports", icon: FileSpreadsheet },
         ],
       },
     ],
   },
   {
-    labelKey: "sales",
-    icon: ShoppingCart,
-    href: "/sales",
-    gate: "hasPosSales",
-    children: [],
-  },
-  {
-    labelKey: "more",
-    icon: MoreHorizontal,
+    labelKey: "vendors",
+    icon: Users,
     href: "/vendors",
-    children: [
-      {
-        labelKey: "masterData",
-        items: [
-          { labelKey: "vendors", href: "/vendors", icon: Users },
-          { labelKey: "costCenters", href: "/settings/cost-centers", icon: Layers3 },
-          { labelKey: "projects", href: "/settings/projects", icon: FolderKanban },
-          { labelKey: "allocationRules", href: "/settings/allocation-rules", icon: SplitSquareVertical },
-        ],
-      },
-      {
-        labelKey: "accounting",
-        items: [
-          { labelKey: "generalLedger", href: "/accounting", icon: BookOpen },
-          { labelKey: "journal", href: "/accounting/journal", icon: BookOpen },
-          { labelKey: "postingExceptions", href: "/accounting/posting-exceptions", icon: Activity },
-          { labelKey: "reports", href: "/accounting/reports", icon: BarChart3 },
-        ],
-      },
-      {
-        labelKey: "inventoryImports",
-        items: [
-          { labelKey: "inventoryControl", href: "/inventory", icon: Boxes },
-          { labelKey: "importsControl", href: "/imports", icon: PackageSearch },
-        ],
-      },
-      {
-        labelKey: "payrollAssets",
-        items: [
-          { labelKey: "payrollControl", href: "/payroll", icon: UsersRound, gate: "hasEmployees" },
-          { labelKey: "fixedAssetRegister", href: "/fixed-assets", icon: ClipboardList },
-          { labelKey: "fixedAssetRollForward", href: "/fixed-assets/reports/roll-forward", icon: ClipboardList },
-        ],
-      },
-      {
-        labelKey: "yearEndClose",
-        items: [
-          { labelKey: "closeChecklist", href: "/close", icon: LockKeyhole },
-          { labelKey: "citWorkbench", href: "/year-end/cit", icon: Landmark },
-        ],
-      },
-      {
-        labelKey: "toolsAdmin",
-        items: [
-          { labelKey: "accountingCopilot", href: "/copilot", icon: Bot },
-          { labelKey: "exports", href: "/reports", icon: Upload },
-        ],
-      },
-    ],
+    tone: "vendors",
+    children: [],
   },
 ];
 
@@ -181,31 +129,16 @@ export const settingsEntry: NavEntry = {
   labelKey: "settings",
   icon: Settings,
   href: "/settings",
+  tone: "settings",
   children: [
     {
       labelKey: null,
       items: [
         { labelKey: "aiSettings", href: "/settings/ai", icon: Bot },
-        { labelKey: "extractionHealth", href: "/admin/extraction-health", icon: Activity },
       ],
     },
   ],
 };
-
-/** Filters entries and items by org profile gates. */
-export function getVisibleNavEntries(flags: NavGateFlags): NavEntry[] {
-  return navEntries
-    .filter((entry) => !entry.gate || flags[entry.gate])
-    .map((entry) => ({
-      ...entry,
-      children: entry.children
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => !item.gate || flags[item.gate]),
-        }))
-        .filter((group) => group.items.length > 0),
-    }));
-}
 
 export function isHrefActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;

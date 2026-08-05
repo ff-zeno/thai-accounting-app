@@ -2,22 +2,10 @@
 
 import { getVerifiedOrgId } from "@/lib/utils/org-context";
 import {
-  getDashboardMetrics,
   getDocumentSummary,
   getVendorNamesForSummary,
-  type DashboardMetrics,
   type SummaryRow,
 } from "@/lib/db/queries/dashboard";
-
-export async function getDashboardMetricsAction(
-  year: number,
-  month: number
-): Promise<DashboardMetrics | null> {
-  const orgId = await getVerifiedOrgId();
-  if (!orgId) return null;
-
-  return getDashboardMetrics(orgId, year, month);
-}
 
 export async function getDocumentSummaryAction(
   direction: "expense" | "income",

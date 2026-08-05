@@ -7,18 +7,6 @@ import { suggestReconciliationRules } from "@/lib/inngest/functions/suggest-rule
 import { aiReconciliationDispatcher } from "@/lib/inngest/functions/ai-reconciliation-dispatcher";
 import { aiReconciliationBatch } from "@/lib/inngest/functions/ai-reconciliation-batch";
 import { matchImportedTransactions } from "@/lib/inngest/functions/match-imported-transactions";
-import { reviewSavedHandler } from "@/lib/inngest/functions/review-saved-handler";
-import { reviewConfirmedHandler } from "@/lib/inngest/functions/review-confirmed-handler";
-import { consensusRecompute } from "@/lib/inngest/functions/consensus-recompute";
-import { backfillVendorTaxId } from "@/lib/inngest/functions/backfill-vendor-tax-id";
-import { exemplarDecay } from "@/lib/inngest/functions/exemplar-decay";
-import { compileVendorPattern } from "@/lib/inngest/functions/compile-vendor-pattern";
-import { shadowValidatePattern } from "@/lib/inngest/functions/shadow-validate-pattern";
-import { shadowCanary } from "@/lib/inngest/functions/shadow-canary";
-import { fetchBotFxRates } from "@/lib/inngest/functions/fetch-bot-fx-rates";
-import { processMonthlyDepreciation } from "@/lib/inngest/functions/process-monthly-depreciation";
-import { processMonthEndFxRevaluation } from "@/lib/inngest/functions/process-month-end-fx-revaluation";
-import { processPostingOutbox } from "@/lib/inngest/functions/process-posting-outbox";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -30,17 +18,5 @@ export const { GET, POST, PUT } = serve({
     aiReconciliationDispatcher,
     aiReconciliationBatch,
     matchImportedTransactions,
-    reviewSavedHandler,
-    reviewConfirmedHandler,
-    consensusRecompute,
-    backfillVendorTaxId,
-    exemplarDecay,
-    compileVendorPattern,
-    shadowValidatePattern,
-    shadowCanary,
-    fetchBotFxRates,
-    processMonthlyDepreciation,
-    processMonthEndFxRevaluation,
-    processPostingOutbox,
   ],
 });

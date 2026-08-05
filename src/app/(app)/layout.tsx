@@ -13,7 +13,6 @@ import { getCurrentUser } from "@/lib/utils/auth";
 import { getNavBadges } from "@/lib/nav/badges";
 import { Toaster } from "@/components/ui/sonner";
 import { NoOrgGate } from "@/components/layout/no-org-gate";
-import type { NavGateFlags } from "@/lib/nav/structure";
 
 export default async function AppLayout({
   children,
@@ -35,7 +34,6 @@ export default async function AppLayout({
 
   // Validate that the active org exists AND the user has access to it
   let validActiveOrgId: string | null = null;
-  let gateFlags: NavGateFlags = { hasPosSales: false, hasEmployees: false };
   if (activeOrgId && dbUser) {
     const [activeOrg, hasAccess] = await Promise.all([
       getOrganizationById(activeOrgId),
@@ -43,10 +41,6 @@ export default async function AppLayout({
     ]);
     if (activeOrg && hasAccess) {
       validActiveOrgId = activeOrgId;
-      gateFlags = {
-        hasPosSales: activeOrg.hasPosSales,
-        hasEmployees: activeOrg.hasEmployees,
-      };
     }
   }
 
@@ -67,7 +61,6 @@ export default async function AppLayout({
         <AppSidebar
           orgs={orgList}
           activeOrgId={validActiveOrgId}
-          gateFlags={gateFlags}
           badges={badges}
         />
       </div>
@@ -82,7 +75,6 @@ export default async function AppLayout({
       <MobileTabBar
         orgs={orgList}
         activeOrgId={validActiveOrgId}
-        gateFlags={gateFlags}
       />
 
       <Toaster />

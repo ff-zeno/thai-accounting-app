@@ -1,7 +1,5 @@
-import { and, desc, eq, sql, gte } from "drizzle-orm";
 import { db } from "../index";
 import { extractionLog } from "../schema";
-import { orgScopeAlive } from "../helpers/org-scope";
 import { createOpenException } from "./exception-queue";
 
 // ---------------------------------------------------------------------------
@@ -12,8 +10,6 @@ export interface InsertExtractionLogInput {
   documentId: string;
   orgId: string;
   vendorId: string | null;
-  tierUsed: number;
-  exemplarIds: string[];
   modelUsed: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -22,29 +18,15 @@ export interface InsertExtractionLogInput {
   inngestIdempotencyKey: string;
 }
 
-export interface ExtractionLogRow {
-  id: string;
-  documentId: string;
-  orgId: string;
-  vendorId: string | null;
-  tierUsed: number;
-  exemplarIds: string[] | null;
-  modelUsed: string | null;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  costUsd: string | null;
-  latencyMs: number | null;
-  inngestIdempotencyKey: string;
-  createdAt: Date;
-}
-
 // ---------------------------------------------------------------------------
 // Insert extraction log (idempotent via inngest_idempotency_key)
 // ---------------------------------------------------------------------------
 
 /**
- * Insert an extraction log entry. Idempotent — duplicate
- * inngest_idempotency_key is silently ignored via ON CONFLICT DO NOTHING.
+ * Insert an extraction log entry — the per-document audit trail of what the
+ * model was asked, what it cost, and how long it took. Idempotent: a duplicate
+ * inngest_idempotency_key is swallowed via ON CONFLICT DO NOTHING and raises an
+ * info-level exception instead.
  */
 export async function insertExtractionLog(
   input: InsertExtractionLogInput
@@ -55,8 +37,6 @@ export async function insertExtractionLog(
       documentId: input.documentId,
       orgId: input.orgId,
       vendorId: input.vendorId,
-      tierUsed: input.tierUsed,
-      exemplarIds: input.exemplarIds.length > 0 ? input.exemplarIds : null,
       modelUsed: input.modelUsed,
       inputTokens: input.inputTokens ?? null,
       outputTokens: input.outputTokens ?? null,
@@ -79,7 +59,6 @@ export async function insertExtractionLog(
       summary: "Duplicate extraction log skipped by idempotency key",
       payload: {
         vendorId: input.vendorId,
-        tierUsed: input.tierUsed,
         modelUsed: input.modelUsed,
         inngestIdempotencyKey: input.inngestIdempotencyKey,
       },
@@ -88,74 +67,4 @@ export async function insertExtractionLog(
 
   // Returns null if conflict (idempotent skip)
   return result ?? null;
-}
-
-// ---------------------------------------------------------------------------
-// Get latest extraction log for a document
-// ---------------------------------------------------------------------------
-
-export async function getLatestExtractionLog(
-  orgId: string,
-  documentId: string
-): Promise<ExtractionLogRow | null> {
-  const [row] = await db
-    .select()
-    .from(extractionLog)
-    .where(
-      and(
-        ...orgScopeAlive(extractionLog, orgId),
-        eq(extractionLog.documentId, documentId)
-      )
-    )
-    .orderBy(desc(extractionLog.createdAt))
-    .limit(1);
-
-  return row ?? null;
-}
-
-// ---------------------------------------------------------------------------
-// Get extraction logs for a vendor (for correction rate calculation)
-// ---------------------------------------------------------------------------
-
-export async function getRecentExtractionLogs(
-  orgId: string,
-  vendorId: string,
-  limit: number = 30
-): Promise<ExtractionLogRow[]> {
-  return db
-    .select()
-    .from(extractionLog)
-    .where(
-      and(
-        ...orgScopeAlive(extractionLog, orgId),
-        eq(extractionLog.vendorId, vendorId)
-      )
-    )
-    .orderBy(desc(extractionLog.createdAt))
-    .limit(limit);
-}
-
-// ---------------------------------------------------------------------------
-// Has recent extraction for vendor (Phase 8 Phase 3 — decay check)
-// ---------------------------------------------------------------------------
-
-/**
- * Check if there's been any extraction log entry for a vendor since the given date.
- * Used by exemplar decay to avoid decaying vendors that are still active.
- */
-export async function hasRecentExtractionForVendor(
-  vendorId: string,
-  since: Date
-): Promise<boolean> {
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(extractionLog)
-    .where(
-      and(
-        eq(extractionLog.vendorId, vendorId),
-        gte(extractionLog.createdAt, since)
-      )
-    )
-    .limit(1);
-  return row.count > 0;
 }

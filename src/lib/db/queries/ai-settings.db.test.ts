@@ -34,43 +34,35 @@ beforeEach(async () => {
 });
 
 describe("AI settings", () => {
-  it("stores Copilot provider configuration without raw API keys", async () => {
+  it("stores model and budget configuration", async () => {
     const org = await createTestOrg(testDb);
 
     await upsertOrgAiSettings(org.id, {
-      copilotProvider: "openai",
-      copilotModel: "gpt-5.2",
-      copilotApiKeySecretRef: "OPENAI_API_KEY_ORG_TEST",
-      copilotApiKeyLast4: "abcd",
-      copilotMonthlyBudgetUsd: "75.00",
-      copilotLiveModelEnabled: true,
-      copilotWriteToolsEnabled: false,
+      extractionModel: "openai/gpt-5.2",
+      translationModel: "openai/gpt-5.2-mini",
+      monthlyBudgetUsd: "75.00",
+      budgetAlertThreshold: "0.80",
     });
 
     const settings = await getOrgAiSettings(org.id);
     expect(settings).toMatchObject({
-      copilotProvider: "openai",
-      copilotModel: "gpt-5.2",
-      copilotApiKeySecretRef: "OPENAI_API_KEY_ORG_TEST",
-      copilotApiKeyLast4: "abcd",
-      copilotMonthlyBudgetUsd: "75.00",
-      copilotLiveModelEnabled: true,
-      copilotWriteToolsEnabled: false,
+      extractionModel: "openai/gpt-5.2",
+      translationModel: "openai/gpt-5.2-mini",
+      monthlyBudgetUsd: "75.00",
+      budgetAlertThreshold: "0.80",
     });
   });
 
-  it("upserts Copilot controls by organization", async () => {
+  it("upserts settings by organization", async () => {
     const org = await createTestOrg(testDb);
 
     await upsertOrgAiSettings(org.id, {
-      copilotProvider: "openai",
-      copilotModel: "gpt-5.2",
-      copilotLiveModelEnabled: true,
+      extractionModel: "openai/gpt-5.2",
+      monthlyBudgetUsd: "10.00",
     });
     await upsertOrgAiSettings(org.id, {
-      copilotProvider: "anthropic",
-      copilotModel: "claude-sonnet-4.5",
-      copilotWriteToolsEnabled: true,
+      extractionModel: "anthropic/claude-sonnet-4.5",
+      monthlyBudgetUsd: "25.00",
     });
 
     const rows = await testDb
@@ -79,9 +71,8 @@ describe("AI settings", () => {
       .where(sql`${schema.orgAiSettings.orgId} = ${org.id}`);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      copilotProvider: "anthropic",
-      copilotModel: "claude-sonnet-4.5",
-      copilotWriteToolsEnabled: true,
+      extractionModel: "anthropic/claude-sonnet-4.5",
+      monthlyBudgetUsd: "25.00",
     });
   });
 });

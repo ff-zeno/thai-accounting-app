@@ -7,13 +7,14 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   getActiveNavEntry,
-  getVisibleNavEntries,
+  navEntries,
   isNavItemActive,
   settingsEntry,
   type NavChildGroup,
   type NavEntry,
-  type NavGateFlags,
+  type NavTone,
 } from "@/lib/nav/structure";
+import { NavIcon } from "./nav-icon";
 import { OrgSwitcher } from "./org-switcher";
 import { CreateOrgDialog } from "./create-org-dialog";
 
@@ -26,7 +27,6 @@ interface Org {
 interface AppSidebarProps {
   orgs: Org[];
   activeOrgId: string | null;
-  gateFlags: NavGateFlags;
   /**
    * Advisory badges keyed by NavEntry.badgeKey — numbers render as count
    * pills (hidden at 0, capped 99+), strings render verbatim (deadline chip).
@@ -37,12 +37,11 @@ interface AppSidebarProps {
 export function AppSidebar({
   orgs,
   activeOrgId,
-  gateFlags,
   badges,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const entries = getVisibleNavEntries(gateFlags);
+  const entries = navEntries;
   const activeEntry = getActiveNavEntry(pathname);
 
   // Roving tabindex over the top-level rows (entries + Settings): arrows
@@ -167,13 +166,13 @@ function EntryRow({
         onKeyDown={onKeyDown}
         onFocus={onFocus}
         className={cn(
-          "flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+          "flex min-h-11 items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
           expanded
             ? "bg-accent font-semibold text-accent-foreground"
             : "font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
         )}
       >
-        <entry.icon className="size-4 shrink-0" />
+        <NavIcon icon={entry.icon} tone={entry.tone} active={expanded} />
         <span className="flex-1 truncate">{t(entry.labelKey)}</span>
         {badge !== undefined && (typeof badge === "string" || badge > 0) && (
           // aria-hidden keeps the link's accessible name stable ("Documents",
@@ -193,6 +192,7 @@ function EntryRow({
               key={group.labelKey ?? groupIndex}
               group={group}
               pathname={pathname}
+              tone={entry.tone}
             />
           ))}
         </div>
@@ -204,9 +204,12 @@ function EntryRow({
 function ChildGroup({
   group,
   pathname,
+  tone,
 }: {
   group: NavChildGroup;
   pathname: string;
+  /** Inherited from the parent entry so children read as one section. */
+  tone: NavTone;
 }) {
   const t = useTranslations("nav");
 
@@ -232,7 +235,12 @@ function ChildGroup({
                     : "font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 )}
               >
-                <item.icon className="size-4 shrink-0" />
+                <NavIcon
+                  icon={item.icon}
+                  tone={tone}
+                  variant="glyph"
+                  active={active}
+                />
                 <span className="truncate">{t(item.labelKey)}</span>
               </Link>
             </li>

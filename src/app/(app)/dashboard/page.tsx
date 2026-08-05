@@ -206,25 +206,42 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="divide-y">
-                {obligationsSnapshot.obligations.map((obligation) => (
-                  <Link
-                    key={obligation.key}
-                    href={obligation.workbenchHref}
-                    className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">{obligation.form}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Due {bangkokShortDate.format(obligation.dueDate)}
-                        {obligation.dueDateIsEfiling ? " (e-filing)" : ""}
+                {obligationsSnapshot.obligations.map((obligation) => {
+                  const row = (
+                    <>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">{obligation.form}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Due {bangkokShortDate.format(obligation.dueDate)}
+                          {obligation.dueDateIsEfiling ? " (e-filing)" : ""}
+                        </div>
                       </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <StatusBadge status={obligation.displayStatus} />
+                        {obligation.workbenchHref ? (
+                          <ChevronRight className="size-4 text-muted-foreground" />
+                        ) : null}
+                      </div>
+                    </>
+                  );
+                  // Awareness-only obligations (PND 1, SSO) have nowhere to go.
+                  return obligation.workbenchHref ? (
+                    <Link
+                      key={obligation.key}
+                      href={obligation.workbenchHref}
+                      className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/50"
+                    >
+                      {row}
+                    </Link>
+                  ) : (
+                    <div
+                      key={obligation.key}
+                      className="flex items-center justify-between gap-3 py-3"
+                    >
+                      {row}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <StatusBadge status={obligation.displayStatus} />
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </div>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
               <Link
                 href="/tax"

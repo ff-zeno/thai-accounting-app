@@ -17,10 +17,14 @@ export function TopBar() {
   const t = useTranslations("nav");
 
   return (
-    <header className="hidden h-12 shrink-0 items-center justify-end gap-1.5 border-b bg-card px-4 md:flex">
+    <header className="hidden h-14 shrink-0 items-center justify-end gap-2 border-b bg-card px-4 md:flex">
+      {/* h-9 + px-3.5 on every control: the `sm` variant's
+          has-data-[icon=inline-start]:pl-1.5 rule squeezed the leading edge to
+          6px, which read as unpadded next to the 32px Clerk avatar
+          (owner review 2026-08-03). */}
       <Button
         variant="outline"
-        size="sm"
+        className="h-9 px-3.5 has-data-[icon=inline-start]:pl-3"
         render={<Link href="/capture" />}
       >
         <Camera data-icon="inline-start" />

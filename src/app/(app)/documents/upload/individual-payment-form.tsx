@@ -39,6 +39,7 @@ import {
 } from "./individual-payment-action";
 import { SERVICE_CATEGORIES } from "@/lib/tax/service-categories";
 import { validateThaiCitizenId } from "@/lib/utils/validators";
+import { documentListRoute } from "@/lib/routes/documents";
 
 const ACCEPTED_TYPES = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -226,7 +227,7 @@ export function IndividualPaymentForm() {
               Add Another Payment
             </Button>
             <Button
-              onClick={() => router.push("/documents/expenses")}
+              onClick={() => router.push(documentListRoute("expense"))}
               className="cursor-pointer"
             >
               View Documents

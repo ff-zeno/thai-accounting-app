@@ -38,6 +38,7 @@
     "documents": "Documents",
     "expenses": "Expenses",
     "income": "Income",
+    "invoices": "Invoices",
     "upload": "Upload",
     "capture": "Capture",
     "reconciliation": "Reconciliation",
@@ -60,7 +61,9 @@
     "aiReview": "AI Review",
     "vendors": "Vendors",
     "settings": "Settings",
-    "reconciliationRules": "Reconciliation Rules"
+    "reconciliationRules": "Reconciliation Rules",
+    "settingsGroupOrganization": "Organisation",
+    "settingsGroupAutomation": "Automation"
   },
   "org": {
     "switchOrg": "Switch Organization",

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { UserButton } from "@clerk/nextjs";
-import { Home, Landmark, MoreHorizontal, Plus, Receipt } from "lucide-react";
+import { CreditCard, HandCoins, Home, MoreHorizontal, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -33,16 +33,30 @@ interface MobileTabBarProps {
   activeOrgId: string | null;
 }
 
-/** Bottom-bar slots; every other destination lives in the More sheet. */
+/**
+ * Bottom-bar slots; every other destination lives in the More sheet.
+ *
+ * The bar carries the money flow itself — Home, Income, ＋, Expenses, More —
+ * so the capture button sits between the two sides of it: whatever you
+ * capture lands in one or the other. Bank and Tax moved into the More sheet
+ * when Documents split in two (owner decision, 2026-08-05); five slots is the
+ * hard ceiling and the flow won the tie.
+ *
+ * `directSlots`, `trailingSlots` and `slotEntryKeys` must agree. A stale
+ * `slotEntryKeys` leaves More highlighted while a bar slot is also
+ * highlighted, and nothing errors.
+ */
 type Slot = { labelKey: string; href: string; icon: LucideIcon; tone: NavTone };
 const directSlots: Slot[] = [
   { labelKey: "home", href: "/dashboard", icon: Home, tone: "home" },
-  { labelKey: "bank", href: "/bank-accounts", icon: Landmark, tone: "bank" },
+  { labelKey: "income", href: "/income", icon: HandCoins, tone: "income" },
 ];
 const trailingSlots: Slot[] = [
-  { labelKey: "tax", href: "/tax", icon: Receipt, tone: "tax" },
+  { labelKey: "expenses", href: "/expenses", icon: CreditCard, tone: "expenses" },
 ];
-const slotEntryKeys = new Set(["home", "bank", "tax"]);
+const slotEntryKeys = new Set(
+  [...directSlots, ...trailingSlots].map((slot) => slot.labelKey)
+);
 
 export function MobileTabBar({ orgs, activeOrgId }: MobileTabBarProps) {
   const pathname = usePathname();

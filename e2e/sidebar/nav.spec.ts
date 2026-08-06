@@ -11,7 +11,14 @@ test.describe("Sidebar navigation", () => {
       name: "Primary navigation",
     });
 
-    for (const entry of ["Home", "Bank", "Documents", "Tax", "Vendors"]) {
+    for (const entry of [
+      "Home",
+      "Bank",
+      "Income",
+      "Expenses",
+      "Tax",
+      "Vendors",
+    ]) {
       await expect(
         primaryNav.getByRole("link", { name: entry, exact: true })
       ).toBeVisible();
@@ -21,12 +28,14 @@ test.describe("Sidebar navigation", () => {
       page.getByRole("link", { name: "Settings", exact: true })
     ).toBeVisible();
 
-    // The five entries are the whole desktop tree: there is no "More"
-    // catch-all any more, Reconciliation is nested under Bank, and the
+    // The six entries are the whole desktop tree: there is no "More"
+    // catch-all any more, Reconciliation is nested under Bank, "Documents"
+    // split into Income and Expenses on 2026-08-05, and the
     // accounting/analytics/payroll surfaces were removed outright
     // (docs/deferred-features.md).
     for (const gone of [
       "More",
+      "Documents",
       "Reconciliation",
       "Admin",
       "Sales",
@@ -155,6 +164,8 @@ test.describe("Sidebar navigation", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dashboard");
 
+    // The bar carries the money flow — Home, Income, ＋, Expenses, More —
+    // with capture sitting between the two sides of it.
     const mobileNav = page.getByRole("navigation", {
       name: "Mobile navigation",
     });
@@ -162,25 +173,24 @@ test.describe("Sidebar navigation", () => {
       mobileNav.getByRole("link", { name: "Home", exact: true })
     ).toBeVisible();
     await expect(
-      mobileNav.getByRole("link", { name: "Bank", exact: true })
+      mobileNav.getByRole("link", { name: "Income", exact: true })
     ).toBeVisible();
     await expect(
-      mobileNav.getByRole("link", { name: "Tax", exact: true })
+      mobileNav.getByRole("link", { name: "Expenses", exact: true })
     ).toBeVisible();
     await expect(
       mobileNav.getByRole("link", { name: "Capture", exact: true })
     ).toHaveAttribute("href", "/capture");
 
-    // Documents and Vendors have no bottom-bar slot, so the More sheet is
+    // Bank, Tax and Vendors have no bottom-bar slot, so the More sheet is
     // the only mobile route to them — it must carry the whole tree.
     await mobileNav.getByRole("button", { name: "More", exact: true }).click();
     const moreNav = page.getByRole("navigation", { name: "More navigation" });
-    await expect(
-      moreNav.getByRole("link", { name: "Documents", exact: true })
-    ).toBeVisible();
-    await expect(
-      moreNav.getByRole("link", { name: "Vendors", exact: true })
-    ).toBeVisible();
+    for (const entry of ["Bank", "Tax", "Vendors"]) {
+      await expect(
+        moreNav.getByRole("link", { name: entry, exact: true })
+      ).toBeVisible();
+    }
     await expect(
       moreNav.getByRole("link", { name: "Withholding Tax", exact: true })
     ).toBeVisible();

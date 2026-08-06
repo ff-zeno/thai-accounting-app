@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/native-select";
+import { documentListRoute } from "@/lib/routes/documents";
 import { toast } from "sonner";
 import {
   confirmDocumentAction,
@@ -558,15 +559,7 @@ export function ExtractionForm({
             <Button
               variant="outline"
               size="sm"
-              render={
-                <Link
-                  href={
-                    doc.direction === "expense"
-                      ? "/documents/expenses"
-                      : "/documents/income"
-                  }
-                />
-              }
+              render={<Link href={documentListRoute(doc.direction)} />}
             >
               View documents
             </Button>

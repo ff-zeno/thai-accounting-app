@@ -6,6 +6,7 @@ import {
   whtCertificates,
   whtCreditsReceived,
 } from "../schema";
+import { documentReviewRoute } from "@/lib/routes/documents";
 
 export type TaxWorkflowException = {
   id: string;
@@ -18,7 +19,7 @@ export type TaxWorkflowException = {
 
 function workflowExceptionHref(entityType: string, entityId: string) {
   if (entityType === "document") {
-    return `/documents/${entityId}/review`;
+    return documentReviewRoute(entityId);
   }
 
   return "/tax/withholding";

@@ -10,6 +10,7 @@ import { createStorage } from "@/lib/storage";
 import { fetchPrivateBlobBytes } from "@/lib/storage/private-blob";
 import { extractIdCard } from "@/lib/ai/extract-id-card";
 import { getServiceCategory } from "@/lib/tax/service-categories";
+import { documentListRoute } from "@/lib/routes/documents";
 import {
   validateThaiCitizenId,
   sanitizeTaxId,
@@ -216,7 +217,7 @@ export async function createIndividualPaymentAction(
     },
   ]);
 
-  revalidatePath("/documents/expenses");
+  revalidatePath(documentListRoute("expense"));
 
   return {
     success: true,

@@ -2,8 +2,8 @@
  * All static routes in the app (excludes dynamic [id] routes and the
  * redirect stubs kept for old deep links).
  *
- * The list mirrors the five-entry nav: Home, Bank, Documents, Tax, Vendors,
- * plus Settings. Surfaces removed on 2026-08-03 are recorded in
+ * The list mirrors the six-entry nav: Home, Bank, Income, Expenses, Tax,
+ * Vendors, plus Settings. Surfaces removed on 2026-08-03 are recorded in
  * docs/deferred-features.md.
  */
 export const ALL_ROUTES = [
@@ -14,9 +14,10 @@ export const ALL_ROUTES = [
   "/reconciliation/review",
   "/reconciliation/ai-review",
   "/reconciliation/insights",
-  "/documents/expenses",
-  "/documents/income",
-  "/documents/upload",
+  "/income",
+  "/income/upload",
+  "/expenses",
+  "/expenses/upload",
   "/capture",
   "/tax",
   "/tax/vat",

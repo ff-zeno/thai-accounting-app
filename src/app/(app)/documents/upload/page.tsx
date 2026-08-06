@@ -1,24 +1,18 @@
-import { getTranslations } from "next-intl/server";
-import { PageHeader } from "@/components/ui/page-header";
-import { UploadTabs } from "./upload-tabs";
+import { redirect } from "next/navigation";
+import { documentUploadRoute } from "@/lib/routes/documents";
 
-export default async function DocumentUploadPage({
+/**
+ * Documents split into Income and Expenses on 2026-08-05. The old surface was
+ * direction-neutral with a `?direction=` hint; the direction is now the route,
+ * so the hint becomes the redirect target. Bare `/documents/upload` (the
+ * dashboard's old quick action) lands on the expense side, which is where it
+ * defaulted before.
+ */
+export default async function UploadRedirectPage({
   searchParams,
 }: {
   searchParams: Promise<{ direction?: string }>;
 }) {
-  const t = await getTranslations("documents");
   const { direction } = await searchParams;
-  const defaultDirection = direction === "income" ? "income" : "expense";
-
-  return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader
-        className="mb-6"
-        title={t("uploadTitle")}
-        description={t("uploadDescription")}
-      />
-      <UploadTabs defaultDirection={defaultDirection} />
-    </div>
-  );
+  redirect(documentUploadRoute(direction === "income" ? "income" : "expense"));
 }

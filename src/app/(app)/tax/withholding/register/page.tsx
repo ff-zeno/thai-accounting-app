@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { sumAmounts } from "@/lib/utils/money";
+import { documentReviewRoute } from "@/lib/routes/documents";
 
 function rate(value: string | null | undefined) {
   return `${(Number(value ?? 0) * 100).toFixed(2)}%`;
@@ -108,7 +109,7 @@ export default async function WhtRegisterPage() {
                         {row.sourceDocumentId ? (
                           <Link
                             className="text-primary underline-offset-4 hover:underline"
-                            href={`/documents/${row.sourceDocumentId}/review`}
+                            href={documentReviewRoute(row.sourceDocumentId)}
                           >
                             Document
                           </Link>

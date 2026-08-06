@@ -80,7 +80,13 @@
      colours, never status: they say "which section", not "is this OK". */
   --nav-home: oklch(0.45 0.035 260);
   --nav-bank: oklch(0.52 0.105 195);
-  --nav-documents: oklch(0.56 0.105 68);
+  /* Income/Expenses read as the two sides of the money flow: money-in green,
+     money-out amber. Expenses inherits the retired --nav-documents hue so the
+     section the owner already knows keeps its established colour. Income sits
+     lighter and more saturated than --nav-vendors (which is also green) so the
+     two stay distinguishable at 28px tile size. */
+  --nav-income: oklch(0.55 0.135 157);
+  --nav-expenses: oklch(0.56 0.105 68);
   --nav-tax: oklch(0.49 0.125 258);
   --nav-vendors: oklch(0.50 0.105 150);
   --nav-settings: oklch(0.48 0.02 260);

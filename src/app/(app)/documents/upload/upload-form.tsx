@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { uploadDocument } from "./actions";
+import { documentListRoute } from "@/lib/routes/documents";
 
 const ACCEPTED_TYPES = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -75,9 +76,7 @@ export function UploadForm({
             : "Document uploaded successfully"
         );
         setFiles([]);
-        router.push(
-          `/documents/${direction === "expense" ? "expenses" : "income"}`
-        );
+        router.push(documentListRoute(direction));
       } else {
         toast.error(result.error ?? "Upload failed");
       }

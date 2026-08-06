@@ -2,7 +2,7 @@ import { test, expect } from "../fixtures/auth";
 
 test.describe("Document upload", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/documents/upload");
+    await page.goto("/expenses/upload");
     await expect(page.locator("main")).toBeVisible();
   });
 

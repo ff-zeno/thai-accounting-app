@@ -2,9 +2,10 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bot,
   Calendar,
+  CreditCard,
   FileSpreadsheet,
-  FileText,
   GitCompareArrows,
+  HandCoins,
   Home,
   Landmark,
   Percent,
@@ -13,18 +14,14 @@ import {
   Users,
 } from "lucide-react";
 
+import type { SectionTone } from "@/lib/ui/section-tone";
+
 /**
- * Section identity hue. The shell itself stays neutral (Ink Neutral) and all
- * colour lives in the nav icons — the balance the approved mockups struck.
- * Resolved to the `--nav-*` tokens in globals.css by <NavIcon>.
+ * Section identity hue, defined in `lib/ui/section-tone` so the UI kit can
+ * carry the same tones onto cards without importing the nav graph. `NavTone`
+ * stays as the nav-facing name for it.
  */
-export type NavTone =
-  | "home"
-  | "bank"
-  | "documents"
-  | "tax"
-  | "vendors"
-  | "settings";
+export type NavTone = SectionTone;
 
 export interface NavItem {
   labelKey: string;
@@ -51,13 +48,18 @@ export interface NavEntry {
   /** Section identity hue; children inherit it. */
   tone: NavTone;
   /** Badge slot identifier, resolved to a count by the shell. */
-  badgeKey?: "documents" | "bank" | "tax";
+  badgeKey?: "income" | "expenses" | "bank" | "tax";
 }
 
 /**
- * Five top-level entries covering the weekly money loop: capture a document,
- * match it to the bank, file the tax. Anything outside that loop was removed
- * on 2026-08-03 and is recorded in docs/deferred-features.md.
+ * Six top-level entries following the money itself: what the bank did, what
+ * came in, what went out, and what the Revenue Department wants for it.
+ *
+ * Income and Expenses were one "Documents" entry until 2026-08-05. They were
+ * always two unrelated populations — `documents.direction` splits every query
+ * already — so the entry named a table, not a thing the owner does. Anything
+ * outside this loop was removed on 2026-08-03 and is recorded in
+ * docs/deferred-features.md.
  */
 export const navEntries: NavEntry[] = [
   {
@@ -86,13 +88,22 @@ export const navEntries: NavEntry[] = [
     ],
   },
   {
-    labelKey: "documents",
-    icon: FileText,
-    href: "/documents/expenses",
-    tone: "documents",
-    badgeKey: "documents",
-    // Expenses / Income / Upload are the /documents tab strip; Capture has
+    labelKey: "income",
+    icon: HandCoins,
+    href: "/income",
+    tone: "income",
+    badgeKey: "income",
+    // Invoices / Settlements / Upload are the /income tab strip. Capture has
     // the top-bar button and the mobile FAB. No sidebar children needed.
+    children: [],
+  },
+  {
+    labelKey: "expenses",
+    icon: CreditCard,
+    href: "/expenses",
+    tone: "expenses",
+    badgeKey: "expenses",
+    // Expenses / Upload are the /expenses tab strip.
     children: [],
   },
   {
@@ -184,4 +195,18 @@ export function getActiveNavEntry(pathname: string): NavEntry | null {
         )
     ) ?? null
   );
+}
+
+/**
+ * The section hue a page should carry (DESIGN.md 2026-08-05 — owner decision
+ * F4: the primary card takes a top rule in its section's tone).
+ *
+ * Derived from the same entry the sidebar highlights, so a page can never
+ * disagree with the nav about which section it is in. Routes outside the nav
+ * tree — document review, capture — return null and render untoned; those
+ * pages are direction-agnostic and would have to pick a tone from their data,
+ * which is a per-page decision, not a routing one.
+ */
+export function getSectionTone(pathname: string): NavTone | null {
+  return getActiveNavEntry(pathname)?.tone ?? null;
 }

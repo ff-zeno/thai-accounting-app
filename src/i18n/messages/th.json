@@ -38,6 +38,7 @@
     "documents": "เอกสาร",
     "expenses": "รายจ่าย",
     "income": "รายรับ",
+    "invoices": "ใบแจ้งหนี้",
     "upload": "อัปโหลด",
     "capture": "ถ่ายภาพ",
     "reconciliation": "กระทบยอด",
@@ -60,7 +61,9 @@
     "aiReview": "ตรวจสอบ AI",
     "vendors": "คู่ค้า",
     "settings": "ตั้งค่า",
-    "reconciliationRules": "กฎกระทบยอด"
+    "reconciliationRules": "กฎกระทบยอด",
+    "settingsGroupOrganization": "องค์กร",
+    "settingsGroupAutomation": "ระบบอัตโนมัติ"
   },
   "org": {
     "switchOrg": "เปลี่ยนองค์กร",

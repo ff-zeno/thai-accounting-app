@@ -108,7 +108,12 @@ export async function getOwnerHomeMetrics(
 // ---------------------------------------------------------------------------
 
 export interface AttentionCounts {
+  /** Both directions combined — the pipeline total. */
   documentsNeedingReview: number;
+  /** Income-side documents awaiting review (= the Income nav badge). */
+  incomeNeedingReview: number;
+  /** Expense-side documents awaiting review (= the Expenses nav badge). */
+  expensesNeedingReview: number;
   unmatchedTransactions: number;
   pendingAiSuggestions: number;
 }
@@ -119,8 +124,14 @@ export const getAttentionCounts = cache(async (
   orgId: string
 ): Promise<AttentionCounts> => {
   const [docsRow, unmatchedRow, suggestionCounts] = await Promise.all([
+    // Split by direction in one pass rather than two queries: Income and
+    // Expenses each own a nav badge, and DESIGN.md requires the badges and
+    // the cockpit total to never disagree. Summing one row cannot drift.
     db
-      .select({ count: sql<number>`COUNT(*)::int` })
+      .select({
+        income: sql<number>`COUNT(*) FILTER (WHERE ${documents.direction} = 'income')::int`,
+        expense: sql<number>`COUNT(*) FILTER (WHERE ${documents.direction} = 'expense')::int`,
+      })
       .from(documents)
       .where(
         and(...orgScope(documents, orgId), eq(documents.needsReview, true))
@@ -139,8 +150,13 @@ export const getAttentionCounts = cache(async (
     getSuggestionCounts(orgId),
   ]);
 
+  const incomeNeedingReview = docsRow[0]?.income ?? 0;
+  const expensesNeedingReview = docsRow[0]?.expense ?? 0;
+
   return {
-    documentsNeedingReview: docsRow[0]?.count ?? 0,
+    documentsNeedingReview: incomeNeedingReview + expensesNeedingReview,
+    incomeNeedingReview,
+    expensesNeedingReview,
     unmatchedTransactions: unmatchedRow[0]?.count ?? 0,
     pendingAiSuggestions: suggestionCounts.pending,
   };

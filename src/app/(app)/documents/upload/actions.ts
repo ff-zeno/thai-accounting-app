@@ -5,6 +5,7 @@ import { createDocument } from "@/lib/db/queries/documents";
 import { createDocumentFile } from "@/lib/db/queries/document-files";
 import { createStorage } from "@/lib/storage";
 import { inngest } from "@/lib/inngest/client";
+import { documentListRoute } from "@/lib/routes/documents";
 import { revalidatePath } from "next/cache";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -93,7 +94,7 @@ export async function uploadDocument(
         console.error("[upload] Failed to emit document/uploaded event:", err);
       });
 
-    revalidatePath(`/documents/${direction === "expense" ? "expenses" : "income"}`);
+    revalidatePath(documentListRoute(direction));
     return { success: true, documentId: doc.id, documentCount: 1 };
   }
 
@@ -131,6 +132,6 @@ export async function uploadDocument(
     console.error("[upload] Failed to emit document/uploaded events:", err);
   });
 
-  revalidatePath(`/documents/${direction === "expense" ? "expenses" : "income"}`);
+  revalidatePath(documentListRoute(direction));
   return { success: true, documentCount: files.length };
 }

@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { getDocumentWithDetails } from "@/lib/db/queries/documents";
 import { getMatchesByDocumentId } from "@/lib/db/queries/reconciliation";
+import { documentListRoute } from "@/lib/routes/documents";
 import { DocumentReview } from "./document-review";
 import { MatchedTransactions } from "./matched-transactions";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export default async function DocumentReviewPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" render={<Link href={`/documents/${doc.direction === "expense" ? "expenses" : "income"}`} />}>
+        <Button variant="ghost" size="sm" render={<Link href={documentListRoute(doc.direction)} />}>
           <ArrowLeft className="mr-1 size-4" />
           Back
         </Button>

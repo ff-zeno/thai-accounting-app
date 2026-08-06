@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
-import { uploadDocument } from "../documents/upload/actions";
+import { uploadDocument } from "@/app/(app)/documents/upload/actions";
 
 interface CaptureFormProps {
   initialDirection?: "expense" | "income";

@@ -301,14 +301,14 @@ test.describe("Golden path: expense to PP30", () => {
   });
 
   test("upload expense → fake extraction completes", async ({ page }) => {
-    await page.goto("/documents/upload");
+    await page.goto("/expenses/upload");
     await page
       .locator('input[type="file"]')
       .first()
       .setInputFiles(path.join(FIXTURES, UPLOAD_FILENAME));
     await page.getByRole("button", { name: /Upload \(1 file\)/i }).click();
     // Successful upload navigates to the expenses list.
-    await page.waitForURL("**/documents/expenses", { timeout: 30_000 });
+    await page.waitForURL("**/expenses", { timeout: 30_000 });
 
     // Wait for the Inngest pipeline to finish: uploaded → ... → completed.
     await expect

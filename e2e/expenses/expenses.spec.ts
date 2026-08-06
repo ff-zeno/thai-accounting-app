@@ -1,8 +1,8 @@
 import { test, expect } from "../fixtures/auth";
 
-test.describe("Documents: Expenses", () => {
+test.describe("Expenses", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/documents/expenses");
+    await page.goto("/expenses");
     await expect(page.locator("main")).toBeVisible();
   });
 

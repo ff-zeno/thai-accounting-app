@@ -24,6 +24,28 @@ describe("resolveHelpEntry", () => {
     );
   });
 
+  // The registry is keyed by route prefix with a silent fallback, so a
+  // section that gets renamed without its key keeps rendering — just with
+  // the wrong (default) help. These pin the money-flow sections that were
+  // split out of /documents on 2026-08-05.
+  it("serves the Income and Expenses sections and their sub-routes", () => {
+    expect(resolveHelpEntry("/income")).toBe(HELP_CONTENT["/income"]);
+    expect(resolveHelpEntry("/income/upload")).toBe(HELP_CONTENT["/income"]);
+    expect(resolveHelpEntry("/income/settlements")).toBe(
+      HELP_CONTENT["/income"]
+    );
+    expect(resolveHelpEntry("/expenses")).toBe(HELP_CONTENT["/expenses"]);
+    expect(resolveHelpEntry("/expenses/upload")).toBe(
+      HELP_CONTENT["/expenses"]
+    );
+  });
+
+  it("keeps document review on the /documents entry", () => {
+    expect(resolveHelpEntry("/documents/abc-123/review")).toBe(
+      HELP_CONTENT["/documents"]
+    );
+  });
+
   it("is segment-aware — a partial segment is not a prefix match", () => {
     expect(resolveHelpEntry("/tax/vatx")).toBe(DEFAULT_HELP_ENTRY);
     expect(resolveHelpEntry("/dashboards")).toBe(DEFAULT_HELP_ENTRY);

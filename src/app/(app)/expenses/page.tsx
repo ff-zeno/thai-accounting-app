@@ -1,0 +1,45 @@
+import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { getActiveOrgId } from "@/lib/utils/org-context";
+import { searchDocuments, getFilterOptions } from "@/lib/db/queries/documents";
+import { getVatRate } from "@/lib/db/queries/tax-config";
+import { documentUploadRoute } from "@/lib/routes/documents";
+import {
+  DocumentTable,
+  type DocumentRow,
+} from "@/app/(app)/documents/document-table";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Upload } from "lucide-react";
+
+export default async function ExpensesPage() {
+  const t = await getTranslations("documents");
+  const tNav = await getTranslations("nav");
+  const orgId = await getActiveOrgId();
+
+  const [docsResult, filterOptions] = orgId
+    ? await Promise.all([
+        searchDocuments({ orgId, direction: "expense" }),
+        getFilterOptions(orgId, "expense"),
+      ])
+    : [{ data: [], hasMore: false, nextCursor: null }, { categories: [], vendors: [] }];
+
+  return (
+    <div>
+      <PageHeader className="mb-6" title={tNav("expenses")}>
+        <Button render={<Link href={documentUploadRoute("expense")} />}>
+          <Upload className="mr-2 size-4" />
+          {t("uploadTitle")}
+        </Button>
+      </PageHeader>
+      <DocumentTable
+        direction="expense"
+        initialDocuments={docsResult.data as DocumentRow[]}
+        initialHasMore={docsResult.hasMore}
+        initialNextCursor={docsResult.nextCursor}
+        filterOptions={filterOptions}
+        defaultVatRate={await getVatRate()}
+      />
+    </div>
+  );
+}

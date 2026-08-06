@@ -22,6 +22,20 @@ import {
   getVendorsByOrg,
   updateVendor,
 } from "@/lib/db/queries/vendors";
+import { documentListRoute } from "@/lib/routes/documents";
+
+/**
+ * Revalidate both document lists. These actions run from the shared table and
+ * detail sidebar, which operate on selections that can span both directions,
+ * so neither route can be singled out.
+ *
+ * Replaces `revalidatePath("/documents")`, which had always been a no-op —
+ * there has never been a page at `/documents`, only its children.
+ */
+function revalidateDocumentLists() {
+  revalidatePath(documentListRoute("expense"));
+  revalidatePath(documentListRoute("income"));
+}
 
 interface SearchFilters {
   search?: string;
@@ -187,7 +201,7 @@ export async function updateDocumentSidebarAction(
     }
   }
 
-  revalidatePath("/documents");
+  revalidateDocumentLists();
   return { success: true };
 }
 
@@ -203,7 +217,7 @@ export async function confirmDocumentSidebarAction(docId: string) {
     }
     throw error;
   }
-  revalidatePath("/documents");
+  revalidateDocumentLists();
   return { success: true };
 }
 
@@ -220,7 +234,7 @@ export async function bulkDeleteDocumentsAction(
 
   const result = await bulkSoftDeleteDocuments(orgId, documentIds, actorId);
 
-  revalidatePath("/documents");
+  revalidateDocumentLists();
   return { success: true, count: result.count };
 }
 
@@ -241,7 +255,7 @@ export async function bulkUpdateDocumentVatAction(
 
   try {
     const result = await bulkUpdateDocumentVat(orgId, documentIds, data, actorId);
-    revalidatePath("/documents");
+    revalidateDocumentLists();
     return { success: true, count: result.count };
   } catch (error) {
     return {

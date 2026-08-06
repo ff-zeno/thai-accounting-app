@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  CreditCard,
   FileText,
+  HandCoins,
   Landmark,
   Receipt,
   Upload,
@@ -28,6 +30,11 @@ import {
   getOwnerHomeMetrics,
   type ReviewException,
 } from "@/lib/db/queries/dashboard";
+import {
+  documentListRoute,
+  documentReviewRoute,
+  documentUploadRoute,
+} from "@/lib/routes/documents";
 import { getObligationsWithStatus } from "@/lib/tax/obligations";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getActiveOrgId } from "@/lib/utils/org-context";
@@ -55,7 +62,7 @@ function bangkokYearMonth() {
 function exceptionHref(item: ReviewException): string {
   switch (item.entityType) {
     case "document":
-      return `/documents/${item.entityId}/review`;
+      return documentReviewRoute(item.entityId);
     case "transaction":
       return "/reconciliation/review";
     default:
@@ -116,7 +123,9 @@ export default async function DashboardPage() {
     },
     {
       label: t("checklistDocuments"),
-      href: "/documents/upload",
+      // Expense side: where the old direction-neutral upload defaulted, and
+      // where the monthly pile of receipts actually lands.
+      href: documentUploadRoute("expense"),
       icon: FileText,
       detail: t("checklistUpload"),
     },
@@ -147,7 +156,7 @@ export default async function DashboardPage() {
 
   const quickActions = [
     { label: t("bankUploadAction"), href: "/bank-accounts/upload", icon: Upload },
-    { label: t("documentsUploadAction"), href: "/documents/upload", icon: Upload },
+    { label: t("documentsUploadAction"), href: documentUploadRoute("expense"), icon: Upload },
     { label: t("reconciliationAction"), href: "/reconciliation", icon: ArrowRightLeft },
     { label: t("taxAction"), href: "/tax/vat", icon: Receipt },
   ];
@@ -170,14 +179,26 @@ export default async function DashboardPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Needs your attention</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link href="/documents/expenses" className="block">
+        {/* Income and Expenses each carry a nav badge, so the cockpit splits
+            the same way — DESIGN.md requires the two surfaces to read the
+            same number, and both come from getAttentionCounts. */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Link href={documentListRoute("income")} className="block">
             <StatCard
               className="h-full transition-colors hover:bg-muted/50"
-              label="Documents to review"
-              value={attention.documentsNeedingReview}
-              hint="Uploaded documents waiting for your confirmation"
-              icon={<FileText />}
+              label="Income to review"
+              value={attention.incomeNeedingReview}
+              hint="Sales invoices waiting for your confirmation"
+              icon={<HandCoins />}
+            />
+          </Link>
+          <Link href={documentListRoute("expense")} className="block">
+            <StatCard
+              className="h-full transition-colors hover:bg-muted/50"
+              label="Expenses to review"
+              value={attention.expensesNeedingReview}
+              hint="Purchase documents waiting for your confirmation"
+              icon={<CreditCard />}
             />
           </Link>
           <Link href="/reconciliation" className="block">

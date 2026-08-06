@@ -23,9 +23,9 @@ test.describe("Dashboard", () => {
     );
     await expect(
       page
-        .locator('a[href="/documents/upload"]')
+        .locator('a[href="/expenses/upload"]')
         .filter({ hasText: "Upload for this month" })
-    ).toHaveAttribute("href", "/documents/upload");
+    ).toHaveAttribute("href", "/expenses/upload");
     await expect(
       page.locator('a[href="/reconciliation"]').filter({ hasText: "Reconciliation" }).last()
     ).toHaveAttribute("href", "/reconciliation");
@@ -54,7 +54,7 @@ test.describe("Dashboard", () => {
     );
     await expect(
       main.getByRole("link", { name: "Documents upload" })
-    ).toHaveAttribute("href", "/documents/upload");
+    ).toHaveAttribute("href", "/expenses/upload");
     await expect(
       main.getByRole("link", { name: "Reconciliation" }).first()
     ).toHaveAttribute("href", "/reconciliation");

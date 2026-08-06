@@ -8,8 +8,10 @@ import type { TaxConfigValues } from "@/lib/tax/filing-deadlines";
  * Badges are advisory and refresh per navigation, never by polling.
  */
 export interface NavBadges {
-  /** Documents needing review (= cockpit "Documents to review"). */
-  documents: number;
+  /** Income documents needing review (= cockpit "Income to review"). */
+  income: number;
+  /** Expense documents needing review (= cockpit "Expenses to review"). */
+  expenses: number;
   /** Unmatched bank transactions (= cockpit "Unmatched bank transactions"). */
   bank: number;
   /** Short next-filing-deadline chip, e.g. "7d". */
@@ -112,7 +114,8 @@ export const getNavBadges = cache(async (orgId: string): Promise<NavBadges> => {
 
   const next = computeNextFilingDeadline(config, bangkokTodayIso());
   return {
-    documents: attention.documentsNeedingReview,
+    income: attention.incomeNeedingReview,
+    expenses: attention.expensesNeedingReview,
     bank: attention.unmatchedTransactions,
     tax: formatDeadlineChip(next.daysRemaining),
   };

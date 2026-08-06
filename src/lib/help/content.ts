@@ -122,6 +122,63 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     terms: ["reconciliation"],
   },
 
+  "/income": {
+    title: { en: "Income", th: "รายรับ" },
+    sections: [
+      {
+        heading: { en: "What this page is for", th: "หน้านี้มีไว้ทำอะไร" },
+        body: {
+          en: "Everything on the money-in side: the invoices and receipts you issue to customers, and the settlement reports from card and marketplace processors that explain the deposits landing in your bank.",
+          th: "ทุกอย่างในฝั่งเงินเข้า ทั้งใบแจ้งหนี้และใบเสร็จที่คุณออกให้ลูกค้า และรายงานการโอนเงินจากผู้ให้บริการรับชำระเงินหรือมาร์เก็ตเพลส ซึ่งอธิบายว่าเงินที่เข้าบัญชีธนาคารมาจากไหน",
+        },
+      },
+      {
+        heading: { en: "VAT is owed on the gross sale", th: "VAT คิดจากยอดขายเต็ม" },
+        body: {
+          en: "Output VAT is calculated on the full price the customer paid, never on the smaller amount that reaches your bank after processor fees. A ฿1,070 card sale that deposits ฿1,047 still owes VAT on ฿1,070. Under-reporting here is one of the most common assessment findings.",
+          th: "ภาษีขายคำนวณจากราคาเต็มที่ลูกค้าจ่าย ไม่ใช่ยอดที่เหลือเข้าบัญชีหลังหักค่าธรรมเนียม การขายผ่านบัตร 1,070 บาทที่เงินเข้าจริง 1,047 บาท ยังต้องเสีย VAT จากฐาน 1,070 บาท การแจ้งต่ำกว่าความจริงตรงนี้เป็นประเด็นที่ถูกประเมินภาษีบ่อยที่สุดข้อหนึ่ง",
+        },
+      },
+      {
+        heading: { en: "What to do", th: "ควรทำอะไร" },
+        body: {
+          en: "Review income documents so the sales figures behind your PP 30 are right, and import processor settlement reports so each payout deposit stops looking like an unexplained credit on the bank statement.",
+          th: "ตรวจทานเอกสารรายรับเพื่อให้ยอดขายที่ใช้ยื่น ภ.พ.30 ถูกต้อง และนำเข้ารายงานการโอนเงินจากผู้ให้บริการรับชำระเงิน เพื่อให้เงินที่เข้าบัญชีแต่ละก้อนไม่เป็นรายการที่อธิบายไม่ได้ในใบแจ้งยอดธนาคาร",
+        },
+      },
+    ],
+    flowId: "vat-flow",
+    terms: ["output-vat", "tax-invoice"],
+  },
+
+  "/expenses": {
+    title: { en: "Expenses", th: "รายจ่าย" },
+    sections: [
+      {
+        heading: { en: "What this page is for", th: "หน้านี้มีไว้ทำอะไร" },
+        body: {
+          en: "The money-out side: every purchase invoice, receipt and payment you capture, each with a status showing where it is — uploaded, being read by AI, waiting for your review, or completed.",
+          th: "ฝั่งเงินออก ทั้งใบแจ้งหนี้ค่าซื้อ ใบเสร็จ และการจ่ายเงินทุกรายการที่บันทึกเข้ามา พร้อมสถานะบอกว่าอยู่ขั้นไหน ตั้งแต่อัปโหลดแล้ว กำลังให้ AI อ่าน รอคุณตรวจทาน ไปจนถึงเสร็จสมบูรณ์",
+        },
+      },
+      {
+        heading: { en: "Why review matters", th: "ทำไมต้องตรวจทาน" },
+        body: {
+          en: "AI extracts the vendor, amounts, VAT and withholding from each file and scores its own confidence; fields it is unsure about wait for a person. What you confirm here flows into your input VAT claim and your withholding certificates.",
+          th: "AI จะดึงชื่อผู้ขาย จำนวนเงิน ภาษีมูลค่าเพิ่ม และภาษีหัก ณ ที่จ่ายจากไฟล์ พร้อมให้คะแนนความมั่นใจของตัวเอง ช่องที่ไม่มั่นใจจะรอให้คนตรวจ ข้อมูลที่คุณยืนยันที่นี่จะไหลไปเข้าเครดิตภาษีซื้อและหนังสือรับรองหัก ณ ที่จ่าย",
+        },
+      },
+      {
+        heading: { en: "Capture the right document", th: "เก็บเอกสารให้ถูกใบ" },
+        body: {
+          en: "Only a full tax invoice (ใบกำกับภาษี) showing your company name and tax ID supports an input VAT claim. A payment slip or an อย่างย่อ abbreviated receipt proves money moved but claims nothing.",
+          th: "เฉพาะใบกำกับภาษีแบบเต็มรูปที่มีชื่อบริษัทและเลขประจำตัวผู้เสียภาษีของคุณเท่านั้นที่ใช้ขอเครดิตภาษีซื้อได้ สลิปโอนเงินหรือใบกำกับภาษีอย่างย่อพิสูจน์ได้แค่ว่ามีการจ่ายเงิน แต่ขอเครดิตไม่ได้",
+        },
+      },
+    ],
+    terms: ["tax-invoice", "input-vat", "ai-review"],
+  },
+
   "/documents": {
     title: { en: "Documents", th: "เอกสาร" },
     sections: [

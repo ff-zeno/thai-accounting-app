@@ -6,6 +6,7 @@ import {
   fromSatang,
   isZeroAmount,
   percentageDiff,
+  splitAmountParts,
   sumAmounts,
   sumSatang,
   toSatang,
@@ -198,5 +199,45 @@ describe("formatAmount / formatAmountThb", () => {
   it("prefixes THB symbol", () => {
     expect(formatAmountThb("1234.50")).toBe("฿1,234.50");
     expect(formatAmountThb(null)).toBe("฿0.00");
+  });
+});
+
+describe("splitAmountParts", () => {
+  it("splits baht from satang, keeping the separator with the satang", () => {
+    expect(splitAmountParts("1234.50")).toEqual({
+      baht: "1,234",
+      satang: ".50",
+    });
+    expect(splitAmountParts("999.99")).toEqual({ baht: "999", satang: ".99" });
+  });
+
+  it("keeps the negative sign on the baht half", () => {
+    expect(splitAmountParts("-1070.00")).toEqual({
+      baht: "-1,070",
+      satang: ".00",
+    });
+  });
+
+  it("splits null and malformed input as zero rather than throwing", () => {
+    expect(splitAmountParts(null)).toEqual({ baht: "0", satang: ".00" });
+    expect(splitAmountParts(undefined)).toEqual({ baht: "0", satang: ".00" });
+    expect(splitAmountParts("junk")).toEqual({ baht: "0", satang: ".00" });
+  });
+
+  // The halves render as adjacent text nodes, so anything that concatenates
+  // them — copy-paste, screen readers — must see the canonical amount back.
+  it("recomposes to formatAmount exactly", () => {
+    for (const value of [
+      "1234.50",
+      "-1070.00",
+      "0.00",
+      "1234567.89",
+      "0.07",
+      null,
+      "junk",
+    ]) {
+      const { baht, satang } = splitAmountParts(value);
+      expect(baht + satang).toBe(formatAmount(value));
+    }
   });
 });

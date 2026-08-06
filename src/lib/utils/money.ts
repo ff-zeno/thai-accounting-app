@@ -132,6 +132,27 @@ export function formatAmount(value: string | number | null | undefined): string 
   return `${satang < 0 ? "-" : ""}${grouped}.${cents}`;
 }
 
+/**
+ * Split a formatted amount into its baht and satang halves so `Amount` can
+ * de-emphasise the satang (DESIGN.md 2026-08-05 — owner decision F1).
+ *
+ * `satang` carries the decimal separator so callers never rebuild punctuation,
+ * and the two halves always concatenate back to `formatAmount(value)` exactly —
+ * that is what keeps copy-paste and screen readers reading one whole number.
+ */
+export function splitAmountParts(value: string | number | null | undefined): {
+  baht: string;
+  satang: string;
+} {
+  const formatted = formatAmount(value);
+  const separator = formatted.lastIndexOf(".");
+  if (separator === -1) return { baht: formatted, satang: "" };
+  return {
+    baht: formatted.slice(0, separator),
+    satang: formatted.slice(separator),
+  };
+}
+
 /** Display formatting with THB prefix: "฿1,234.50". */
 export function formatAmountThb(value: string | number | null | undefined): string {
   return `฿${formatAmount(value)}`;

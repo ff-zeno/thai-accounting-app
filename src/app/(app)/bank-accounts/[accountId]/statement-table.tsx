@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableCard } from "@/components/ui/table-card";
 import {
   Dialog,
   DialogContent,
@@ -74,7 +75,7 @@ export function StatementTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-md border">
+      <TableCard>
         <Table>
           <TableHeader>
             <TableRow>
@@ -116,7 +117,7 @@ export function StatementTable({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </TableCard>
 
       <Dialog open={!!confirmId} onOpenChange={(open) => !open && setConfirmId(null)}>
         <DialogContent className="sm:max-w-md">

@@ -48,6 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableCard } from "@/components/ui/table-card";
 import {
   Dialog,
   DialogContent,
@@ -931,16 +932,39 @@ export function DocumentTable({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <TableCard
+        footer={
+          <>
+            <p className="text-muted-foreground">
+              {documents.length} document{documents.length !== 1 ? "s" : ""}
+              {hasMore ? "+" : ""} shown
+            </p>
+            {hasMore && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={isPending}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="mr-1 size-4 animate-spin" />
+                    {t("loadMore")}...
+                  </>
+                ) : (
+                  t("loadMore")
+                )}
+              </Button>
+            )}
+          </>
+        }
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-muted/50">
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="px-3 text-xs text-muted-foreground"
-                  >
+                  <TableHead key={header.id}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -971,13 +995,14 @@ export function DocumentTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={`cursor-pointer ${
-                    selectedIds.has(row.original.id) ? "bg-primary/5" : ""
-                  }`}
+                  className="cursor-pointer"
+                  data-state={
+                    selectedIds.has(row.original.id) ? "selected" : undefined
+                  }
                   onClick={(e) => handleRowClick(e, row.original.id)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-3">
+                    <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -989,32 +1014,7 @@ export function DocumentTable({
             )}
           </TableBody>
         </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {documents.length} document{documents.length !== 1 ? "s" : ""}
-          {hasMore ? "+" : ""} shown
-        </p>
-        {hasMore && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLoadMore}
-            disabled={isPending}
-          >
-            {isLoadingMore ? (
-              <>
-                <Loader2 className="mr-1 size-4 animate-spin" />
-                {t("loadMore")}...
-              </>
-            ) : (
-              t("loadMore")
-            )}
-          </Button>
-        )}
-      </div>
+      </TableCard>
 
       {/* Hidden file input for attaching */}
       <input

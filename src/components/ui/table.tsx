@@ -4,6 +4,15 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Ledger table (DESIGN.md 2026-08-05 — owner decision T1).
+ *
+ * A table is data on paper, not a boxed widget: no header fill, no zebra, no
+ * inner grid. Structure comes from hairline row rules, a caption-cased column
+ * header, and the ruled total in `TableFooter`. The surface underneath is the
+ * card's — `Table` draws no background of its own, which is why it must be
+ * composed inside `TableCard` (or a `Card`) rather than a bare bordered div.
+ */
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
@@ -39,12 +48,19 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   )
 }
 
+/**
+ * The totals row, ruled the way a ledger rules one (DESIGN.md 2026-08-05 —
+ * owner decision F2): a single rule separating the total from the entries, and
+ * a double rule closing the final line. It sits on the card surface rather
+ * than a grey band, so the total reads as the end of the column of figures
+ * instead of a separate widget.
+ */
 function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
+        "border-t border-border font-medium [&>tr]:border-b-0 [&>tr:last-child>td]:border-b-[3px] [&>tr:last-child>td]:border-double [&>tr:last-child>td]:border-b-border",
         className
       )}
       {...props}
@@ -52,12 +68,16 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   )
 }
 
+/**
+ * Selection is an ink bar in the first cell, drawn as an inset shadow so it
+ * costs no width and the column never jumps as rows are selected.
+ */
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b border-border transition-colors hover:bg-accent/45 data-[state=selected]:bg-accent/60 data-[state=selected]:[&>*:first-child]:shadow-[inset_2px_0_0_0_var(--primary)]",
         className
       )}
       {...props}
@@ -70,7 +90,10 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        // Caption case at the 12px floor DESIGN.md sets — never smaller, even
+        // though uppercase would tolerate it. The outer columns take the card's
+        // own padding so the ledger aligns with the card title above it.
+        "h-9 px-3 text-left align-middle text-xs font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase first:pl-4 last:pr-4 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -83,7 +106,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "px-3 py-2.5 align-middle whitespace-nowrap first:pl-4 last:pr-4 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

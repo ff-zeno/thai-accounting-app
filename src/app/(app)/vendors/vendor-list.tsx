@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableCard } from "@/components/ui/table-card";
 import { createVendorAction, deleteVendorAction } from "./actions";
 import { toast } from "sonner";
 import { validateName, validateTaxId, validateEmail, validateAddress } from "@/lib/utils/validators";
@@ -445,16 +446,13 @@ export function VendorList({ vendors }: { vendors: Vendor[] }) {
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <TableCard tone="vendors">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id} className="bg-muted/50">
+              <TableRow key={hg.id} className="hover:bg-transparent">
                 {hg.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="px-3 text-xs text-muted-foreground"
-                  >
+                  <TableHead key={header.id}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -482,7 +480,7 @@ export function VendorList({ vendors }: { vendors: Vendor[] }) {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-3">
+                    <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -494,7 +492,7 @@ export function VendorList({ vendors }: { vendors: Vendor[] }) {
             )}
           </TableBody>
         </Table>
-      </div>
+      </TableCard>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">

@@ -878,7 +878,10 @@ function VatOperationsLedgerPanel({
         </div>
 
         {hasExceptions && (
-          <div className="overflow-hidden rounded-lg border">
+          // Already on a card surface — a bordered wrapper here would draw a
+          // box inside a box. A rule separates it instead, and the negative
+          // margin lets the row rules run to the card edge (T1).
+          <div className="-mx-4 border-t border-border">
             <Table>
               <TableHeader>
                 <TableRow>

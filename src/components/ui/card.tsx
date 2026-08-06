@@ -1,17 +1,34 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { sectionToneVar, type SectionTone } from "@/lib/ui/section-tone"
 
+/**
+ * `tone` draws a 2px top rule in the section's identity hue (DESIGN.md
+ * 2026-08-05 — owner decision F4), carrying section colour off the sidebar
+ * and onto the page. Reserve it for a page's primary card: a tone on every
+ * card turns identity into noise, and a tone is never a status signal.
+ */
 function Card({
   className,
   size = "default",
+  tone,
+  style,
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm"
+  tone?: SectionTone
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-tone={tone}
+      style={
+        tone ? { ...style, borderTopColor: sectionToneVar(tone) } : style
+      }
       className={cn(
+        tone && "border-t-2",
         "group/card flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card py-4 text-sm text-card-foreground shadow-xs has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
@@ -46,11 +63,17 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * The over-line label above a card's headline figure (DESIGN.md 2026-08-05 —
+ * owner decision F5): 12px, tracked, so the number is unambiguously the
+ * subject and the label is the caption. `CardHeader` already stacks it under
+ * the title; on a stat card, put the description first and the figure second.
+ */
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-xs tracking-wide text-muted-foreground", className)}
       {...props}
     />
   )
@@ -69,11 +92,24 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * A table that is the card's whole content goes full-bleed — the row rules run
+ * to the card border instead of stopping short and drawing a second box inside
+ * the first (DESIGN.md 2026-08-05 — owner decision T1). `Table` re-applies the
+ * card's padding to its outer columns, so text alignment is unchanged.
+ *
+ * Scoped to `:only-child` on purpose: a card that also holds filters or a
+ * summary above the table keeps its padding, since stripping it there would
+ * un-inset the other content too.
+ */
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-4 group-data-[size=sm]/card:px-3", className)}
+      className={cn(
+        "px-4 group-data-[size=sm]/card:px-3 has-[>[data-slot=table-container]:only-child]:px-0 has-[>[data-slot=table-container]:only-child]:group-data-[size=sm]/card:px-0",
+        className
+      )}
       {...props}
     />
   )

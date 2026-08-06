@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableCard } from "@/components/ui/table-card";
 import {
   Select,
   SelectContent,
@@ -72,6 +73,7 @@ import {
   type TransactionSearchFilters,
 } from "./actions";
 import type { Transaction } from "./types";
+import { documentReviewRoute } from "@/lib/routes/documents";
 
 const PAGE_SIZE = 50;
 
@@ -407,7 +409,7 @@ export function TransactionTable({
           const doc = docs[0];
           return (
             <Link
-              href={`/documents/${doc.docId}/review`}
+              href={documentReviewRoute(doc.docId)}
               className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-primary hover:underline"
             >
               <FileText className="size-3.5" />
@@ -421,7 +423,7 @@ export function TransactionTable({
             {docs.map((doc) => (
               <Link
                 key={doc.docId}
-                href={`/documents/${doc.docId}/review`}
+                href={documentReviewRoute(doc.docId)}
                 className="flex items-center gap-1 text-sm text-primary hover:underline"
               >
                 <FileText className="size-3 shrink-0" />
@@ -559,11 +561,44 @@ export function TransactionTable({
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-md border">
+      <TableCard
+        tone="bank"
+        footer={
+          <>
+            <p className="text-muted-foreground">
+              {totalCount} transaction{totalCount !== 1 ? "s" : ""}
+            </p>
+            {(cursorHistory.length > 1 || hasMore) && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handlePrev}
+                  disabled={cursorHistory.length <= 1 || isPending}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="text-muted-foreground">
+                  Page {pageNumber} of{" "}
+                  {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNext}
+                  disabled={!hasMore || isPending}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        }
+      >
         <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-muted/50">
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   // Assign widths based on column id
                   let widthClass = "";
@@ -580,10 +615,7 @@ export function TransactionTable({
                     case "actions": widthClass = "w-12"; break;
                   }
                   return (
-                    <TableHead
-                      key={header.id}
-                      className={`px-3 py-2 text-left text-xs font-medium text-muted-foreground ${widthClass}`}
-                    >
+                    <TableHead key={header.id} className={widthClass}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -615,15 +647,16 @@ export function TransactionTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={`${
-                    selectedIds.has(row.original.id) ? "bg-primary/5" : ""
-                  }${selectedIds.size > 0 ? " cursor-pointer" : ""}`}
+                  className={selectedIds.size > 0 ? "cursor-pointer" : undefined}
+                  data-state={
+                    selectedIds.has(row.original.id) ? "selected" : undefined
+                  }
                   onClick={selectedIds.size > 0 ? (e) => handleRowClick(e, row.original.id) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={`px-3 py-2${cell.column.id === "description" ? " max-w-0" : ""}`}
+                      className={cell.column.id === "description" ? "max-w-0" : undefined}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
@@ -636,37 +669,7 @@ export function TransactionTable({
             )}
           </TableBody>
         </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {totalCount} transaction{totalCount !== 1 ? "s" : ""}
-        </p>
-        {(cursorHistory.length > 1 || hasMore) && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePrev}
-              disabled={cursorHistory.length <= 1 || isPending}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {pageNumber} of {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNext}
-              disabled={!hasMore || isPending}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        )}
-      </div>
+      </TableCard>
 
       {/* Filter Sheet */}
       <Sheet open={filterOpen} onOpenChange={setFilterOpen}>

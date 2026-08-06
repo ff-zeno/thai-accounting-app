@@ -16,8 +16,8 @@ test.describe("Settings: Reconciliation Rules", () => {
 
   test("template picker or rules list visible", async ({ page }) => {
     // Either the empty-state template picker or the rules-list heading, both
-    // scoped inside main (the settings tab strip also says "Reconciliation
-    // Rules").
+    // scoped inside main (the settings sub-nav column also says
+    // "Reconciliation Rules").
     const templateSection = page
       .locator("main")
       .getByText(/Set up your business type/i);

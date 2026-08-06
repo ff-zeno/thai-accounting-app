@@ -23,6 +23,12 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/**
+ * A scrim dims, it never blurs (DESIGN.md 2026-08-05 — owner decision, one
+ * rule for every overlay). The page behind a dialog is usually the context the
+ * dialog is about; blurring it destroys the reference without adding focus
+ * that a dim does not already give.
+ */
 function DialogOverlay({
   className,
   ...props
@@ -31,7 +37,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-black/10 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}

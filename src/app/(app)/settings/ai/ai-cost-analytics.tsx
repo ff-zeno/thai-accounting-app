@@ -305,12 +305,12 @@ export function AiCostAnalytics({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs text-muted-foreground">Date</TableHead>
-                      <TableHead className="text-xs text-muted-foreground">File</TableHead>
-                      <TableHead className="text-xs text-muted-foreground">Model</TableHead>
-                      <TableHead className="text-xs text-muted-foreground">Purpose</TableHead>
-                      <TableHead className="text-right text-xs text-muted-foreground">Tokens (In/Out)</TableHead>
-                      <TableHead className="text-right text-xs text-muted-foreground">Cost</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>File</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Purpose</TableHead>
+                      <TableHead className="text-right">Tokens (In/Out)</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

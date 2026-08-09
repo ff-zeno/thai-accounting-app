@@ -148,13 +148,52 @@ Everything below serves a bookkeeping practice, not an owner.
 
 ## Sales / POS
 
+> **Partly restored on 2026-08-06.** `processor_settlements` came back with the money-flow IA work and is live again — see "Merchant settlements: what came back, what did not" below. Everything else in this entry is still deferred.
+
 **What it did.** Point-of-sale transactions, voucher sales, cash deposits, and payment-processor settlements.
 
 **Why deferred.** Already gated off behind `hasPosSales` and not part of the keep-set.
 
 **Paths.** `src/app/(app)/sales/`, `src/lib/db/queries/pos-sales-ledger.ts`, `e2e/sales/`
 
-**Tables.** `sales_transactions`, `voucher_sales`, `cash_deposits`, `processor_settlements`
+**Tables.** `sales_transactions`, `voucher_sales`, `cash_deposits`
+
+---
+
+## Merchant settlements: what came back, what did not
+
+A merchant payout has two halves, and the 2026-08-06 money-flow work built only the first.
+
+| Leg | What it links | Status |
+|---|---|---|
+| **A. Settlement → bank deposit** | The stated net payout against the credit line on the statement | **Built.** `/income/settlements` (register) and `/reconciliation/payouts` (match queue) |
+| **B. Sales → settlement** | Which individual POS sales composed the batch | **Deferred** — it needs the POS ingest that is not landing yet |
+
+Three follow-ups are deliberately not built, in the order they become worth building:
+
+**1. POS Sales as the third Income area.**
+The owner named it as one, and it is the next Income tab when sales data starts arriving.
+It ships as a tab with a route, not an empty shell: a dead surface is exactly what the 2026-08-03 reduction removed.
+Restoring it means `sales_transactions` plus an ingest path, then a tab in `src/app/(app)/income/layout.tsx`.
+
+**2. Leg B — which sales made up this payout.**
+Blocked on the same ingest.
+The seam is clean rather than stubbed: `processor_settlements` already carries `payload` (the processor's raw row) and `establishment_id`, so a join table between sales and settlements is additive.
+Nothing in leg A needs changing to build it.
+
+**3. Zero-setup parsers for named processors.**
+Ingest today is a generic CSV column mapper (`src/lib/parsers/settlement-csv.ts`) whose mapping is remembered per processor, so the second import of a given format is a straight upload.
+A named parser per provider — the way `kbank-parser.ts` sits beside the generic bank CSV parser — is worth writing once real files from a known processor exist to build against.
+Guessing at formats before then produces parsers nobody can test.
+
+**Not built and not planned: GL posting for settlements.**
+The original design posted settlements to accounts 1111/1142/6411/1251.
+All four ledger tables went in the reduction, so there is no ledger to post to.
+A settlement is a source record and reconciliation evidence, nothing more.
+
+**Not built and never to be built as described: net payout as a VAT figure.**
+Output VAT is owed on the gross sale price, not on what the bank received after fees.
+The wire from net payout to any output-VAT path does not exist, and that is the enforcement mechanism.
 
 ---
 
@@ -232,7 +271,9 @@ Two tables existed in the schema with no query, no page and no job reading or wr
 
 ## Restoring tables
 
-The drop migration is `drizzle/0003_large_living_lightning.sql`. It is **generated but not applied** — 59 `DROP TABLE`, 14 `DROP TYPE`, and 10 `DROP COLUMN` statements, and nothing else. Applying it is a separate, deliberate act.
+The drop migration is `drizzle/0003_premium_doctor_doom.sql`. It is **generated but not applied** — 58 `DROP TABLE`, 14 `DROP TYPE`, and 10 `DROP COLUMN` statements, and nothing else. Applying it is a separate, deliberate act.
+
+> It replaced an earlier `0003_large_living_lightning.sql`, which dropped 59 tables including `processor_settlements`. Both were unapplied, so the clean fix when settlements were restored on 2026-08-06 was to delete that file and regenerate rather than write a compensating migration that re-created what `0003` had just dropped.
 
 - **If it has not been applied**, the tables and all their data are still in the database. Restoring a feature only needs the code.
 - **If it has been applied**, the tables are gone and their data with them. Restoring needs the table definitions back in `src/lib/db/schema.ts` (from `819c63f`), a fresh `pnpm db:generate`, and `pnpm db:migrate`. The historical data is not recoverable.

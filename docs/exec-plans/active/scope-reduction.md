@@ -23,7 +23,11 @@ Gate at every checkpoint and at the end: `pnpm build` compiles, `pnpm test` 535/
 It requires a live Neon database plus two long-running local servers (`E2E_FAKE_AI=1 pnpm dev` and `pnpm inngest:dev`), which is owner-gated.
 Treat the pipeline as unverified end-to-end until that run happens.
 
-**Owner-gated and deliberately not done:** applying `drizzle/0003_large_living_lightning.sql` (or the earlier `0002_bitter_sasquatch.sql`, which drops `user_nav_pins` and applies first), running `pnpm db:migrate`, committing, and pushing.
+**Owner-gated and deliberately not done:** applying `drizzle/0003_premium_doctor_doom.sql` (or the earlier `0002_bitter_sasquatch.sql`, which drops `user_nav_pins` and applies first), running `pnpm db:migrate`, committing, and pushing.
+
+`0003` was originally generated as `0003_large_living_lightning.sql` and dropped `processor_settlements` along with the rest.
+Settlements were restored on 2026-08-06, so that file was deleted and `0003` regenerated — one table fewer, otherwise the same drop set.
+Both versions were unapplied, so this was a regeneration rather than a compensating migration.
 
 ## Why
 

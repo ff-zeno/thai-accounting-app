@@ -61,7 +61,11 @@ function generateExternalRef(row: {
   return generateTransactionRef(row.date, row.description ?? "", row.amount, row.runningBalance);
 }
 
-function normalizeAmount(value: string): string {
+/**
+ * Exported so the settlement parser reuses the same amount cleaning rather
+ * than growing a second copy that drifts (see settlement-csv.ts).
+ */
+export function normalizeAmount(value: string): string {
   // Remove commas and whitespace, handle parentheses for negatives
   let cleaned = value.replace(/,/g, "").replace(/\s/g, "");
   if (cleaned.startsWith("(") && cleaned.endsWith(")")) {
@@ -70,7 +74,12 @@ function normalizeAmount(value: string): string {
   return cleaned;
 }
 
-function normalizeDate(value: string): string {
+/**
+ * Exported for the same reason as normalizeAmount. The Buddhist-Era branch in
+ * particular must stay single-sourced: a settlement file dated 2569 has to
+ * resolve to 2026 exactly as a statement file does.
+ */
+export function normalizeDate(value: string): string {
   // Try common formats: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD
   const trimmed = value.trim();
 
@@ -210,11 +219,20 @@ export function parseCSV(
   };
 }
 
-/** Detect column headers from a CSV and return them for mapping UI */
+/**
+ * Detect column headers from a CSV and return them for the mapping UI.
+ *
+ * The `transformHeader` here must stay identical to the one in `parseCSV`.
+ * Without it a padded header reaches the mapping UI as `" Amount "`, the owner
+ * picks it, and `parseCSV` then looks that name up against trimmed row keys,
+ * misses, and rejects every row as "missing date"/"missing amount" — a mapping
+ * the owner can see is correct, failing silently.
+ */
 export function detectColumns(csvText: string): string[] {
   const parsed = Papa.parse(csvText, {
     header: true,
     preview: 1,
+    transformHeader: (h: string) => h.trim(),
   });
   return parsed.meta.fields ?? [];
 }

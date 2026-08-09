@@ -13,6 +13,7 @@ export default async function ReconciliationLayout({
       <RouteTabs
         tabs={[
           { href: "/reconciliation", label: t("overview") },
+          { href: "/reconciliation/payouts", label: t("payouts") },
           { href: "/reconciliation/review", label: t("reconciliationReview") },
           { href: "/reconciliation/ai-review", label: t("aiReview") },
           { href: "/reconciliation/insights", label: t("insights") },

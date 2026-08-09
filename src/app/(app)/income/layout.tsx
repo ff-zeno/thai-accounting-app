@@ -13,6 +13,7 @@ export default async function IncomeLayout({
       <RouteTabs
         tabs={[
           { href: "/income", label: t("invoices") },
+          { href: "/income/settlements", label: t("settlements") },
           { href: "/income/upload", label: t("upload") },
         ]}
       />

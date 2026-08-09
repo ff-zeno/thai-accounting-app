@@ -1,6 +1,6 @@
 {
-  "id": "6db43a79-a991-4eb9-aef8-2017c2ea62fd",
-  "prevId": "885508ec-1e48-4955-8694-926f33347f52",
+  "id": "bc4ad06c-4e9d-4cea-8ce0-762a50907f47",
+  "prevId": "6db43a79-a991-4eb9-aef8-2017c2ea62fd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3417,6 +3417,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "match_confidence": {
+          "name": "match_confidence",
+          "type": "numeric(5, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "match_metadata": {
+          "name": "match_metadata",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "matched_at": {
+          "name": "matched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -4339,6 +4357,79 @@
           "value": "\"sales_transactions\".\"amount_including_vat\" >= 0 AND \"sales_transactions\".\"tax_base_ex_vat\" >= 0 AND \"sales_transactions\".\"vat_amount\" >= 0"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.settlement_import_mappings": {
+      "name": "settlement_import_mappings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processor": {
+          "name": "processor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mapping": {
+          "name": "mapping",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "settlement_import_mappings_org_id_organizations_id_fk": {
+          "name": "settlement_import_mappings_org_id_organizations_id_fk",
+          "tableFrom": "settlement_import_mappings",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "settlement_import_mappings_org_processor_uniq": {
+          "name": "settlement_import_mappings_org_processor_uniq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "org_id",
+            "processor"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.tax_config": {

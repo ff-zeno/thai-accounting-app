@@ -71,6 +71,12 @@ export const STATUS_VARIANTS: Record<string, StatusBadgeVariant> = {
   matched: "success",
   partially_matched: "info",
   unmatched: "warning",
+  // processor_settlements.reconciliation_status defaults to this — a payout
+  // the matcher has not yet claimed against a bank deposit.
+  unreconciled: "warning",
+  // processor_settlements: the matcher claimed a deposit, a human has not
+  // confirmed it yet.
+  suggested: "info",
   ambiguous: "warning",
   ai_suggested: "info",
   approved: "success",

@@ -77,8 +77,6 @@ beforeEach(async () => {
           pp36_payment_transaction_id = NULL,
           pp30_reclaim_filing_id = NULL,
           pp30_reclaim_filing_line_id = NULL;
-      DELETE FROM posting_exceptions;
-      DELETE FROM posting_outbox;
       DELETE FROM tax_payment_events;
       DELETE FROM vat_credit_carryforwards;
       DELETE FROM vat_filing_lines;

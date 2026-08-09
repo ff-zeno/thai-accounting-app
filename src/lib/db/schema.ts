@@ -8,6 +8,7 @@ import {
   numeric,
   date,
   timestamp,
+  json,
   jsonb,
   index,
   primaryKey,
@@ -18,6 +19,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import { newId } from "./ids";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -1617,6 +1619,123 @@ export const salesTransactions = pgTable(
     check(
       "sales_transactions_amounts_nonnegative_check",
       sql`${t.amountIncludingVat} >= 0 AND ${t.taxBaseExVat} >= 0 AND ${t.vatAmount} >= 0`
+    ),
+  ]
+);
+
+/**
+ * A merchant payout as the processor reports it: `gross - fee - feeVat = netPayout`.
+ *
+ * A settlement is evidence that a bank deposit is explained, never an income
+ * figure. The VAT base for output VAT is the gross sale price recorded at the
+ * point of sale, NOT `netPayout` — a THB 1,070 card sale that deposits THB
+ * 1,047.10 still owes output VAT on THB 1,070. Treating settlement-net as the
+ * VAT base under-reports output VAT and is a compliance defect. Nothing may
+ * wire `netPayout` into an output-VAT path.
+ *
+ * `feeVatAmount` is only claimable as input VAT once the processor's own tax
+ * invoice is captured; the `fee_vat_document` CHECK below enforces that.
+ *
+ * `bankTransactionId` / `reconciliationStatus` are written by the settlement
+ * matcher (leg A: settlement -> bank deposit). Linking individual sales to a
+ * settlement batch (leg B) is deferred with POS ingest — see
+ * docs/deferred-features.md.
+ */
+export const processorSettlements = pgTable(
+  "processor_settlements",
+  {
+    id,
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    establishmentId: uuid("establishment_id").references(() => establishments.id),
+    processor: text("processor").notNull(),
+    externalId: text("external_id").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }),
+    periodEnd: timestamp("period_end", { withTimezone: true }),
+    grossAmount: numeric("gross_amount", { precision: 14, scale: 2 }).notNull(),
+    feeAmount: numeric("fee_amount", { precision: 14, scale: 2 }).notNull(),
+    feeVatAmount: numeric("fee_vat_amount", { precision: 14, scale: 2 }),
+    netPayout: numeric("net_payout", { precision: 14, scale: 2 }).notNull(),
+    processorTaxInvoiceDocumentId: uuid(
+      "processor_tax_invoice_document_id"
+    ).references(() => documents.id),
+    processorTiReceivedAt: timestamp("processor_ti_received_at", {
+      withTimezone: true,
+    }),
+    processorTiNumber: text("processor_ti_number"),
+    bankTransactionId: uuid("bank_transaction_id").references(() => transactions.id),
+    payload: jsonb("payload"),
+    reconciliationStatus: text("reconciliation_status")
+      .notNull()
+      .default("unreconciled"),
+    reconciliationDiscrepancy: numeric("reconciliation_discrepancy", {
+      precision: 14,
+      scale: 2,
+    }),
+    // Why the matcher picked this deposit. A payout queue that shows a 0.70
+    // suggestion with no reason is not reviewable, so the evidence is stored
+    // rather than reconstructed. Shape is `MatchMetadata` from
+    // src/lib/reconciliation/matcher.ts, so match-display.ts renders settlement
+    // matches and document matches with the same helpers.
+    matchConfidence: numeric("match_confidence", { precision: 5, scale: 4 }),
+    // Plain `json`, unlike reconciliation_matches.match_metadata (jsonb):
+    // this column is new 2026-08 work on an unapplied migration, so it takes
+    // the Portable SQL Contract type now. Nothing queries it with jsonb
+    // operators — settlements deliberately stay out of getMatchRateByLayer.
+    matchMetadata: json("match_metadata"),
+    matchedAt: timestamp("matched_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    unique("processor_settlements_source_external_uniq").on(
+      t.orgId,
+      t.processor,
+      t.externalId
+    ),
+    index("processor_settlements_org_status_idx").on(
+      t.orgId,
+      t.reconciliationStatus
+    ),
+    check(
+      "processor_settlements_fee_vat_document_check",
+      sql`${t.feeVatAmount} IS NULL OR ${t.feeVatAmount} = 0 OR ${t.processorTaxInvoiceDocumentId} IS NOT NULL`
+    ),
+  ]
+);
+
+
+/**
+ * The column mapping an owner chose for a processor's settlement CSV, so the
+ * second import of the same report is a straight upload with nothing to map.
+ *
+ * One row per (org, processor); re-mapping overwrites. The stored shape is
+ * `SettlementColumnMapping` from src/lib/parsers/settlement-csv.ts — keep the
+ * two in step, and treat a stored mapping whose columns are absent from a new
+ * file as a prompt to re-map rather than an error.
+ */
+export const settlementImportMappings = pgTable(
+  "settlement_import_mappings",
+  {
+    // New table (2026-08), so the Portable SQL Contract binds it: the id is
+    // app-generated UUIDv7 text with no DB default, and the payload is plain
+    // `json`, not `jsonb`. Older tables keep the shared uuid `id` helper —
+    // they predate the contract and re-key opportunistically, not here.
+    // The org FK stays as belt-and-braces only; nothing relies on it.
+    id: text("id").primaryKey().$defaultFn(newId),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    processor: text("processor").notNull(),
+    mapping: json("mapping").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    unique("settlement_import_mappings_org_processor_uniq").on(
+      t.orgId,
+      t.processor
     ),
   ]
 );

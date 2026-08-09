@@ -252,10 +252,27 @@ describe("detectColumns", () => {
     expect(columns).toEqual([]);
   });
 
-  it("preserves raw header strings (trimming happens in parseCSV)", () => {
+  it("trims whitespace-padded headers, exactly as parseCSV does", () => {
     const csv = ` Date , Amount , Type \n2026-01-15,100,credit`;
-    const columns = detectColumns(csv);
-    // detectColumns returns raw headers; parseCSV trims via transformHeader
-    expect(columns).toEqual([" Date ", " Amount ", " Type "]);
+    expect(detectColumns(csv)).toEqual(["Date", "Amount", "Type"]);
+  });
+
+  // The regression this pins: detectColumns used to return raw headers while
+  // parseCSV trimmed them. The owner picked " Amount " out of the mapping UI,
+  // parseCSV looked it up against the key "Amount", missed, and rejected every
+  // row — a mapping visibly correct on screen, failing silently.
+  it("returns names parseCSV can actually resolve against a padded file", () => {
+    const csv = ` Date , Amount , Type \n2026-01-15,100.00,credit`;
+    const [date, amount, type] = detectColumns(csv);
+
+    const result = parseCSV(csv, { date, amount, type });
+
+    expect(result.errors).toEqual([]);
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0]).toMatchObject({
+      date: "2026-01-15",
+      amount: "100.00",
+      type: "credit",
+    });
   });
 });

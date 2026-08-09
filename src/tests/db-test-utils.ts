@@ -211,3 +211,38 @@ export async function createTestBankAccount(
     .returning();
   return account;
 }
+
+/**
+ * Create a test bank transaction and return it.
+ *
+ * Defaults to a credit, since the tests that need transactions directly are
+ * mostly about deposits being explained.
+ */
+export async function createTestTransaction(
+  db: ReturnType<typeof createTestDb>["db"],
+  orgId: string,
+  bankAccountId: string,
+  overrides: {
+    amount?: string;
+    date?: string;
+    type?: "debit" | "credit";
+    description?: string;
+    counterparty?: string;
+    referenceNo?: string;
+  } = {}
+) {
+  const [transaction] = await db
+    .insert(schema.transactions)
+    .values({
+      orgId,
+      bankAccountId,
+      date: overrides.date ?? "2026-04-01",
+      amount: overrides.amount ?? "1000.00",
+      type: overrides.type ?? "credit",
+      description: overrides.description ?? null,
+      counterparty: overrides.counterparty ?? null,
+      referenceNo: overrides.referenceNo ?? null,
+    })
+    .returning();
+  return transaction;
+}

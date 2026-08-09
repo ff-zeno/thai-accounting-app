@@ -10,11 +10,13 @@ import {
 } from "@/lib/db/queries/reconciliation";
 import { reconciliationMatches } from "@/lib/db/schema";
 import { createOpenException } from "@/lib/db/queries/exception-queue";
+import { runSettlementMatching } from "./match-settlements";
 
 /**
  * Transaction-first matching on bank statement import.
- * Step 1: Try deterministic matching (7-layer cascade) against confirmed documents.
- * Step 2: If any remain unmatched, trigger AI batch.
+ * Step 1: Claim merchant payouts against the settlements already imported.
+ * Step 2: Try deterministic matching (7-layer cascade) against confirmed documents.
+ * Step 3: If any remain unmatched, trigger AI batch.
  */
 export const matchImportedTransactions = inngest.createFunction(
   {
@@ -51,7 +53,19 @@ export const matchImportedTransactions = inngest.createFunction(
       return { status: "all-matched" };
     }
 
-    // Step 2: Try deterministic matching — get confirmed docs without matches
+    // Step 2: Claim merchant payouts first.
+    //
+    // Order matters. A card deposit is a processor payout, not payment of an
+    // income invoice, but it is a credit of roughly the right size — so if the
+    // document matcher runs first it can fuzzily attach it to an invoice and
+    // the settlement is left permanently unexplained. Settlements match on an
+    // exact stated net payout, so letting them claim first costs nothing and
+    // removes the deposit from the document matcher's candidate pool.
+    const settlementResults = await step.run("settlement-matching", () =>
+      runSettlementMatching(orgId)
+    );
+
+    // Step 3: Try deterministic matching — get confirmed docs without matches
     const deterministicResults = await step.run("deterministic-matching", async () => {
       // Anchor the candidate-document window to the imported transactions'
       // dates. Without this, a backdated statement import can never match:
@@ -199,7 +213,7 @@ export const matchImportedTransactions = inngest.createFunction(
       return matchesCreated;
     });
 
-    // Step 3: Check if any imported transactions are still unmatched
+    // Step 4: Check if any imported transactions are still unmatched
     const remainingUnmatched = await step.run("check-remaining", async () => {
       const unmatched = await db
         .select({
@@ -227,6 +241,7 @@ export const matchImportedTransactions = inngest.createFunction(
     if (remainingUnmatched.length === 0) {
       return {
         status: "all-matched-deterministic",
+        settlementMatches: settlementResults,
         deterministicMatches: deterministicResults,
       };
     }
@@ -255,7 +270,7 @@ export const matchImportedTransactions = inngest.createFunction(
       }
     });
 
-    // Step 4: Trigger AI batch for remaining unmatched
+    // Step 5: Trigger AI batch for remaining unmatched
     await step.sendEvent("trigger-ai-batch", {
       name: "reconciliation/ai-batch-requested",
       data: { orgId, trigger: "import" },
@@ -263,6 +278,7 @@ export const matchImportedTransactions = inngest.createFunction(
 
     return {
       status: "ai-batch-triggered",
+      settlementMatches: settlementResults,
       deterministicMatches: deterministicResults,
       remainingUnmatched: remainingUnmatched.length,
     };

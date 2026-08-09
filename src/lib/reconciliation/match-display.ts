@@ -14,6 +14,8 @@ const LAYER_LABELS: Record<string, string> = {
   split: "Split Payment",
   ai: "AI Suggested",
   pattern: "Pattern Match",
+  processor: "Processor Payout",
+  batched: "Batched Payout",
 };
 
 export function getLayerLabel(layer: string): string {
@@ -55,6 +57,16 @@ export function getSimplifiedExplanation(metadata: MatchMetadata): string {
     case "split": {
       const count = metadata.candidateCount;
       return `Split payment: ${count} transactions`;
+    }
+    case "processor": {
+      const name = signals.processorName?.detail ?? "processor";
+      return `Deposit from ${name}, amount close to net payout`;
+    }
+    case "batched": {
+      const batch = signals.batch;
+      return batch
+        ? `One deposit clearing several payouts: ${batch.detail}`
+        : "One deposit clearing several payouts";
     }
     case "ai":
       return "AI-suggested match";

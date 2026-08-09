@@ -27,7 +27,20 @@ export interface MatchContext {
 }
 
 export interface MatchMetadata {
-  layer: "reference" | "exact" | "fuzzy" | "split" | "alias" | "multi_signal" | "rule" | "ai";
+  // `processor` and `batched` are only ever produced by the settlement matcher,
+  // which writes to processor_settlements rather than reconciliation_matches.
+  // They share this shape so match-display.ts renders both kinds of match.
+  layer:
+    | "reference"
+    | "exact"
+    | "fuzzy"
+    | "split"
+    | "alias"
+    | "multi_signal"
+    | "rule"
+    | "ai"
+    | "processor"
+    | "batched";
   signals: Record<string, { score: number; detail: string }>;
   candidateCount: number;
   selectedRank: number;
@@ -690,12 +703,16 @@ async function trySplitMatch(ctx: MatchContext): Promise<MatchResult | null> {
  * Find a combination of exactly `count` candidates whose amounts sum to
  * `targetSatang` (integer satang). Tolerance is 1 satang — the integer
  * equivalent of the legacy float 0.01 THB.
+ *
+ * Structurally typed on `amount` alone so the settlement matcher can run the
+ * same search over settlements (one deposit clearing several payouts) rather
+ * than growing a second copy of this algorithm.
  */
-function findSumCombination(
-  candidates: MatchCandidateRow[],
+function findSumCombination<T extends { amount: string }>(
+  candidates: T[],
   targetSatang: number,
   count: number
-): MatchCandidateRow[] | null {
+): T[] | null {
   const TOLERANCE_SATANG = 1;
 
   if (count === 2) {

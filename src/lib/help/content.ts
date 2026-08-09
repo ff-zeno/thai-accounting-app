@@ -271,6 +271,40 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     terms: ["reconciliation", "ai-review"],
   },
 
+  // Its own entry rather than inheriting /reconciliation: a payout is matched
+  // against a figure the processor states, not against a document, and the
+  // gross-versus-net rule has to be said on the surface where net is on screen.
+  "/reconciliation/payouts": {
+    title: { en: "Payouts", th: "การจับคู่เงินโอนจากผู้ให้บริการรับชำระ" },
+    sections: [
+      {
+        heading: { en: "What this page is for", th: "หน้านี้มีไว้ทำอะไร" },
+        body: {
+          en: "Card and marketplace processors pay you in batches, so a deposit on your statement rarely equals any single sale. This page pairs each settlement report with the deposit it produced, so those credits stop being unexplained.",
+          th: "ผู้ให้บริการรับชำระเงินผ่านบัตรและมาร์เก็ตเพลสจะโอนเงินเป็นรอบ ยอดที่เข้าบัญชีจึงแทบไม่เคยเท่ากับยอดขายรายการใดรายการหนึ่ง หน้านี้จับคู่รายงานการโอนเงินแต่ละฉบับกับยอดเงินที่เข้าบัญชีจริง เพื่อให้รายการเงินเข้าเหล่านั้นไม่เป็นรายการที่อธิบายไม่ได้",
+        },
+      },
+      {
+        heading: {
+          en: "A match explains a deposit — it is not income",
+          th: "การจับคู่คือคำอธิบายเงินเข้า ไม่ใช่ยอดรายได้",
+        },
+        body: {
+          en: "The app matches on net-to-bank because that is the figure the processor actually transferred. Your sales figure and your output VAT still come from the gross price the customer paid. Nothing on this page changes what you owe.",
+          th: "ระบบจับคู่โดยใช้ยอดสุทธิที่โอนเข้าธนาคาร เพราะนั่นคือจำนวนที่ผู้ให้บริการโอนจริง แต่ยอดขายและภาษีขายของคุณยังคงคำนวณจากราคาเต็มที่ลูกค้าจ่าย ไม่มีสิ่งใดในหน้านี้ที่เปลี่ยนภาระภาษีของคุณ",
+        },
+      },
+      {
+        heading: { en: "What to do", th: "ควรทำอะไร" },
+        body: {
+          en: "Confirm the suggested matches, and reject any that look wrong — rejecting releases the deposit so it can be matched to something else. A payout with no deposit found usually means the statement covering the payout date has not been imported yet.",
+          th: "กดยืนยันคู่ที่ระบบเสนอ และปฏิเสธคู่ที่ดูไม่ถูกต้อง การปฏิเสธจะปลดรายการเงินเข้าออกมาเพื่อให้จับคู่กับรายการอื่นได้ ส่วนรายการที่ยังไม่พบเงินเข้า มักหมายความว่ายังไม่ได้นำเข้าใบแจ้งยอดธนาคารที่ครอบคลุมวันที่โอนเงินนั้น",
+        },
+      },
+    ],
+    terms: ["reconciliation", "output-vat"],
+  },
+
   "/tax/vat": {
     title: { en: "VAT — PP 30", th: "ภาษีมูลค่าเพิ่ม — ภ.พ.30" },
     sections: [

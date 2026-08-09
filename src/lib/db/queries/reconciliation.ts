@@ -18,6 +18,7 @@ import {
   vendors,
   payments,
   aiMatchSuggestions,
+  processorSettlements,
 } from "../schema";
 import { orgScope } from "../helpers/org-scope";
 import { auditMutation } from "../helpers/audit-log";
@@ -564,10 +565,28 @@ export async function softDeleteMatch(
 }
 
 // ---------------------------------------------------------------------------
-// Recompute transaction reconciliation status from remaining active matches.
+// Recompute transaction reconciliation status from remaining active claims.
 // Critical for split-match rollback: don't blindly set "unmatched".
 // ---------------------------------------------------------------------------
 
+/**
+ * Derive a transaction's reconciliation status from everything that currently
+ * claims it.
+ *
+ * A deposit can be claimed two ways, and both must be counted here:
+ *
+ * - a `reconciliation_matches` row (a document paid by this transaction), and
+ * - a `processor_settlements` row whose `bank_transaction_id` is this
+ *   transaction (a merchant payout this deposit is).
+ *
+ * Settlement claims are deliberately not stored in `reconciliation_matches` —
+ * that table's `document_id` is NOT NULL with a hard FK, and its allocation
+ * trigger raises on an unresolvable document. So the settlement matcher writes
+ * `transactions.reconciliation_status` directly, and this function has to know
+ * about that. If it did not, undoing an unrelated document match would quietly
+ * reset a settled deposit to `unmatched` and hand it back to the document
+ * matcher to be double-claimed — a silent data defect, not a visible failure.
+ */
 export async function recomputeTransactionStatus(
   orgId: string,
   transactionId: string,
@@ -590,6 +609,17 @@ export async function recomputeTransactionStatus(
       ),
     );
 
+  // Count settlement claims on the same transaction.
+  const [settlementResult] = await conn
+    .select({ claimCount: count() })
+    .from(processorSettlements)
+    .where(
+      and(
+        eq(processorSettlements.orgId, orgId),
+        eq(processorSettlements.bankTransactionId, transactionId),
+      ),
+    );
+
   // Get the transaction amount for comparison
   const [txn] = await conn
     .select({ amount: transactions.amount })
@@ -603,9 +633,14 @@ export async function recomputeTransactionStatus(
     .limit(1);
 
   const activeMatches = result?.matchCount ?? 0;
+  const settlementClaims = settlementResult?.claimCount ?? 0;
   let newStatus: "matched" | "partially_matched" | "unmatched";
 
-  if (activeMatches === 0) {
+  if (settlementClaims > 0) {
+    // A settlement states its own net payout and is matched against that
+    // figure exactly, so a live settlement claim fully explains the deposit.
+    newStatus = "matched";
+  } else if (activeMatches === 0) {
     newStatus = "unmatched";
   } else {
     // Check if total matched amount covers the transaction. Legacy float

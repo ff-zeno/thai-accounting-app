@@ -46,7 +46,6 @@ DROP TABLE "pit_standard_deductions" CASCADE;--> statement-breakpoint
 DROP TABLE "pnd_filings" CASCADE;--> statement-breakpoint
 DROP TABLE "posting_exceptions" CASCADE;--> statement-breakpoint
 DROP TABLE "posting_outbox" CASCADE;--> statement-breakpoint
-DROP TABLE "processor_settlements" CASCADE;--> statement-breakpoint
 DROP TABLE "projects" CASCADE;--> statement-breakpoint
 DROP TABLE "recurring_payment_patterns" CASCADE;--> statement-breakpoint
 DROP TABLE "skus" CASCADE;--> statement-breakpoint
@@ -57,6 +56,13 @@ DROP TABLE "thai_business_calendar" CASCADE;--> statement-breakpoint
 DROP TABLE "transfer_pricing_disclosures" CASCADE;--> statement-breakpoint
 DROP TABLE "vendor_tier" CASCADE;--> statement-breakpoint
 DROP TABLE "voucher_sales" CASCADE;--> statement-breakpoint
+-- The baseline creates a hand-written column-specific trigger
+-- (BEFORE INSERT OR UPDATE OF exemplar_ids, org_id) that Postgres records as a
+-- dependency of exemplar_ids; drizzle-kit generate cannot see hand-written SQL,
+-- so it must be dropped here before the column can go. Its function reads
+-- NEW.exemplar_ids and queried extraction_exemplars (dropped above), so both are dead.
+DROP TRIGGER IF EXISTS "extraction_log_exemplars_same_org" ON "extraction_log";--> statement-breakpoint
+DROP FUNCTION IF EXISTS "enforce_extraction_log_exemplars_same_org"();--> statement-breakpoint
 ALTER TABLE "extraction_log" DROP COLUMN "tier_used";--> statement-breakpoint
 ALTER TABLE "extraction_log" DROP COLUMN "exemplar_ids";--> statement-breakpoint
 ALTER TABLE "org_ai_settings" DROP COLUMN "copilot_provider";--> statement-breakpoint

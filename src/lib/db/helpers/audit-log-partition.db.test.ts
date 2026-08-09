@@ -83,6 +83,12 @@ describe("audit_log partitioning", () => {
   });
 
   it("moves default-partition rows when creating the missing monthly partition", async () => {
+    // This test creates the 2099-02 partition, and resetTestDb only truncates —
+    // it never drops partitions. Drop any leftover from a previous run first,
+    // or the insert below routes straight into the partition instead of the
+    // default and the move has nothing to prove.
+    await testDb.execute(sql`DROP TABLE IF EXISTS audit_log_2099_02`);
+
     const org = await createOrg();
     const createdAt = new Date("2099-02-15T00:00:00.000Z");
     const [entry] = await testDb

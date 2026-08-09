@@ -40,6 +40,18 @@ describe("resolveHelpEntry", () => {
     );
   });
 
+  it("gives the payouts queue its own entry, not the reconciliation one", () => {
+    // Longest-prefix match makes this easy to lose: adding the route without
+    // its key would silently serve the document-matching help on a page about
+    // processor payouts.
+    expect(resolveHelpEntry("/reconciliation/payouts")).toBe(
+      HELP_CONTENT["/reconciliation/payouts"]
+    );
+    expect(resolveHelpEntry("/reconciliation/review")).toBe(
+      HELP_CONTENT["/reconciliation"]
+    );
+  });
+
   it("keeps document review on the /documents entry", () => {
     expect(resolveHelpEntry("/documents/abc-123/review")).toBe(
       HELP_CONTENT["/documents"]

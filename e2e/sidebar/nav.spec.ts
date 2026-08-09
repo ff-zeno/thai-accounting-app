@@ -123,7 +123,7 @@ test.describe("Sidebar navigation", () => {
     for (const child of [
       "VAT",
       "Withholding Tax",
-      "Compliance Calendar",
+      "Tax Calendar",
       "Statutory Reports",
     ]) {
       await expect(

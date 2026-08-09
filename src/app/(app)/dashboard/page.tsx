@@ -268,7 +268,7 @@ export default async function DashboardPage() {
                 href="/tax"
                 className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
               >
-                What do these mean? Open Compliance
+                What do these mean? Open Tax
                 <ChevronRight className="size-3.5" />
               </Link>
             </CardContent>

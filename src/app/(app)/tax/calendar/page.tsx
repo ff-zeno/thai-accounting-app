@@ -194,7 +194,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Compliance Calendar"
+        title="Tax Calendar"
         description={`VAT and WHT filing deadlines for ${selectedYear} (B.E. ${beYear})`}
       >
         {/* Year navigation */}

@@ -179,7 +179,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
               <p className="text-sm font-medium">Tax profile</p>
               <p className="text-sm text-muted-foreground">
                 These switches control which monthly obligations appear on
-                your Compliance page.
+                your Tax page.
               </p>
             </div>
             {TAX_PROFILE_TOGGLES.map((toggle) => (

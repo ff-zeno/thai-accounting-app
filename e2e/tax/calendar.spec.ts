@@ -1,6 +1,6 @@
 import { test, expect } from "../fixtures/auth";
 
-test.describe("Compliance Calendar", () => {
+test.describe("Tax Calendar", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/tax/calendar");
     await expect(page.locator("main")).toBeVisible();
@@ -8,7 +8,7 @@ test.describe("Compliance Calendar", () => {
 
   test("page title visible", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: /Compliance Calendar/i }),
+      page.getByRole("heading", { name: /Tax Calendar/i }),
     ).toBeVisible();
   });
 

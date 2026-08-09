@@ -28,7 +28,7 @@ function monthLabel(year: number, month: number): string {
   return `${MONTH_LABELS[month - 1]} ${year}`;
 }
 
-export default async function CompliancePage() {
+export default async function TaxPage() {
   const orgId = await getActiveOrgId();
   if (!orgId) {
     return <NoOrgState />;
@@ -63,7 +63,7 @@ export default async function CompliancePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Compliance"
+        title="Tax"
         description={`Filings due in ${monthLabel(todayYear, todayMonth)} — covering the ${monthLabel(period.year, period.month)} tax period.`}
       />
 

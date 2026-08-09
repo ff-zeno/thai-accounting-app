@@ -16,6 +16,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -41,65 +42,83 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Motion vocabulary (suite foundation): `ease-swift` for entrances and
+     state changes; Tailwind's default `ease-out` for exits only. Durations:
+     150ms feedback, 250ms panel/overlay entrances. */
+  --ease-swift: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root {
-  /* Ink Neutral on "Quicken Soft" surfaces (DESIGN.md 2026-08-02):
-     soft gray canvas, white cards, near-black ink accent. */
-  --background: oklch(0.972 0.003 260);
-  --foreground: oklch(0.145 0 0);
+  /* Theme: Refined Finance (owner-approved 2026-08-09).
+     Vendored from the Startup Suite Design Kit:
+     startup-suite/packages/ui/src/styles/themes/long-tua.css (2026-08-07,
+     suite tree at cdf5bc7 + uncommitted kit work). The suite repo is the
+     source of truth for these values — re-sync from there, don't fork.
+
+     Identity: lavender-tinted canvas, white cards, one brand indigo. The
+     page is never white and never flat gray — the tint is the signature. */
+  --background: oklch(0.966 0.009 281);
+  --foreground: oklch(0.21 0.02 275);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.21 0.02 275);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.22 0.01 260);
+  --popover-foreground: oklch(0.21 0.02 275);
+  /* Brand indigo (#5266eb) — marks the single primary action per view. */
+  --primary: oklch(0.545 0.185 272);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  /* Secondary text: darkened from 0.556 (which failed AA on white at ~3.5:1)
-     and given the ink hue so nav labels read as ink, not flat gray. */
-  --muted-foreground: oklch(0.48 0.015 260);
-  /* Accent carries the app's colour. Raised from 0.012 to 0.032 chroma after
-     owner review 2026-08-03: at 0.012 the active nav pill was a 5% step off
-     white and the whole shell read monochrome. */
-  --accent: oklch(0.932 0.032 258);
-  --accent-foreground: oklch(0.33 0.075 262);
-  --destructive: oklch(0.577 0.245 27.325);
-  /* Semantic status colors (DESIGN.md): darkened for AA text contrast on light
-     surfaces — soft usage via opacity modifiers (bg-success/10, border-warning/40). */
-  --success: oklch(0.52 0.14 150);
+  --secondary: oklch(0.965 0.01 278);
+  --secondary-foreground: oklch(0.30 0.04 275);
+  --muted: oklch(0.965 0.008 280);
+  /* Secondary text: lightness held at ~0.47 (AA on white) with the indigo
+     undertone so labels read as part of the kit, not flat gray. */
+  --muted-foreground: oklch(0.47 0.03 278);
+  /* Accent carries the brand tint: hover/active nav states and tinted
+     sub-panels. Indigo wash at ~95% lightness; foreground is a darker
+     brand indigo that passes AA on that wash. */
+  --accent: oklch(0.945 0.025 275);
+  --accent-foreground: oklch(0.42 0.14 272);
+  /* Semantic status colours — the only saturated colours on screen besides
+     the brand and nav hues. Soft usage via opacity modifiers
+     (`bg-success/10 border-success/30 text-success`); solid usage pairs with
+     the matching `*-foreground`. Contract law 1: `text-*` clears WCAG AA
+     (4.5:1) on its own /10 wash over BOTH card and canvas. */
+  --destructive: oklch(0.522 0.208 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.49 0.133 150);
   --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.55 0.14 60);
+  --warning: oklch(0.515 0.119 60);
   --warning-foreground: oklch(1 0 0);
   --info: oklch(0.47 0.14 255);
   --info-foreground: oklch(1 0 0);
-  /* Nav section identity hues (DESIGN.md 2026-08-03). The shell stays Ink
-     Neutral and ALL of its colour lives in the nav icons — the balance the
-     approved mockups struck with their emoji glyphs. These are identity
-     colours, never status: they say "which section", not "is this OK". */
-  --nav-home: oklch(0.45 0.035 260);
+  --border: oklch(0.925 0.01 280);
+  /* Contract law 2 (WCAG 1.4.11): 3.37:1 on card, 3.05:1 on canvas. The
+     input hairline is the only thing marking a field as a control, so it is
+     far darker than the decorative card border — never harmonize the two. */
+  --input: oklch(0.64 0.02 278);
+  --ring: oklch(0.545 0.185 272);
+  /* Single-hue indigo ramp, dark → light. Chart-1 is the brand indigo so a
+     one-series chart matches the primary action exactly. Within this theme
+     indigo IS the series hue (supersedes the earlier "no blue/violet series"
+     rule — kit decision flagged 2026-08-05). */
+  --chart-1: oklch(0.545 0.185 272);
+  --chart-2: oklch(0.635 0.14 272);
+  --chart-3: oklch(0.72 0.10 273);
+  --chart-4: oklch(0.80 0.07 274);
+  --chart-5: oklch(0.875 0.045 276);
+  /* Nav section identity hues. The shell stays neutral and ALL of its colour
+     lives in the nav icons. Identity, never status: they answer "which
+     section", not "is this OK". Read in exactly one place: <NavIcon>.
+     An unknown tone falls back to --nav-default rather than rendering
+     colourless. */
+  --nav-default: oklch(0.50 0.11 272);
+  --nav-home: oklch(0.50 0.11 272);
   --nav-bank: oklch(0.52 0.105 195);
-  /* Income/Expenses read as the two sides of the money flow: money-in green,
-     money-out amber. Expenses inherits the retired --nav-documents hue so the
-     section the owner already knows keeps its established colour. Income sits
-     lighter and more saturated than --nav-vendors (which is also green) so the
-     two stay distinguishable at 28px tile size. */
   --nav-income: oklch(0.55 0.135 157);
   --nav-expenses: oklch(0.56 0.105 68);
   --nav-tax: oklch(0.49 0.125 258);
   --nav-vendors: oklch(0.50 0.105 150);
-  --nav-settings: oklch(0.48 0.02 260);
-  --border: oklch(0.94 0 0);
-  --input: oklch(0.90 0 0);
-  --ring: oklch(0.55 0.02 260);
-  /* Neutral ink lightness ramp for series data; evaluative charts use
-     success/warning/destructive directly. DESIGN.md bans violet/blue series. */
-  --chart-1: oklch(0.30 0.012 260);
-  --chart-2: oklch(0.45 0.012 260);
-  --chart-3: oklch(0.58 0.012 260);
-  --chart-4: oklch(0.70 0.01 260);
-  --chart-5: oklch(0.82 0.008 260);
+  --nav-settings: oklch(0.48 0.03 272);
   --radius: 0.625rem;
 }
 
@@ -112,5 +131,27 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Reduced motion (suite foundation): remove MOVEMENT, keep FEEDBACK.
+   Overlays animate through tw-animate-css's enter/exit custom properties, so
+   zeroing the translate/scale/rotate/blur channels degrades each slide and
+   zoom to its opacity fade — the state change stays acknowledged, nothing
+   sweeps across the screen. Deliberately kept: opacity fades, colour
+   transitions, the 1px press translate, and `animate-spin` (freezing a
+   loading spinner reads as a hang). */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-enter-rotate: 0 !important;
+    --tw-enter-blur: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-exit-rotate: 0 !important;
+    --tw-exit-blur: 0 !important;
   }
 }

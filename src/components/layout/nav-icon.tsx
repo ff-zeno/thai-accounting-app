@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { NavTone } from "@/lib/nav/structure";
 
 /**
- * The nav's colour. The shell is Ink Neutral everywhere else — every hue in
+ * The nav's colour. The shell stays neutral everywhere else — every hue in
  * the sidebar and the mobile bar comes through here, from the `--nav-*`
  * tokens, so a section's identity colour is defined in exactly one place.
  *
@@ -31,7 +31,7 @@ export function NavIcon({
   active?: boolean;
   className?: string;
 }) {
-  const toneVar = `var(--nav-${tone})`;
+  const toneVar = `var(--nav-${tone}, var(--nav-default))`;
 
   if (variant === "tile") {
     return (

@@ -87,6 +87,7 @@ interface QualityScoreData {
   falsePositivePct: number;
   aiApprovalRate: number | null;
   score: number;
+  hasActivity: boolean;
 }
 
 interface Props {
@@ -264,6 +265,27 @@ export function ReconciliationDashboard({
 
       {/* Quality Score + Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {/* An empty ledger has no quality to score: the component defaults
+            would fabricate a mid-range score (and a "Needs Work" verdict)
+            out of zero transactions. */}
+        {!qualityScore.hasActivity ? (
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription className="flex items-center gap-1.5">
+                <Gauge className="size-3.5" />
+                Quality Score
+              </CardDescription>
+              <CardTitle className="text-3xl tabular-nums text-muted-foreground">
+                —
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <span className="text-xs text-muted-foreground">
+                Scores after your first bank import
+              </span>
+            </CardContent>
+          </Card>
+        ) : (
         <Card size="sm" className={`border ${getScoreBg(qualityScore.score)}`}>
           <CardHeader>
             <CardDescription className="flex items-center gap-1.5">
@@ -280,13 +302,13 @@ export function ReconciliationDashboard({
               <span className={`text-xs font-medium ${getScoreColor(qualityScore.score)}`}>
                 {getScoreLabel(qualityScore.score)}
               </span>
-              {prevQualityScore && (() => {
+              {prevQualityScore?.hasActivity && (() => {
                 const delta = qualityScore.score - prevQualityScore.score;
                 if (delta > 0) return <ArrowUp className="size-3 text-success" />;
                 if (delta < 0) return <ArrowDown className="size-3 text-destructive" />;
                 return <Minus className="size-3 text-muted-foreground" />;
               })()}
-              {prevQualityScore && (
+              {prevQualityScore?.hasActivity && (
                 <span className="text-xs text-muted-foreground">
                   vs last month
                 </span>
@@ -294,6 +316,7 @@ export function ReconciliationDashboard({
             </div>
           </CardContent>
         </Card>
+        )}
 
         <Card size="sm">
           <CardHeader>
@@ -335,7 +358,15 @@ export function ReconciliationDashboard({
         <Card size="sm">
           <CardHeader>
             <CardDescription>Match Rate</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{matchRatePercent}%</CardTitle>
+            {/* A rate needs a denominator: with zero transactions "0.0%"
+                reads as a failing grade, so show no value instead. */}
+            <CardTitle className="text-2xl tabular-nums">
+              {stats.totalTransactions === 0 ? (
+                <span className="text-muted-foreground">—</span>
+              ) : (
+                `${matchRatePercent}%`
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -388,7 +419,9 @@ export function ReconciliationDashboard({
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <TrendingUp className="mb-2 size-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  All transactions are matched!
+                  {stats.totalTransactions === 0
+                    ? "No bank transactions imported yet"
+                    : "All transactions are matched!"}
                 </p>
               </div>
             ) : (

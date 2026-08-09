@@ -21,7 +21,7 @@ export default async function ReconciliationPage() {
   };
 
   const emptySuggestionCounts = { pending: 0, approved: 0, rejected: 0, total: 0 };
-  const emptyQuality = { matchRate: 0, avgAutoConfidence: null, falsePositivePct: 0, aiApprovalRate: null, score: 0 };
+  const emptyQuality = { matchRate: 0, avgAutoConfidence: null, falsePositivePct: 0, aiApprovalRate: null, score: 0, hasActivity: false };
 
   if (!orgId) {
     return (

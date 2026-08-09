@@ -360,6 +360,12 @@ export interface QualityScoreData {
   falsePositivePct: number;
   aiApprovalRate: number | null;
   score: number;
+  /**
+   * False when the period has no transactions at all. An empty ledger has no
+   * quality to score — the component defaults (0.7 confidence, 70% AI
+   * approval) would otherwise fabricate a mid-range score out of nothing.
+   */
+  hasActivity: boolean;
 }
 
 /**
@@ -390,6 +396,7 @@ export async function getQualityScoreData(
   const pStart = periodStart ?? null;
   const pEnd = periodEnd ?? null;
   const rows = await db.execute<{
+    txn_count: string;
     match_rate: string;
     avg_auto_confidence: string | null;
     false_positive_pct: string;
@@ -397,6 +404,7 @@ export async function getQualityScoreData(
   }>(sql`
     WITH match_stats AS (
       SELECT
+        COUNT(*) AS txn_count,
         COUNT(*) FILTER (WHERE t.reconciliation_status IN ('matched', 'partially_matched'))::numeric
           / NULLIF(COUNT(*), 0) AS match_rate
       FROM transactions t
@@ -435,6 +443,7 @@ export async function getQualityScoreData(
         AND (${pEnd}::timestamptz IS NULL OR created_at < ${pEnd}::timestamptz)
     )
     SELECT
+      ms.txn_count::text AS txn_count,
       COALESCE(ms.match_rate, 0)::text AS match_rate,
       cs.avg_auto_confidence::text AS avg_auto_confidence,
       COALESCE(fp.false_positive_pct, 0)::text AS false_positive_pct,
@@ -454,6 +463,7 @@ export async function getQualityScoreData(
     falsePositivePct,
     aiApprovalRate,
     score: computeQualityScore(matchRate, avgAutoConfidence, falsePositivePct, aiApprovalRate),
+    hasActivity: parseInt(r?.txn_count ?? "0", 10) > 0,
   };
 }
 

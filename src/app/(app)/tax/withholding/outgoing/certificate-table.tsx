@@ -269,7 +269,7 @@ export function CertificateTable({
                           {isPending && generatingId === cert.id ? (
                             <>
                               <Loader2 className="mr-1 size-3 animate-spin" />
-                              Generating...
+                              Generating…
                             </>
                           ) : (
                             <>
@@ -337,7 +337,7 @@ function ReissueDialog({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             className="min-h-24"
-            placeholder="Correction requested by payee..."
+            placeholder="Correction requested by payee…"
           />
         </div>
         <DialogFooter>

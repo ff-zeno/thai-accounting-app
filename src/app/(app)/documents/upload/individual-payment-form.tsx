@@ -363,7 +363,7 @@ export function IndividualPaymentForm() {
               {isExtracting && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
-                  Extracting ID card data...
+                  Extracting ID card data…
                 </div>
               )}
             </div>
@@ -399,7 +399,7 @@ export function IndividualPaymentForm() {
               onValueChange={(v) => setServiceCategory(v ?? "")}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category..." />
+                <SelectValue placeholder="Select category…" />
               </SelectTrigger>
               <SelectContent>
                 {SERVICE_CATEGORIES.map((cat) => (
@@ -457,7 +457,7 @@ export function IndividualPaymentForm() {
             <Label htmlFor="note">Note / Description</Label>
             <Textarea
               id="note"
-              placeholder="Description of services rendered..."
+              placeholder="Description of services rendered…"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
@@ -481,7 +481,7 @@ export function IndividualPaymentForm() {
         {isSubmitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />
-            Creating document...
+            Creating document…
           </>
         ) : (
           <>

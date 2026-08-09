@@ -295,7 +295,7 @@ function CreateVendorForm({
             value={nameField}
             onChange={(e) => setNameField(e.target.value)}
             required
-            placeholder={primaryLang === "th" ? "บริษัท ..." : "Company name..."}
+            placeholder={primaryLang === "th" ? "บริษัท …" : "Company name…"}
           />
         </div>
         <div className="space-y-2">
@@ -309,7 +309,7 @@ function CreateVendorForm({
           <Input
             value={nameSecondary}
             onChange={(e) => setNameSecondary(e.target.value)}
-            placeholder={primaryLang === "th" ? "English name..." : "ชื่อภาษาไทย..."}
+            placeholder={primaryLang === "th" ? "English name…" : "ชื่อภาษาไทย…"}
           />
         </div>
       </div>
@@ -375,7 +375,7 @@ function CreateVendorForm({
           </div>
           <Input
             name={primaryLang === "th" ? "addressTh" : "address"}
-            placeholder={primaryLang === "th" ? "ที่อยู่..." : "Address..."}
+            placeholder={primaryLang === "th" ? "ที่อยู่…" : "Address…"}
           />
         </div>
         <div className="space-y-2">
@@ -384,7 +384,7 @@ function CreateVendorForm({
           </Label>
           <Input
             name={primaryLang === "th" ? "address" : "addressTh"}
-            placeholder={primaryLang === "th" ? "Address..." : "ที่อยู่..."}
+            placeholder={primaryLang === "th" ? "Address…" : "ที่อยู่…"}
           />
         </div>
       </div>
@@ -404,7 +404,7 @@ function CreateVendorForm({
           Cancel
         </Button>
         <Button type="submit" disabled={isPending} className="cursor-pointer">
-          {isPending ? "Creating..." : "Add Vendor"}
+          {isPending ? "Creating…" : "Add Vendor"}
         </Button>
       </div>
     </form>
@@ -434,7 +434,7 @@ export function VendorList({ vendors }: { vendors: Vendor[] }) {
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search vendors..."
+            placeholder="Search vendors…"
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"

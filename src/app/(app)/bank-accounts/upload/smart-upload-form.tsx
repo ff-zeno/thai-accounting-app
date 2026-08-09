@@ -263,7 +263,7 @@ export function SmartUploadForm() {
       <Card>
         <CardContent className="flex items-center gap-3 p-8">
           <Loader2 className="size-4 animate-spin" />
-          <span className="text-sm text-muted-foreground">Parsing file...</span>
+          <span className="text-sm text-muted-foreground">Parsing file…</span>
         </CardContent>
       </Card>
     );
@@ -709,7 +709,7 @@ function ReviewStep({
             onClick={() => onImport(matchedAccount.id)}
             disabled={isPending}
           >
-            {isPending ? "Importing..." : `Import to ${matchedAccount.accountNumber}`}
+            {isPending ? "Importing…" : `Import to ${matchedAccount.accountNumber}`}
           </Button>
         ) : (
           <>
@@ -918,7 +918,7 @@ function CreateAccountStep({
               })
             }
           >
-            {isPending ? "Creating..." : "Create & Import"}
+            {isPending ? "Creating…" : "Create & Import"}
           </Button>
         </div>
       </CardContent>
@@ -1006,7 +1006,7 @@ function MappingStep({
             Cancel
           </Button>
           <Button onClick={handleParse} disabled={isPending}>
-            {isPending ? "Parsing..." : "Parse & Review"}
+            {isPending ? "Parsing…" : "Parse & Review"}
           </Button>
         </div>
       </CardContent>
@@ -1094,7 +1094,7 @@ function OverlapReviewStep({
             disabled={isPending}
           >
             {isPending
-              ? "Importing..."
+              ? "Importing…"
               : allAlreadyImported
                 ? "Confirm (0 new)"
                 : `Import ${overlap.newTxnCount} new transaction${overlap.newTxnCount !== 1 ? "s" : ""}`}

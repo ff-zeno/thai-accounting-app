@@ -129,7 +129,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Creating..." : "Create Organization"}
+              {isPending ? "Creating…" : "Create Organization"}
             </Button>
           </div>
         </form>

@@ -102,7 +102,7 @@ export function StatementUpload({ bankAccountId }: StatementUploadProps) {
         <CardContent className="flex items-center gap-3 p-4">
           <Loader2 className="size-5 animate-spin text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            {state.step === "parsing" ? "Parsing file..." : "Importing..."}
+            {state.step === "parsing" ? "Parsing file…" : "Importing…"}
           </span>
         </CardContent>
       </Card>

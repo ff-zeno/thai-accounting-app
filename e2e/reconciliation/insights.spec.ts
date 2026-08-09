@@ -17,11 +17,11 @@ test.describe("Reconciliation insights", () => {
   });
 
   test("health summary banner is visible", async ({ page }) => {
-    // HealthSummary renders a colored banner with a status message
-    // It always contains one of: "running smoothly", "Needs attention", "Action needed"
-    const banner = page.locator(
-      '[class*="bg-green-50"], [class*="bg-amber-50"], [class*="bg-red-50"]',
-    );
-    await expect(banner.first()).toBeVisible();
+    // HealthSummary always renders one of these status messages; asserting
+    // the copy survives palette changes (the old bg-green-50 classes became
+    // bg-success/10 tokens in the Ink Neutral reset).
+    await expect(
+      page.getByText(/running smoothly|Needs attention|Action needed/).first(),
+    ).toBeVisible();
   });
 });

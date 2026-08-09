@@ -278,7 +278,7 @@ export function AiSettingsForm({ settings }: AiSettingsFormProps) {
 
           <div className="flex justify-end">
             <Button type="submit" disabled={isPending} className="cursor-pointer">
-              {isPending ? "Saving..." : "Save AI Settings"}
+              {isPending ? "Saving…" : "Save AI Settings"}
             </Button>
           </div>
         </form>

@@ -15,6 +15,12 @@ export interface RouteTab {
  * Route-based section tab strip: links styled with the kit Tabs recipe,
  * deliberately NOT role="tab" — every tab is a real URL and deep links
  * preserve the active state. Owns the "Section navigation" landmark.
+ *
+ * Styled as the kit's `underline` tabs variant (tabs.tsx): the kit reserves
+ * the pill track for switchers inside a card or toolbar; a strip on the page
+ * canvas that governs the whole surface below it takes the baseline rule +
+ * ink-bar anatomy (owner review 2026-08-09 — the pill track read thick and
+ * low-contrast on the canvas).
  */
 export function RouteTabs({
   tabs,
@@ -37,10 +43,9 @@ export function RouteTabs({
       aria-label="Section navigation"
       className={cn("overflow-x-auto", className)}
     >
-      {/* gap-1 separates adjacent tabs; the accent-tinted track is what makes
-          the white active pill legible (bg-muted was a 3% step off white and
-          the tabs ran together — owner review 2026-08-03). */}
-      <div className="inline-flex w-fit items-center justify-center gap-1 rounded-lg bg-accent/70 p-1 text-muted-foreground">
+      {/* The strip owns the full width and draws the baseline rule the active
+          tab's ink bar sits on (kit tabs.tsx, underline variant). */}
+      <div className="flex w-full items-center gap-5 border-b border-border text-muted-foreground">
         {tabs.map((tab) => {
           const isActive = active?.href === tab.href;
           return (
@@ -50,10 +55,13 @@ export function RouteTabs({
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 // min-h-11 = the 44px touch-target floor from DESIGN.md.
-                "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none",
-                "hover:bg-card/60 hover:text-accent-foreground",
-                "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                isActive && "bg-card font-semibold text-foreground shadow-xs"
+                // -mb-px overlaps the list's rule so active reads as "on the
+                // line"; the transparent bar on inactive tabs keeps the text
+                // from shifting when selection moves.
+                "-mb-px inline-flex min-h-11 items-center justify-center gap-1.5 rounded-none border-b-2 border-transparent px-1 pt-1 pb-2.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none",
+                "hover:text-foreground",
+                "focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50",
+                isActive && "border-primary text-foreground"
               )}
             >
               {tab.label}

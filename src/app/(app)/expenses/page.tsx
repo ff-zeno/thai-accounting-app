@@ -26,12 +26,7 @@ export default async function ExpensesPage() {
 
   return (
     <div>
-      <PageHeader className="mb-6" title={tNav("expenses")}>
-        <Button render={<Link href={documentUploadRoute("expense")} />}>
-          <Upload className="mr-2 size-4" />
-          {t("uploadTitle")}
-        </Button>
-      </PageHeader>
+      <PageHeader className="mb-6" title={tNav("expenses")} />
       <DocumentTable
         direction="expense"
         initialDocuments={docsResult.data as DocumentRow[]}
@@ -39,6 +34,12 @@ export default async function ExpensesPage() {
         initialNextCursor={docsResult.nextCursor}
         filterOptions={filterOptions}
         defaultVatRate={await getVatRate()}
+        actions={
+          <Button render={<Link href={documentUploadRoute("expense")} />}>
+            <Upload className="mr-2 size-4" />
+            {t("uploadTitle")}
+          </Button>
+        }
       />
     </div>
   );

@@ -93,8 +93,9 @@ export const navEntries: NavEntry[] = [
     href: "/income",
     tone: "income",
     badgeKey: "income",
-    // Invoices / Settlements / Upload are the /income tab strip. Capture has
-    // the top-bar button and the mobile FAB. No sidebar children needed.
+    // Invoices / Settlements are the /income tab strip; Upload is reached
+    // from the list toolbar (with a BackLink out). Capture has the top-bar
+    // button and the mobile FAB. No sidebar children needed.
     children: [],
   },
   {
@@ -103,7 +104,8 @@ export const navEntries: NavEntry[] = [
     href: "/expenses",
     tone: "expenses",
     badgeKey: "expenses",
-    // Expenses / Upload are the /expenses tab strip.
+    // No tab strip: Upload is reached from the list toolbar (with a
+    // BackLink out), so the section is just its list.
     children: [],
   },
   {

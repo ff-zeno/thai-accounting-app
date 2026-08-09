@@ -503,7 +503,7 @@ export function TransactionTable({
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <Input
-          placeholder="Search transactions..."
+          placeholder="Search transactions…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={handleSearchKeyDown}

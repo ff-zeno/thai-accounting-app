@@ -42,23 +42,28 @@ test.describe("Dashboard", () => {
   test("tax summary displays VAT and filing signals", async ({ page }) => {
     await expect(page.getByText("Net VAT Position")).toBeVisible();
     await expect(page.getByText("Outstanding Filings")).toBeVisible();
-    await expect(page.getByText(/THB/).first()).toBeVisible();
+    // The satang-split Amount renders bare "0.00" on this card (no THB
+    // suffix), so assert a real filing signal instead of currency copy.
+    await expect(page.getByText(/PP 30/).first()).toBeVisible();
   });
 
   test("owner quick actions navigate to core work areas", async ({ page }) => {
+    // The quick actions are kit Buttons rendering router Links; Base UI's
+    // nativeButton={false} gives the anchor role="button", so they surface
+    // as buttons in the accessibility tree while keeping their hrefs.
     const main = page.locator("main");
 
-    await expect(main.getByRole("link", { name: "Bank upload" })).toHaveAttribute(
+    await expect(main.getByRole("button", { name: "Bank upload" })).toHaveAttribute(
       "href",
       "/bank-accounts/upload"
     );
     await expect(
-      main.getByRole("link", { name: "Documents upload" })
+      main.getByRole("button", { name: "Documents upload" })
     ).toHaveAttribute("href", "/expenses/upload");
     await expect(
-      main.getByRole("link", { name: "Reconciliation" }).first()
+      main.getByRole("button", { name: "Reconciliation" })
     ).toHaveAttribute("href", "/reconciliation");
-    await expect(main.getByRole("link", { name: "Tax" })).toHaveAttribute(
+    await expect(main.getByRole("button", { name: "Tax" })).toHaveAttribute(
       "href",
       "/tax/vat"
     );

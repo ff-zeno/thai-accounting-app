@@ -33,6 +33,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  FilterBar,
+  FilterBarSearch,
+  FilterBarActions,
+} from "@/components/ui/filter-bar";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -122,6 +127,9 @@ interface Props {
   filterOptions: FilterOptions;
   /** Effective-dated statutory VAT rate resolved server-side (tax_config). */
   defaultVatRate: string;
+  /** Collection actions (e.g. the upload button), rendered at the trailing
+   *  edge of the search/filter toolbar per the kit FilterBar contract. */
+  actions?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -372,6 +380,7 @@ export function DocumentTable({
   initialNextCursor,
   filterOptions,
   defaultVatRate,
+  actions,
 }: Props) {
   const t = useTranslations("documents");
   const tc = useTranslations("common");
@@ -448,7 +457,7 @@ export function DocumentTable({
   async function handleRetry(docId: string) {
     try {
       await retryExtractionAction(docId);
-      toast.success("Retrying extraction...");
+      toast.success("Retrying extraction…");
       router.refresh();
     } catch {
       toast.error("Retry failed");
@@ -844,11 +853,11 @@ export function DocumentTable({
 
   return (
     <div className="space-y-3">
-      {/* Search & Filter Bar — fixed h-8 row; bulk actions expand inline when selected */}
-      <div className="flex h-8 items-center gap-2">
-        <div className="relative h-8 max-w-sm flex-1">
+      {/* Search & Filter Bar (kit FilterBar) — bulk actions expand inline when selected */}
+      <FilterBar>
+        <FilterBarSearch className="relative">
           <Input
-            placeholder={`${t("vendor")}, ${t("documentNumber")}...`}
+            placeholder={`${t("vendor")}, ${t("documentNumber")}…`}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             className="pr-8"
@@ -856,7 +865,7 @@ export function DocumentTable({
           {isPending && !isLoadingMore && (
             <Loader2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
           )}
-        </div>
+        </FilterBarSearch>
         <Popover
           open={showFilters}
           onOpenChange={(open) => {
@@ -886,7 +895,7 @@ export function DocumentTable({
         </Popover>
 
         {selectedIds.size > 0 && (
-          <div className="flex h-8 flex-1 items-center gap-2 rounded-md border bg-muted/50 px-2">
+          <div className="flex h-8 flex-1 items-center gap-2 rounded-md border bg-muted/50 px-2 whitespace-nowrap">
             <span className="text-sm font-medium">
               {selectedIds.size} selected
             </span>
@@ -929,7 +938,9 @@ export function DocumentTable({
             </Button>
           </div>
         )}
-      </div>
+
+        {actions && <FilterBarActions>{actions}</FilterBarActions>}
+      </FilterBar>
 
       {/* Table */}
       <TableCard
@@ -949,7 +960,7 @@ export function DocumentTable({
                 {isLoadingMore ? (
                   <>
                     <Loader2 className="mr-1 size-4 animate-spin" />
-                    {t("loadMore")}...
+                    {t("loadMore")}…
                   </>
                 ) : (
                   t("loadMore")
@@ -977,21 +988,7 @@ export function DocumentTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length}>
-                  <EmptyState
-                    size="sm"
-                    icon={<FileText />}
-                    title={
-                      searchQuery || activeFilterCount > 0
-                        ? t("noMatchSearch")
-                        : t("noDocuments")
-                    }
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
+            {table.getRowModel().rows.length > 0 &&
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -1010,10 +1007,28 @@ export function DocumentTable({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            )}
+              ))}
           </TableBody>
         </Table>
+        {/* Outside <Table> so it sits beside the horizontal scroll container:
+            centered in a colSpan cell it centers on the full table width and
+            scrolls out of the visible viewport on narrow screens. */}
+        {table.getRowModel().rows.length === 0 && (
+          <EmptyState
+            size="sm"
+            icon={<FileText />}
+            title={
+              searchQuery || activeFilterCount > 0
+                ? t("noMatchSearch")
+                : t("noDocuments")
+            }
+            description={
+              searchQuery || activeFilterCount > 0
+                ? undefined
+                : t("noDocumentsHint")
+            }
+          />
+        )}
       </TableCard>
 
       {/* Hidden file input for attaching */}

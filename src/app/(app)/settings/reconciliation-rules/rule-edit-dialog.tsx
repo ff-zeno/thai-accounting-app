@@ -318,7 +318,7 @@ export function RuleEditDialog({ open, onOpenChange, initialRule }: Props) {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isPending}>
-              {isPending ? "Saving..." : isEditing ? "Update Rule" : "Create Rule"}
+              {isPending ? "Saving…" : isEditing ? "Update Rule" : "Create Rule"}
             </Button>
           </div>
         </div>

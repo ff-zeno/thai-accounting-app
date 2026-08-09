@@ -120,7 +120,7 @@ export function VendorEditForm({ vendor }: VendorEditFormProps) {
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save Changes"}
+              {isPending ? "Saving…" : "Save Changes"}
             </Button>
           </div>
         </form>

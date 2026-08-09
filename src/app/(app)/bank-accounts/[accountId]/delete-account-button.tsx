@@ -82,7 +82,7 @@ export function DeleteAccountButton({
               {isPending ? (
                 <>
                   <Loader2 className="mr-1 size-4 animate-spin" />
-                  Deleting...
+                  Deleting…
                 </>
               ) : (
                 "Delete Account"

@@ -8,6 +8,7 @@ import {
   DocumentTable,
   type DocumentRow,
 } from "@/app/(app)/documents/document-table";
+import { RouteTabs } from "@/components/layout/route-tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Upload } from "lucide-react";
@@ -25,21 +26,30 @@ export default async function IncomePage() {
     : [{ data: [], hasMore: false, nextCursor: null }, { categories: [], vendors: [] }];
 
   return (
-    <div>
-      <PageHeader className="mb-6" title={tNav("income")}>
-        <Button render={<Link href={documentUploadRoute("income")} />}>
-          <Upload className="mr-2 size-4" />
-          {t("uploadTitle")}
-        </Button>
-      </PageHeader>
-      <DocumentTable
-        direction="income"
-        initialDocuments={docsResult.data as DocumentRow[]}
-        initialHasMore={docsResult.hasMore}
-        initialNextCursor={docsResult.nextCursor}
-        filterOptions={filterOptions}
-        defaultVatRate={await getVatRate()}
+    <div className="space-y-6">
+      <RouteTabs
+        tabs={[
+          { href: "/income", label: tNav("invoices") },
+          { href: "/income/settlements", label: tNav("settlements") },
+        ]}
       />
+      <div>
+        <PageHeader className="mb-6" title={tNav("income")} />
+        <DocumentTable
+          direction="income"
+          initialDocuments={docsResult.data as DocumentRow[]}
+          initialHasMore={docsResult.hasMore}
+          initialNextCursor={docsResult.nextCursor}
+          filterOptions={filterOptions}
+          defaultVatRate={await getVatRate()}
+          actions={
+            <Button render={<Link href={documentUploadRoute("income")} />}>
+              <Upload className="mr-2 size-4" />
+              {t("uploadTitle")}
+            </Button>
+          }
+        />
+      </div>
     </div>
   );
 }

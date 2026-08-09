@@ -105,6 +105,16 @@ interface Props {
 
 type PeriodKey = "this-month" | "last-month" | "this-quarter" | "this-year" | "all";
 
+// Base UI's SelectValue renders the raw value string unless given a
+// formatter, so the trigger and the items share this one label map.
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  all: "All Time",
+  "this-month": "This Month",
+  "last-month": "Last Month",
+  "this-quarter": "This Quarter",
+  "this-year": "This Year",
+};
+
 function getPeriodRange(key: PeriodKey): { start: string; end: string } | undefined {
   const now = new Date();
   const year = now.getFullYear();
@@ -233,15 +243,17 @@ export function ReconciliationDashboard({
       >
         {isPending && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
         <Select value={period} onValueChange={handlePeriodChange}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
+          <SelectTrigger className="w-[160px]" aria-label="Period">
+            <SelectValue>
+              {(value: PeriodKey) => PERIOD_LABELS[value]}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Time</SelectItem>
-            <SelectItem value="this-month">This Month</SelectItem>
-            <SelectItem value="last-month">Last Month</SelectItem>
-            <SelectItem value="this-quarter">This Quarter</SelectItem>
-            <SelectItem value="this-year">This Year</SelectItem>
+            {(Object.keys(PERIOD_LABELS) as PeriodKey[]).map((key) => (
+              <SelectItem key={key} value={key}>
+                {PERIOD_LABELS[key]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button render={<Link href="/reconciliation/review" />}>

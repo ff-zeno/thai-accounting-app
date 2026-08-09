@@ -368,7 +368,7 @@ export function ManualMatch({ initialTransactions, initialDocuments }: Props) {
                 {isPending ? (
                   <>
                     <Loader2 className="mr-1 size-4 animate-spin" />
-                    Creating...
+                    Creating…
                   </>
                 ) : (
                   <>

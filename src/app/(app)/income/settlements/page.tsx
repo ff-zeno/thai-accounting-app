@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Upload } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { getActiveOrgId } from "@/lib/utils/org-context";
 import { listSettlements } from "@/lib/db/queries/processor-settlements";
+import { RouteTabs } from "@/components/layout/route-tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { FlowStrip } from "@/components/ui/flow-strip";
@@ -15,6 +17,7 @@ import {
 const IMPORT_HREF = "/income/settlements/import";
 
 export default async function SettlementsPage() {
+  const tNav = await getTranslations("nav");
   const orgId = await getActiveOrgId();
   const settlements = orgId ? await listSettlements(orgId) : [];
 
@@ -27,6 +30,12 @@ export default async function SettlementsPage() {
 
   return (
     <div className="space-y-6">
+      <RouteTabs
+        tabs={[
+          { href: "/income", label: tNav("invoices") },
+          { href: "/income/settlements", label: tNav("settlements") },
+        ]}
+      />
       <PageHeader
         title="Settlements"
         description="What each processor says it paid you, and whether it landed."

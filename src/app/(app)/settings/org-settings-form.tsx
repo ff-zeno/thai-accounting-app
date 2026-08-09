@@ -242,7 +242,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isPending} className="cursor-pointer">
-              {isPending ? "Saving..." : "Save Changes"}
+              {isPending ? "Saving…" : "Save Changes"}
             </Button>
           </div>
         </form>

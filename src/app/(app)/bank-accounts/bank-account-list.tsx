@@ -141,7 +141,7 @@ function BankPicker({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search banks..."
+          placeholder="Search banks…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -348,7 +348,7 @@ export function BankAccountList({ accounts }: { accounts: Account[] }) {
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? "Creating..." : "Add Account"}
+                {isPending ? "Creating…" : "Add Account"}
               </Button>
             </div>
           </form>

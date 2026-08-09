@@ -1,8 +1,9 @@
 # Design System — Long Tua (ลงตัว)
 
 This document governs all visual and UI decisions.
-It reflects the owner-approved 2026-08 UX reset ("Quicken Soft" surfaces + Ink Neutral accent), the money-flow nav restructure, and the ledger-table + panel-doctrine decisions of 2026-08-05.
-Approval evidence: `docs/reviews/owner-mode-ux-reset-approved-mockups-2026-08-01.html` (Lavish review rounds, owner sign-off "Good, looks aligned now") and `docs/reviews/design-kit-directions-approved-2026-08-05.html` (2026-08-05 kit decisions A–D).
+It reflects the owner-approved 2026-08 UX reset, the money-flow nav restructure, the ledger-table + panel-doctrine decisions of 2026-08-05, and the 2026-08-09 adoption of the Startup Suite Design Kit's "Refined Finance" theme as Long Tua's identity.
+Approval evidence: `docs/reviews/owner-mode-ux-reset-approved-mockups-2026-08-01.html` (Lavish review rounds, owner sign-off "Good, looks aligned now"), `docs/reviews/design-kit-directions-approved-2026-08-05.html` (2026-08-05 kit decisions A–D), and the in-session owner approval of 2026-08-09 (kit adoption, checkpoint-commit, ledger-convention arbitration).
+**Upstream:** the suite kit at `/Users/zeno/Dev/startup-suite` (`DESIGN.md`, `packages/ui/`) is the source of truth for the theme contract, token values, and component anatomy; this document records how Long Tua consumes it. Kit bugs and gaps are reported upstream, never forked locally.
 Do not deviate without explicit owner approval.
 In QA mode, flag any code that does not match this document.
 
@@ -13,8 +14,9 @@ In QA mode, flag any code that does not match this document.
 - **Project type:** Web app / dashboard with data-dense views
 - **Brand:** "Long Tua" (ลงตัว — "everything falls into place"). The romanization is exactly `Long Tua` everywhere it renders.
 
-## Aesthetic Direction — "Quicken Soft" + Ink Neutral
-- **Direction:** Calm instrument. Soft gray canvas, white rounded cards, one near-black ink accent. Typography and spacing do the work; color is rare and always means something.
+## Aesthetic Direction — "Refined Finance" (suite kit theme)
+- **Direction:** Calm instrument, "the calm ledger". Lavender-tinted paper canvas (never white, never flat gray — the tint is the signature), white rounded cards, one brand indigo (Signal Indigo `#5266eb`) marking the single primary action per view. Typography and spacing do the work; color is rare and always means something.
+- **Provenance:** owner-selected 2026-08-05 ("kit A, Mercury direction") and adopted 2026-08-09 from the suite kit, replacing Ink Neutral. The kit generalized Long Tua's own structure, so anatomy, nav tones, and ledger conventions carried over unchanged — the swap is the theme layer.
 - **Reference kit (owner-approved):** Quicken Simplifi for the general shell and global styles — app frame, buttons, menus, card anatomy (stat label + big number + tinted sub-panel for detail).
   Supporting references: Midday (evidence-inbox workflow IA, review states), Mercury/Attio (dense tables + side drawers), Wise (mobile action patterns), Etsy/Stripe (settlement gross→fee→net presentation), Mixpanel (report/chart boards only).
   We take structure, spacing, and component shapes from references — never their palettes. Quicken's violet is explicitly banned.
@@ -47,22 +49,24 @@ In QA mode, flag any code that does not match this document.
   text-only contexts that cannot hold an element (e.g. `<option>` labels) call `formatAmount()` from `src/lib/utils/money.ts` — the same function `Amount` renders.
   Money math is always integer satang via `src/lib/utils/money.ts` (`sumAmounts`, `toSatangOrZero`, `fromSatang`) — never float arithmetic.
 
-## Color — Ink Neutral (token source: `src/app/globals.css`)
-- **Approach:** one ink accent + cool grays. Semantic colors are the only saturated colors on screen.
-- **Canvas / background:** `oklch(0.972 0.003 260)` — soft cool gray; the page is never white
-- **Card:** `oklch(1 0 0)` white — content sits on white cards over the gray canvas
-- **Foreground:** `oklch(0.145 0 0)`
-- **Primary (ink):** `oklch(0.22 0.01 260)`; primary-foreground white. Marks the single primary action per view.
-- **Accent (brand-soft):** `oklch(0.945 0.012 260)`; accent-foreground `oklch(0.22 0.02 260)`. Used for hover/active nav states and tinted sub-panels.
-- **Muted:** `oklch(0.97 0 0)`; muted-foreground `oklch(0.556 0 0)`
-- **Border:** `oklch(0.94 0 0)`; input border `oklch(0.90 0 0)`; ring `oklch(0.55 0.02 260)`
+## Color — Refined Finance (token source: `src/app/globals.css`; upstream: suite kit `themes/long-tua.css`)
+- **Approach:** one brand indigo + indigo-undertoned neutrals. Semantic colors and nav hues are the only other saturated colors on screen.
+- **Canvas / background (Lavender Paper):** `oklch(0.966 0.009 281)` — tinted paper; the page is never white and never flat gray
+- **Card:** `oklch(1 0 0)` white — pure white is reserved for things that sit *on* the paper
+- **Foreground (Ink):** `oklch(0.21 0.02 275)` — near-black with an indigo undertone, never true black
+- **Primary (Signal Indigo):** `oklch(0.545 0.185 272)` (`#5266eb`); primary-foreground white. Marks the single primary action per view, the focus ring, and the mobile FAB.
+- **Accent (indigo wash):** `oklch(0.945 0.025 275)`; accent-foreground `oklch(0.42 0.14 272)` (darker brand indigo, AA on the wash). Used for hover/active nav states and tinted sub-panels.
+- **Muted:** `oklch(0.965 0.008 280)`; muted-foreground `oklch(0.47 0.03 278)` — lightness held at ~0.47 so it clears AA on white while keeping the indigo undertone
+- **Border:** `oklch(0.925 0.01 280)`; input border `oklch(0.64 0.02 278)`; ring = primary.
+  The input border is far darker than the card border because a field's surface is transparent — that hairline is the only thing marking the control, so WCAG 1.4.11 holds it to 3:1 (3.37 on card, 3.05 on canvas). Never harmonize `--input` with `--border`.
 - **Semantic (tokens only — never raw Tailwind palette classes):**
-  - Success: `--success` `oklch(0.52 0.14 150)`
-  - Warning: `--warning` `oklch(0.55 0.14 60)`
-  - Error/Destructive: `--destructive` `oklch(0.577 0.245 27.325)`
+  - Success: `--success` `oklch(0.49 0.133 150)`
+  - Warning: `--warning` `oklch(0.515 0.119 60)`
+  - Error/Destructive: `--destructive` `oklch(0.522 0.208 27.325)`
   - Info: `--info` `oklch(0.47 0.14 255)`
+  - All pinned dark enough that `text-*` clears AA 4.5:1 on its own `/10` wash over both card and canvas (kit contract law 1).
   - Soft usage via opacity modifiers: `bg-success/10 border-success/30 text-success`; solid usage pairs with `*-foreground`. Badge has `success`/`warning`/`info` variants; banners use `Alert`.
-- **Charts:** neutral ink lightness ramp `--chart-1..5` for series data; evaluative charts (good/at-risk/bad) use success/warning/destructive directly. Never blue/violet series colors.
+- **Charts:** single-hue indigo ramp `--chart-1..5` (dark → light); chart-1 is the brand indigo so a one-series chart matches the primary action exactly. Evaluative charts (good/at-risk/bad) use success/warning/destructive directly. Supersedes the former "no blue/violet series" rule — within this theme, indigo *is* the series hue.
 - **Bank-brand exemption:** Thai bank identity colors (KBank green, SCB purple, …) in the bank-account list and statement-upload bank picker are brand marks, not UI semantics — they are the only permitted raw palette classes and live only in `bank-account-list.tsx` and `smart-upload-form.tsx`.
 - **Dark mode:** removed. There is no `.dark` block, no `dark:` variants, no theme switching. Reintroducing dark mode is a product decision, not a styling tweak.
 - **Retired:** the warm golden-brown accent (oklch hue 80) and all `--sidebar-*` tokens.
@@ -127,7 +131,7 @@ In QA mode, flag any code that does not match this document.
   Switch to a `SubNav` column when the destinations need grouping or no longer fit one line — a strip caps out around four and cannot say that two of them belong together.
   Both carry the same landmark and the same longest-prefix active rule, so the test contract is identical.
 - **Active state:** route-derived, longest-prefix; rendered as `bg-accent text-accent-foreground font-semibold` plus `aria-current="page"`. No left-border indicators.
-- **Badges carry "why go here":** counts on Documents/Bank (same query as the dashboard cockpit — numbers must never disagree) and the next filing deadline chip on Tax. Badges are advisory and eventually consistent — they refresh per navigation, never by polling. Badge pills are `aria-hidden` so a link's accessible name never churns with data ("Documents", never "Documents 7"); the cockpit carries the authoritative, accessible counts.
+- **Badges carry "why go here":** counts on Income/Expenses/Bank (same query as the dashboard cockpit — numbers must never disagree) and the next filing deadline chip on Tax. Badges are advisory and eventually consistent — they refresh per navigation, never by polling. Badge pills are `aria-hidden` so a link's accessible name never churns with data ("Documents", never "Documents 7"); the cockpit carries the authoritative, accessible counts.
 - **Keyboard:** sidebar uses roving tabindex — arrow keys move focus, Enter activates, Home/End jump. Focus rings use the shared ring token and must stay visible.
 
 ## Domain Display Rules
@@ -141,11 +145,12 @@ In QA mode, flag any code that does not match this document.
 - **Workflow explainer graphs:** clean n8n-style node canvases (never sketch/whiteboard styling), English labels, click-a-node → explainer sidebar. Explanatory only — an ordered-text equivalent must exist for accessibility.
 - **AI posture:** AI suggests, humans confirm. Every AI-derived value shows confidence and a review affordance; nothing auto-commits.
 
-## Motion
-- **Approach:** minimal-functional — only transitions that aid comprehension
-- **Easing:** enter `ease-out`, exit `ease-in`, move `ease-in-out`
-- **Duration:** micro(50-100ms) short(150-250ms) medium(250-400ms)
-- **Where used:** hover color transitions (150ms), sheet open/close (200ms), accordion expand
+## Motion (suite kit vocabulary)
+- **Approach:** minimal-functional — only transitions that aid comprehension. Motion is foundation, not identity.
+- **Easing:** entrances and state changes use `ease-swift` (`--ease-swift: cubic-bezier(0.16, 1, 0.3, 1)`, an exponential ease-out); exits use Tailwind's default `ease-out`. Nothing invents its own curve.
+- **Duration:** 150ms for hover/press feedback, 250ms for panel and overlay entrances. Anything longer must be a deliberately authored moment, not a component default.
+- **Press:** `active:translate-y-px` — a single pixel, the only motion in the resting UI.
+- **Reduced motion:** remove movement, keep feedback. `globals.css` zeroes tw-animate's translate/scale/rotate/blur channels so every slide and zoom degrades to its opacity fade; kept deliberately: opacity fades, colour transitions, the 1px press translate, and `animate-spin` (freezing a spinner reads as a hang). Reduced motion may never remove the acknowledgment of a state change — only the travel.
 
 ## Test Contract (accessibility layer — no test IDs)
 - e2e asserts roles, names, and ARIA — never `data-testid`.
@@ -154,7 +159,7 @@ In QA mode, flag any code that does not match this document.
 - Active nav state is asserted via `aria-current="page"` (primary) with the `bg-accent` class as canary.
 
 ## Anti-Patterns (Never Do These)
-- Purple/violet as accent; any raw Tailwind palette class (`bg-green-500`, `text-blue-600`, …) — semantic tokens only (sole exemption: bank brand marks, see Color)
+- Any raw Tailwind palette class (`bg-green-500`, `text-blue-600`, …) — semantic tokens only (sole exemption: bank brand marks, see Color). The former purple/violet ban is superseded: Signal Indigo is the brand accent, but it arrives only via `--primary`/`--accent`/`--chart-*` tokens, never as a palette class
 - `font-mono` or `toLocaleString` for money — `Amount` is the only money path (non-money exemptions listed under Typography)
 - `dark:` variants or theme providers — dark mode does not exist
 - Left-border active indicators on nav
@@ -210,3 +215,13 @@ In QA mode, flag any code that does not match this document.
 | 2026-08-06 | **Gross stays on screen next to net on every payout surface**, and the payout queue renders the gross column even though the matcher never compares it | The matcher compares only `net_payout`, so gross is display-only there — which is exactly why it is easy to drop. A row showing only net reads as an income figure, and output VAT is owed on gross. The column is the guard-rail, not decoration |
 | 2026-08-06 | **Settlement match rate is its own stat on the Payouts page, deliberately not folded into the reconciliation insights dashboard** | `getMatchRateByLayer` groups over `reconciliation_matches.match_metadata->>'layer'` and settlements never write there. Blending the two would make one headline number mean two different things — a document match and a payout claim are not the same event |
 | 2026-08-06 | `suggested` added to the status registry as `info` (settlement claimed a deposit, human has not confirmed) | Settlement matching introduced a state the document side has no word for. Registry-first per the status rendering rule — a page-local badge for it would have been the fourth place statuses get their own colours |
+| 2026-08-09 | **Startup Suite Design Kit adopted; "Refined Finance" theme replaces Ink Neutral.** Theme tokens vendored from `startup-suite/packages/ui/src/styles/themes/long-tua.css` into `globals.css` with source attribution; the suite kit becomes upstream source of truth for theme contract, token values, and component anatomy | Owner directive relayed cross-session from the suite and confirmed in-session. Refined Finance was owner-selected 2026-08-05 as Long Tua's own identity ("kit A, Mercury direction") and the kit generalized around it — nav tones, radius ramp, type scale, Amount/Satang rules, and scrim were already byte-identical, so the swap is the theme layer, not a redesign |
+| 2026-08-09 | `--input` darkened `oklch(0.90 0 0)` → `oklch(0.64 0.02 278)` per kit contract law 2 | The old value was ~1.4:1 against the card — far below the WCAG 1.4.11 3:1 floor for the only hairline identifying a field as a control. Kit value clears 3.37 on card, 3.05 on canvas |
+| 2026-08-09 | Indigo single-hue chart ramp replaces the neutral ink ramp; "no blue/violet series" rule superseded | Kit decision (flagged 2026-08-05): chart-1 = brand indigo so a one-series chart matches the primary action. The old ban existed to keep series colors semantic-free; a single-hue brand ramp achieves the same end |
+| 2026-08-09 | `--nav-default` token added; `NavIcon` and `sectionToneVar` resolve `var(--nav-<tone>, var(--nav-default))` | Kit contract: an unknown tone degrades to the neutral default hue, never to colourless. Closes the silent-failure mode the closed union previously documented as a caveat |
+| 2026-08-09 | Motion vocabulary adopted: `--ease-swift` for entrances/state changes, `ease-out` exits, 150/250ms durations, reduced-motion policy (movement removed, feedback kept) | Suite foundation — every brand moves the same way. Replaces the looser enter/exit/move easing table |
+| 2026-08-09 | **Ledger conventions kept: double-rule totals and the Card section-tone top rule are kit-canonical.** Owner chose "retire to kit purity" — inspection showed the kit's own `TableFooter` and `Card` ship both conventions byte-identically (absorbed from Long Tua), so purity means keeping them | The kit's prose ("no heavy rules, no double borders") contradicts its own components; reported upstream as a kit-doc bug rather than resolved locally. The prose reads as banning *decorative* dividers — both devices carry meaning |
+| 2026-08-09 | **List toolbars: one row.** Upload/primary actions sit in the same row as search + filters (`FilterBar`); the Expenses/Upload pill toggle is dropped and upload pages carry a dynamic `BackLink` ("Back to Expenses/Income") instead | Owner review: the toggle duplicated the upload button and went to the same place. One toolbar row, one way in, an explicit way back |
+| 2026-08-09 | Inputs fill with `bg-card` (documented deviation from the kit's `bg-transparent`) | List toolbars put inputs directly on the tinted canvas, where a transparent field reads as unfilled and the 3:1 hairline reads as a bare wire (owner: "unusually dark bordered, no fill"). On white cards the fill is invisible so nothing else shifts. Reported upstream |
+| 2026-08-09 | `RouteTabs` restyled to the kit's **underline** tabs variant (baseline rule + ink bar); pill track reserved for switchers inside a card or toolbar | Owner review: the pill track read thick and low-contrast on the page canvas. The kit's own tabs.tsx draws the same line — a strip governing the whole surface below it takes the underline anatomy |
+| 2026-08-09 | Kit `pointer-coarse:` touch treatment re-synced into local `button.tsx` and `select.tsx` (44px floor by construction: standard sizes grow to h-11, compact sizes extend an invisible ::after hit area) | Design-review found 24px quick-action targets on the dashboard; the local kit copies had silently dropped the kit's touch classes. Parity re-sync, not local invention |

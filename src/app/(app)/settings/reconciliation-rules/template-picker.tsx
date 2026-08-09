@@ -88,7 +88,7 @@ export function TemplatePicker({ existingRuleCounts = {} }: Props) {
           onClick={handleApply}
           disabled={!selected || isPending}
         >
-          {isPending ? "Applying..." : "Apply Template"}
+          {isPending ? "Applying…" : "Apply Template"}
         </Button>
         {result && (
           <p className="text-sm text-success">

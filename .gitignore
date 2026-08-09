@@ -90,3 +90,6 @@ sample LUMERA statement.pdf
 /playwright-report/
 /blob-report/
 /.auth/
+
+# Local design mockups/scratch (never commit)
+.lavish/

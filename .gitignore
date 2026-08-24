@@ -93,3 +93,9 @@ sample LUMERA statement.pdf
 
 # Local design mockups/scratch (never commit)
 .lavish/
+.claude/skills/open-knowledge/
+.cursor/skills/open-knowledge/
+.codex/skills/open-knowledge/
+.github/skills/open-knowledge/
+.opencode/skills/open-knowledge/
+.pi/skills/open-knowledge/

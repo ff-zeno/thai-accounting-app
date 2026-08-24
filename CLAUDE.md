@@ -10,6 +10,14 @@
 6. AI suggests, humans confirm — never auto-commit AI-extracted data without a reviewable state
 7. Check the verification checklist at the end of this file before completing work
 
+## Canonical product knowledge
+
+`docs/knowledgebase/` (OpenKnowledge) is the agent knowledge for this app.
+`PRODUCT.md` still wins on audience, absences, and brand.
+Do not invent tax rules.
+Do not derail this roadmap for a suite launch.
+Suite map: `../startup-suite/docs/knowledgebase`.
+
 ## System Overview
 
 | Component | Technology | Location |

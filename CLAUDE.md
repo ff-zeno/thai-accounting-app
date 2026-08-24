@@ -60,7 +60,7 @@ The spec skips when Inngest (:8288) is down unless `CI`/`E2E_REQUIRE_INNGEST=1`.
 ## Git Workflow
 
 - Branch from `main`, PR back to `main`
-- Remote: `https://github.com/ff-zeno/thai-accounting-app.git`
+- Remote: `https://github.com/ff-zeno/startup-accounting.git`
 
 ## Context Map
 
